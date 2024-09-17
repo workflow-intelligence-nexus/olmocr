@@ -4,16 +4,6 @@ import torch
 
 @lru_cache()
 def load_coherency_model(model_name: str = "distilgpt2"):
-    """
-    Loads the tokenizer and model, caching the result to avoid redundant loads.
-    
-    Args:
-        model_name (str): The name of the pretrained model to load.
-        
-    Returns:
-        tokenizer: The tokenizer associated with the model.
-        model: The pretrained causal language model.
-    """
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
     model.eval()  # Set the model to evaluation mode
