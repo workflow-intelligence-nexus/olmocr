@@ -27,12 +27,14 @@ def get_page_text(local_pdf_path: str, page_num: int, pdf_engine: Literal["pdfto
         pm_doc = pymupdf.open(local_pdf_path)
         return pm_doc[page_num - 1].get_text()
     elif pdf_engine == "pdfium":
-        pdf = pdfium.PdfDocument(local_pdf_path)
+        pdf = pdfium.PdfDocument(local_pdf_path, autoclose=True)
         page = pdf[page_num - 1]
         textpage = page.get_textpage()
 
         # Extract text from the whole page
-        return textpage.get_text_range()
+        result = textpage.get_text_range()
+        pdf.close()
+        return result
     else:
         raise NotImplementedError()
 
@@ -62,7 +64,7 @@ def get_document_text(local_pdf_path: str, pdf_engine: Literal["pdftotext", "pym
 
         return result
     elif pdf_engine == "pdfium":
-        pdf = pdfium.PdfDocument(local_pdf_path)
+        pdf = pdfium.PdfDocument(local_pdf_path, autoclose=True)
         result = ""
 
         for page in pdf:
@@ -70,6 +72,7 @@ def get_document_text(local_pdf_path: str, pdf_engine: Literal["pdftotext", "pym
             result += textpage.get_text_range()
             result += "\n"
 
+        pdf.close()
         return result
     else:
         raise NotImplementedError()
