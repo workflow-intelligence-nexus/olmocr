@@ -19,8 +19,13 @@ class TestCoherencyScores(unittest.TestCase):
     def testTwoColumnMisparse(self):
         pdftotext_text = get_page_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), page_num=2, pdf_engine="pdftotext")
         pymupdf_text = get_page_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), page_num=2, pdf_engine="pymupdf")
+        pdfium_text = get_page_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), page_num=2, pdf_engine="pdfium")
+        
+        # pdftotext_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), pdf_engine="pdftotext")
+        # pymupdf_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), pdf_engine="pymupdf")
 
         print("pdftotext_text", get_document_coherency(pdftotext_text))
         print("pymupdf_text", get_document_coherency(pymupdf_text))
+        print("pdfium_text", get_document_coherency(pdfium_text))
 
    

@@ -22,6 +22,7 @@ dependencies = [
   "cached-path",
   "pypdf",
   "pymupdf",
+  "pypdfium2",
   "lingua-language-detector"
   "https://github.com/kpu/kenlm/archive/master.zip",
 ]
