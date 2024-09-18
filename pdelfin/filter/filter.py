@@ -22,25 +22,21 @@ logging.basicConfig(level=logging.INFO)
 class PdfFilter:
     def __init__(self):
         super().__init__()
-        self.language_detector = (
-            LanguageDetectorBuilder.from_all_languages()
-            .with_preloaded_language_models()
-            .build()
-        )
+        self.language_detector = LanguageDetectorBuilder.from_all_languages().with_preloaded_language_models().build()
         self.ngram_log_probs = self._build_ngram_log_probs()
 
     # Used for comparing frequency of words to eliminate bad documents
     def _build_ngram_log_probs(self):
-        NGRAM_DATASET_LINK = "https://ai2-s2-research-public.s3-us-west-2.amazonaws.com/lucas/google-1T-unigram/unigram_freq.csv"
+        NGRAM_DATASET_LINK = (
+            "https://ai2-s2-research-public.s3-us-west-2.amazonaws.com/lucas/google-1T-unigram/unigram_freq.csv"
+        )
 
         ngrams = {}
 
         # Download the dataset
         response = requests.get(NGRAM_DATASET_LINK)
         if response.status_code != 200:
-            raise Exception(
-                f"Failed to download data, status code: {response.status_code}"
-            )
+            raise Exception(f"Failed to download data, status code: {response.status_code}")
 
         # Read the CSV content
         csv_content = StringIO(response.text)
@@ -116,9 +112,7 @@ class PdfFilter:
             stderr=subprocess.PIPE,
         )
         if pdftotext_result.returncode != 0:
-            logger.warn(
-                f"pdftotext returned {pdftotext_result.returncode} on {local_pdf_path}"
-            )
+            logger.warn(f"pdftotext returned {pdftotext_result.returncode} on {local_pdf_path}")
             return False
 
         base_text = pdftotext_result.stdout.decode("utf-8")
@@ -135,9 +129,7 @@ class PdfFilter:
         language = self.language_detector.detect_language_of(base_text)
 
         if language != Language.ENGLISH:
-            logger.info(
-                f"Filtering out {local_pdf_path} because language was {language}"
-            )
+            logger.info(f"Filtering out {local_pdf_path} because language was {language}")
             return True
 
         if self._is_download_spam(base_text):

@@ -23,7 +23,7 @@ dependencies = [
   "pypdf",
   "pymupdf",
   "pypdfium2",
-  "lingua-language-detector"
+  "lingua-language-detector",
   "https://github.com/kpu/kenlm/archive/master.zip",
 ]
 license = {file = "LICENSE"}
@@ -76,7 +76,7 @@ pdelfin = ["py.typed"]
 version = {attr = "pdelfin.version.VERSION"}
 
 [tool.black]
-line-length = 140
+line-length = 120
 include = '\.pyi?$'
 exclude = '''
 (

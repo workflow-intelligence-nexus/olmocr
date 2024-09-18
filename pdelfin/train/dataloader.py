@@ -1,12 +1,12 @@
 import json
-from datasets import load_dataset, Dataset, Features, Value
-import boto3
-from typing import Dict, Any
 import logging
-import re
 import multiprocessing
+import re
 from functools import partial
+from typing import Any, Dict
 
+import boto3
+from datasets import Dataset, Features, Value, load_dataset
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,12 +22,12 @@ def list_s3_files(s3_path: str):
     if not match:
         logger.error(f"Invalid S3 path: {s3_path}")
         raise ValueError(f"Invalid S3 path: {s3_path}")
-    
+
     bucket, prefix_pattern = match.groups()
     prefix = prefix_pattern.split("*")[0]  # Extract prefix before the wildcard
     paginator = s3.get_paginator("list_objects_v2")
     pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-    
+
     files = []
     pattern = re.compile(prefix_pattern.replace("*", ".*"))
     for page in pages:
@@ -38,7 +38,7 @@ def list_s3_files(s3_path: str):
     return files
 
 
-def load_jsonl_from_s3(s3_glob_path: str, first_n_files: int=None) -> Dataset:
+def load_jsonl_from_s3(s3_glob_path: str, first_n_files: int = None) -> Dataset:
     """
     Loads JSONL files from the specified S3 path into a Hugging Face Dataset.
     """
@@ -46,7 +46,7 @@ def load_jsonl_from_s3(s3_glob_path: str, first_n_files: int=None) -> Dataset:
 
     if first_n_files:
         all_s3_files = all_s3_files[:first_n_files]
-    
+
     # Use datasets library to load JSON files from S3
     dataset = load_dataset(
         "json",
@@ -55,6 +55,7 @@ def load_jsonl_from_s3(s3_glob_path: str, first_n_files: int=None) -> Dataset:
 
     return dataset
 
+
 def extract_openai_batch_query(query: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extracts necessary fields from a query entry passed to openai's batch API for vision LMs
@@ -62,14 +63,14 @@ def extract_openai_batch_query(query: Dict[str, Any]) -> Dict[str, Any]:
     custom_id = query.get("custom_id", "")
     body = query.get("body", {})
     messages = body.get("messages", [])
-    
+
     input_prompt_text = ""
     input_prompt_image_base64 = ""
-    
+
     for message in messages:
         if message.get("role") != "user":
             continue  # We are only interested in user messages
-        
+
         contents = message.get("content", [])
         for content_item in contents:
             if content_item.get("type") == "text":
@@ -83,31 +84,27 @@ def extract_openai_batch_query(query: Dict[str, Any]) -> Dict[str, Any]:
                         input_prompt_image_base64 = base64_data
                     except IndexError:
                         input_prompt_image_base64 = ""
-    
+
     return {
-        'custom_id': custom_id,
-        'input_prompt_text': input_prompt_text,
-        'input_prompt_image_base64': input_prompt_image_base64
+        "custom_id": custom_id,
+        "input_prompt_text": input_prompt_text,
+        "input_prompt_image_base64": input_prompt_image_base64,
     }
 
 
 def extract_openai_batch_response(example):
-    custom_id = example.get('custom_id', None)
-    response_body = example.get('response', {}).get('body', {})
-    choices = response_body.get('choices', [])
-    response = ''
-    finish_reason = ''
+    custom_id = example.get("custom_id", None)
+    response_body = example.get("response", {}).get("body", {})
+    choices = response_body.get("choices", [])
+    response = ""
+    finish_reason = ""
     if choices:
         first_choice = choices[0]
-        message = first_choice.get('message', {})
-        response = message.get('content', '')
-        finish_reason = first_choice.get('finish_reason', '')
+        message = first_choice.get("message", {})
+        response = message.get("content", "")
+        finish_reason = first_choice.get("finish_reason", "")
 
-    return {
-        'custom_id': custom_id,
-        'response': response,
-        "finish_reason": finish_reason
-    }
+    return {"custom_id": custom_id, "response": response, "finish_reason": finish_reason}
 
 
 def merge_query_response(query_example, response_data: Dataset, response_map: dict[str, int]):
@@ -121,10 +118,8 @@ def merge_query_response(query_example, response_data: Dataset, response_map: di
 
     response_row = response_data[response_map[custom_id]]
 
-    return {
-        "response": response_row["response"],
-        "finish_reason": response_row["finish_reason"]
-    }
+    return {"response": response_row["response"], "finish_reason": response_row["finish_reason"]}
+
 
 def build_batch_query_response_vision_dataset(query_glob_path: str, response_glob_path: str) -> Dataset:
     logger.info("Loading query and response datasets")
@@ -148,9 +143,10 @@ def build_batch_query_response_vision_dataset(query_glob_path: str, response_glo
         custom_id_to_response_row[entry["custom_id"]] = row_id
 
     logger.info("Running merge map")
-    final_dataset = query_data.map(partial(merge_query_response, response_data=response_data, response_map=custom_id_to_response_row),
-                                   num_proc=multiprocessing.cpu_count())
+    final_dataset = query_data.map(
+        partial(merge_query_response, response_data=response_data, response_map=custom_id_to_response_row),
+        num_proc=multiprocessing.cpu_count(),
+    )
     final_dataset = final_dataset.filter(lambda x: x["finish_reason"] == "stop")
 
     return final_dataset
-

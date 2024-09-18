@@ -1,16 +1,18 @@
+import html
+import multiprocessing
 import os
 import time
-import html
 import unittest
-import multiprocessing
 
-from pdelfin.filter.coherency import get_document_coherency
 from pdelfin.extract_text import get_document_text, get_page_text
+from pdelfin.filter.coherency import get_document_coherency
 
 
 class TestCoherencyScores(unittest.TestCase):
     def testBadOcr1(self):
-        good_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "instructions_and_schematics.pdf"))
+        good_text = get_document_text(
+            os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "instructions_and_schematics.pdf")
+        )
         ocr1_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "handwriting_bad_ocr.pdf"))
         ocr2_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "some_ocr1.pdf"))
 
@@ -35,12 +37,24 @@ class TestCoherencyScores(unittest.TestCase):
 
         print(f"ti89 book score {score:.2f}")
         print(f"{char_per_sec:.2f} chars per second per core")
-        
+
     def testTwoColumnMisparse(self):
-        pdftotext_text = get_page_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), page_num=2, pdf_engine="pdftotext")
-        pymupdf_text = get_page_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), page_num=2, pdf_engine="pymupdf")
-        pdfium_text = get_page_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), page_num=2, pdf_engine="pdfium")
-        
+        pdftotext_text = get_page_text(
+            os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"),
+            page_num=2,
+            pdf_engine="pdftotext",
+        )
+        pymupdf_text = get_page_text(
+            os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"),
+            page_num=2,
+            pdf_engine="pymupdf",
+        )
+        pdfium_text = get_page_text(
+            os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"),
+            page_num=2,
+            pdf_engine="pdfium",
+        )
+
         # pdftotext_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), pdf_engine="pdftotext")
         # pymupdf_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), pdf_engine="pymupdf")
 
@@ -49,5 +63,3 @@ class TestCoherencyScores(unittest.TestCase):
         print("pdfium_text", pdfium_score := get_document_coherency(pdfium_text))
 
         self.assertLess(pdftotext_score, pymupdf_score)
-
-   

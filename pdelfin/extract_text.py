@@ -1,10 +1,13 @@
 import subprocess
-import pymupdf
-import pypdfium2 as pdfium
 from typing import Literal
 
+import pymupdf
+import pypdfium2 as pdfium
 
-def get_page_text(local_pdf_path: str, page_num: int, pdf_engine: Literal["pdftotext", "pymupdf", "pdfium"]="pdftotext") -> str:
+
+def get_page_text(
+    local_pdf_path: str, page_num: int, pdf_engine: Literal["pdftotext", "pymupdf", "pdfium"] = "pdftotext"
+) -> str:
     if pdf_engine == "pdftotext":
         pdftotext_result = subprocess.run(
             [
@@ -39,7 +42,7 @@ def get_page_text(local_pdf_path: str, page_num: int, pdf_engine: Literal["pdfto
         raise NotImplementedError()
 
 
-def get_document_text(local_pdf_path: str, pdf_engine: Literal["pdftotext", "pymupdf", "pdfium"]="pdftotext") -> str:
+def get_document_text(local_pdf_path: str, pdf_engine: Literal["pdftotext", "pymupdf", "pdfium"] = "pdftotext") -> str:
     if pdf_engine == "pdftotext":
         pdftotext_result = subprocess.run(
             [

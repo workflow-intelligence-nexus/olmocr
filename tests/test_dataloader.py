@@ -1,7 +1,12 @@
 import unittest
 
-from pdelfin.train.dataloader import load_jsonl_from_s3, build_batch_query_response_vision_dataset
-from pdelfin.train.dataloader import extract_openai_batch_query, extract_openai_batch_response
+from pdelfin.train.dataloader import (
+    build_batch_query_response_vision_dataset,
+    extract_openai_batch_query,
+    extract_openai_batch_response,
+    load_jsonl_from_s3,
+)
+
 
 class TestBatchQueryResponseDataset(unittest.TestCase):
     def testLoadS3(self):
@@ -10,10 +15,12 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         print(f"Loaded {len(ds)} entries")
         print(ds)
         print(ds["train"])
-    
+
     def testCombinedQueryResponse(self):
-        ds = build_batch_query_response_vision_dataset(query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl",
-                                                       response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json")
+        ds = build_batch_query_response_vision_dataset(
+            query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl",
+            response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json",
+        )
 
         print(ds)
 
