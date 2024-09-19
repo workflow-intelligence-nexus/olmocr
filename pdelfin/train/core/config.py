@@ -58,7 +58,7 @@ class GenerateConfig:
 @dataclass
 class WandbConfig:
     entity: str = field(help="The wandb entity to use for logging", default="ai2-llm")
-    project: str = field(help="The wandb project to use for logging", default="refine")
+    project: str = field(help="The wandb project to use for logging", default="pdf-qwen2vl")
     wandb_api_key: Optional[str] = field(help="The wandb api key to use for logging", default=None)
     mode: str = field(help="The wandb mode to use for logging. Set it to `offline`", default="online")
     watch: str = field(help="The wandb watch to use for logging", default="false")
