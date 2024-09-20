@@ -42,7 +42,7 @@ class TestDataprep(unittest.TestCase):
             }
         ]
 
-        text = processor.apply_chat_template(full_messages, tokenize=False, add_generation_prompt=True)
+        text = processor.apply_chat_template(full_messages, tokenize=False, add_generation_prompt=False)
 
         # Decode image from base64
         main_image = Image.open(BytesIO(base64.b64decode(example["input_prompt_image_base64"])))
@@ -63,3 +63,30 @@ class TestDataprep(unittest.TestCase):
         print(training_inputs)
         print(training_inputs["input_ids"].shape)
 
+        print("Original tokenization")
+        print(processor.tokenizer.decode(inference_inputs["input_ids"][0]))
+        print("\n\n")
+
+        print("Assembled tokenization")
+        print(processor.tokenizer.decode(training_inputs["input_ids"]))
+        print("\n\n")
+
+        # Make sure that the token streams are the same
+        self.assertEqual(processor.tokenizer.decode(inference_inputs["input_ids"][0]),
+                         processor.tokenizer.decode(training_inputs["input_ids"]))
+
+        # Make sure that the labels are masked with -100s properly
+        # You only want the last assistant generation itself to be not -100, and thus contributing to the loss
+
+        # Find the positions where labels are not -100
+        non_masked_positions = training_inputs['labels'] != -100
+
+        # Extract the tokens at those positions
+        label_tokens = training_inputs['input_ids'][non_masked_positions]
+
+        # Decode those tokens
+        decoded_labels = processor.tokenizer.decode(label_tokens)
+        assistant_response_with_end = example["response"] + "<|im_end|>\n"
+
+        # Assert that the decoded labels match the assistant's response with <|im_end|>\n
+        self.assertEqual(decoded_labels, assistant_response_with_end)

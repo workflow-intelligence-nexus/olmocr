@@ -2,7 +2,7 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 import base64
-
+import torch  # Make sure to import torch as it's used in the DataCollator
 
 def prepare_data_for_qwen2_training(example, processor):
     # Prepare messages
@@ -40,6 +40,12 @@ def prepare_data_for_qwen2_training(example, processor):
         padding=True,
         return_tensors="np"
     )
+    
+    # Append an <|im_end|>\n" to the labels, because this is what it would look like
+    # if we passed the whole message stream in there
+    im_end_tokens = processor.tokenizer("<|im_end|>\n", add_special_tokens=False)["input_ids"]
+    labels['input_ids'] = np.concatenate([labels['input_ids'][0], im_end_tokens])
+    labels['input_ids'] = np.expand_dims(labels['input_ids'], axis=0)
 
     # Concatenate input_ids and labels
     input_ids = np.concatenate([inputs.input_ids[0], labels.input_ids[0]], axis=0)
