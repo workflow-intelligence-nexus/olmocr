@@ -10,6 +10,7 @@
 # Step 5. Move over from interactive session to gantry launch script
 
 import os
+import json
 import base64
 import logging
 from io import BytesIO
@@ -19,6 +20,7 @@ from logging import Logger
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Optional
+from tqdm import tqdm
 
 import accelerate
 import torch
@@ -56,58 +58,25 @@ from .utils import (
 
 
 from pdelfin.train.dataloader import build_batch_query_response_vision_dataset
+from pdelfin.train.dataprep import prepare_data_for_qwen2_training
 
 
 def run_train(config: TrainConfig):
     train_ds = build_batch_query_response_vision_dataset(
-                        query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl",
-                        response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json",
+                        query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl",
+                        response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json",
                     )
 
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2-VL-7B-Instruct", torch_dtype="auto", device_map="auto"
+        "Qwen/Qwen2-VL-7B-Instruct", torch_dtype=torch.bfloat16, device_map="auto"
     )
     processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
 
-    for entry in train_ds:
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "image": entry["input_prompt_image_base64"]
-                    },
-                    {"type": "text", "text": entry["input_prompt_text"]},
-                ],
-            }
-        ]
+    train_ds = train_ds.map(partial(prepare_data_for_qwen2_training, processor=processor), 
+                            remove_columns=train_ds.column_names)
 
-        # Preparation for inference
-        text = processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-
-        main_image = Image.open(BytesIO(base64.b64decode(entry["input_prompt_image_base64"])))
+    print(train_ds)
         
-        inputs = processor(
-            text=[text],
-            images=[main_image],
-            #videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        )
-        #inputs = inputs.to("cuda")
-
-        # Inference: Generation of the output
-        generated_ids = model.generate(**inputs, max_new_tokens=128)
-        generated_ids_trimmed = [
-            out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-        ]
-        output_text = processor.batch_decode(
-            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
-        )
-        print(output_text)
 
 
 
