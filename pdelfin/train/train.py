@@ -39,6 +39,7 @@ from transformers import (
 from transformers.integrations import WandbCallback
 from transformers.trainer_callback import TrainerControl, TrainerState
 from transformers.trainer_utils import get_last_checkpoint
+from torch.utils.data import DataLoader
 
 import wandb
 
@@ -58,7 +59,7 @@ from .utils import (
 
 
 from pdelfin.train.dataloader import build_batch_query_response_vision_dataset
-from pdelfin.train.dataprep import prepare_data_for_qwen2_training
+from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
 
 
 def run_train(config: TrainConfig):
@@ -72,11 +73,15 @@ def run_train(config: TrainConfig):
     )
     processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
 
-    train_ds = train_ds.map(partial(prepare_data_for_qwen2_training, processor=processor), 
-                            remove_columns=train_ds.column_names)
-
+    train_ds = train_ds.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
     print(train_ds)
-        
+    
+    dataloader = DataLoader(train_ds, batch_size=1, shuffle=False)
+
+    for batch in dataloader:
+        print(batch)
+
+        result = model.forward(**batch)
 
 
 
