@@ -23,8 +23,7 @@ dependencies = [
   "pypdf",
   "pymupdf",
   "pypdfium2",
-  "lingua-language-detector",
-  "https://github.com/kpu/kenlm/archive/master.zip",
+  "lingua-language-detector"
 ]
 license = {file = "LICENSE"}
 
@@ -54,6 +53,13 @@ dev = [
     "sphinx-autobuild==2021.3.14",
     "sphinx-autodoc-typehints==1.23.3",
     "packaging"
+]
+
+[project.optional-dependencies]
+train = [
+    "torch",
+    "torchvision",
+    "transformers @ git+https://github.com/huggingface/transformers.git@f9b44097261270377199bb0fcbceb01fd9f7d0c0"
 ]
 
 [tool.setuptools.packages.find]
