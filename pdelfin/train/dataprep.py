@@ -51,9 +51,9 @@ def prepare_data_for_qwen2_training(example, processor):
 
     # Return as dict, including pixel_values
     return {
-        "input_ids": input_ids.tolist(),
-        "attention_mask": attention_mask.tolist(),
-        "labels": labels_full.tolist(),
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "labels": labels_full,
         "pixel_values": inputs.pixel_values[0]
     }
 

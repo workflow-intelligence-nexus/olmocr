@@ -68,9 +68,9 @@ def run_train(config: TrainConfig):
                     )
 
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2-VL-7B-Instruct", torch_dtype=torch.bfloat16, device_map="auto"
+        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, device_map="auto"
     )
-    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
 
     train_ds = train_ds.map(partial(prepare_data_for_qwen2_training, processor=processor), 
                             remove_columns=train_ds.column_names)
