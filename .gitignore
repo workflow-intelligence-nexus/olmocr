@@ -1,3 +1,6 @@
+# ml stuff
+wandb/
+
 # build artifacts
 
 .eggs/

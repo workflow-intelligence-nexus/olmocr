@@ -1,0 +1,124 @@
+model:
+  name_or_path: Qwen/Qwen2-VL-2B-Instruct
+  arch: causal
+
+wandb:
+  project: refine
+  entity: pdf-qwen2vl
+
+# TODO This is not used
+format:
+  instruction_template: "Original:"
+  response_template: "Rewritten:"
+  # Template from here: https://github.com/QwenLM/Qwen2/blob/main/examples/sft/finetune.py#L30
+  chat_template: |
+    {% for message in messages %}
+      {{'<|im_start|>' + message['role'] + '\n' + message['content']}}
+      {% if loop.last %}
+        {{ '<|im_end|>'}}
+      {% else %}
+        {{ '<|im_end|>\n' }}
+      {% endif %}
+    {% endfor %}
+
+generate:
+  max_length: 4096
+
+train_data:
+  seed: 1337
+  sources:
+    - name: fw-edu-all
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/fw-edu-all/*.json.gz
+      backend:
+        - openai
+      size: 100_000
+    - name: dclm
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dclm/*.zstd
+      backend:
+        - openai
+      size: 100_000
+    - name: dolma-v17
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dolma-v17/*.zstd
+      backend:
+        - openai
+      size: 100_000
+    - name: dolma-v1-small
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dolma-v1-small/*.zstd
+      backend:
+        - openai
+      size: 100_000
+
+valid_data:
+  sources:
+    - name: fw-edu-10k
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/fw-edu-10k/valid/*.gz
+      backend:
+        - openai
+      size: 1500
+    - name: dolma-10k
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-10k/valid/*.gz
+      backend:
+        - openai
+      size: 1500
+    - name: dclm
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dclm/*.zstd
+      backend:
+        - openai
+      size: 1500
+    - name: dolma-v17
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dolma-v17/*.zstd
+      backend:
+        - openai
+      size: 1500
+    - name: dolma-v1-small
+      paths:
+        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dolma-v1-small/*.zstd
+      backend:
+        - openai
+      size: 3000
+
+# Mostly pulled from https://github.com/QwenLM/Qwen2/blob/main/examples/sft/finetune.sh
+hparams:
+  batch_size: 2
+  eval_batch_size: 2
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  clip_grad_norm: 1.0
+  learning_rate: 3e-4
+  max_steps: 10000
+  pad_multiple_of: 16
+  log_every_steps: 5
+  eval_every_steps: 250
+  optim: adamw_torch
+  lr_scheduler: cosine
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+
+# From https://github.com/QwenLM/Qwen2/blob/main/examples/sft/finetune.py
+lora:
+  rank: 32
+  alpha: 32
+  dropout: 0.05
+  task_type: causal_lm
+  target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+      - gate_proj
+      - up_proj
+      - down_proj
+
+save:
+  path: s3://ai2-tylerm-experimental/experiments/rephrase/v1/models/lucas
+  save_every_steps: 500
+
+max_workers: 1

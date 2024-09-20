@@ -13,6 +13,7 @@ import os
 import json
 import base64
 import logging
+import time
 from io import BytesIO
 from PIL import Image
 from functools import partial
@@ -62,7 +63,26 @@ from pdelfin.train.dataloader import build_batch_query_response_vision_dataset
 from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
 
 
+def get_rank() -> int:
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        return torch.distributed.get_rank()
+    return 0
+
+
 def run_train(config: TrainConfig):
+    if get_rank() == 0:
+        logger_level = logging.INFO
+    else:
+        logger_level = logging.WARN
+        disable_progress_bars()
+
+    logger = get_logger(__name__, level=logger_level)
+    set_verbosity(logger_level)
+
+    run_name = RunName.get(config)
+
+    accelerator = accelerate.Accelerator()
+
     train_ds = build_batch_query_response_vision_dataset(
                         query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl",
                         response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json",
@@ -75,14 +95,66 @@ def run_train(config: TrainConfig):
 
     train_ds = train_ds.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
     print(train_ds)
+    print("---------------")
     
-    dataloader = DataLoader(train_ds, batch_size=1, shuffle=False)
+    train_dataloader = DataLoader(train_ds, batch_size=1, num_workers=2, shuffle=False)
 
-    for batch in dataloader:
-        print(batch)
 
-        result = model.forward(**batch)
+    with TemporaryDirectory() as output_dir:
 
+        training_args = TrainingArguments(
+            run_name=run_name.run,
+            logging_steps=config.hparams.log_every_steps,
+            output_dir=output_dir,
+            eval_strategy="steps",
+            report_to="wandb",
+            # report_to=[],  # disable logging to wandb, we will use a custom callback
+            optim=config.hparams.optim,
+            eval_steps=config.hparams.eval_every_steps,
+            learning_rate=config.hparams.learning_rate,
+            per_device_train_batch_size=config.hparams.batch_size,
+            per_device_eval_batch_size=config.hparams.eval_batch_size or config.hparams.batch_size,
+            gradient_checkpointing=config.hparams.gradient_checkpointing,
+            gradient_checkpointing_kwargs=(
+                dict(use_reentrant=False)  # from this issue: https://github.com/huggingface/peft/issues/1142
+                if config.hparams.gradient_checkpointing and config.lora is not None
+                else {}
+            ),
+            gradient_accumulation_steps=config.hparams.gradient_accumulation_steps,
+            max_steps=config.hparams.max_steps,
+            weight_decay=config.hparams.weight_decay,
+            dataloader_num_workers=config.max_workers,
+            load_best_model_at_end=True,
+            save_strategy="steps",
+            ddp_find_unused_parameters=config.hparams.find_unused_parameters,
+            save_steps=config.save.save_every_steps,
+            warmup_steps=config.hparams.warmup_steps,
+            warmup_ratio=config.hparams.warmup_ratio,
+            bf16=accelerator.mixed_precision == "bf16",
+            fp16=accelerator.mixed_precision == "fp16",
+            label_names=["labels"],  # fix from https://github.com/huggingface/transformers/issues/22885
+            max_grad_norm=config.hparams.clip_grad_norm,
+            remove_unused_columns=False,
+        )
+
+        # Set the collator
+        collator = partial(packing_collator, pad_multiple_of=config.hparams.pad_multiple_of, do_shrink=False)
+        #checkpoint_callback = CheckpointUploadCallback(save_path=save_path, logger=logger)
+
+        # Initialize Trainer
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_ds,
+            #eval_dataset=formatted_dataset["validation"],  # pyright: ignore
+            tokenizer=processor.tokenizer,
+            #data_collator=collator,
+            #callbacks=[checkpoint_callback],
+        )
+
+
+        # Train the model
+        trainer.train()  # pyright: ignore
 
 
 def main():

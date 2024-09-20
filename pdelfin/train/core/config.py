@@ -11,7 +11,7 @@ class ModelConfig:
     """Configuration for loading a model; includes model name and type."""
 
     name_or_path: str = field(
-        help="The model name or path to load; must be compatible with huggingface transformers.",
+        help="The model name or path to load; must be compatible with huggingface transformers."
     )
     arch: str = field(help="The model type to load; can be 'vllm', 'causal', or 'vllm'")
     dtype: str = field(help="The precision to use for the model", default="bfloat16")
