@@ -24,7 +24,7 @@ dependencies = [
   "pymupdf",
   "pypdfium2",
   "lingua-language-detector",
-  "https://github.com/kpu/kenlm/archive/master.zip",
+  "https://github.com/kpu/kenlm/archive/master.zip"
 ]
 license = {file = "LICENSE"}
 
