@@ -149,8 +149,8 @@ def run_train(config: TrainConfig):
         model = get_peft_model(model=model, peft_config=peft_config)
         log_trainable_parameters(model=model, logger=logger)
 
-    train_ds = train_ds.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
-    print(train_ds)
+    formatted_dataset = dataset.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
+    print(formatted_dataset)
     print("---------------")
     
     save_path = join_path("", config.save.path, run_name.run)
@@ -202,8 +202,8 @@ def run_train(config: TrainConfig):
         trainer = Trainer(
             model=model,
             args=training_args,
-            train_dataset=train_ds,
-            #eval_dataset=formatted_dataset["validation"],  # pyright: ignore
+            train_dataset=formatted_dataset["train"],
+            eval_dataset=formatted_dataset["validation"],  # pyright: ignore
             tokenizer=processor.tokenizer,
             #data_collator=collator,
             #callbacks=[checkpoint_callback],
