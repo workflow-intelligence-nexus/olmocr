@@ -1,14 +1,3 @@
-# Step 1, load the data
-# Probably, we want to see just a folder with openai batch input jsonls, plus the batch output jsonls
-# TODO: Figure out hyperparameters for image sizing
-# Step 2. Load those prompts through and do a forward pass to calculate the loss
-
-# Step 3. Add hugging face accelerate for training
-
-# Step 4. Checkpointing code, both saving and reloading to restart
-
-# Step 5. Move over from interactive session to gantry launch script
-
 import os
 import json
 import base64
@@ -217,8 +206,14 @@ def run_train(config: TrainConfig):
         trainer.train()  # pyright: ignore
 
         with get_local_dir(join_path("", save_path, "best")) as best_dir:
+            if config.lora is not None:
+                logger.info("Merging LoRA adapters into the base model...")
+                model = model.merge_and_unload()
+                logger.info("LoRA adapters merged successfully.")
+
             model.save_pretrained(best_dir)
             logger.info("Saved best model to %s", best_dir)
+
 
         # Uncomment to test speed of data loader
         # train_dataloader = DataLoader(formatted_dataset["train"], batch_size=1, num_workers=4, shuffle=False)
