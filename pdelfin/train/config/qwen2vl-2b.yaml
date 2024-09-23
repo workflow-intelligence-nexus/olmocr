@@ -3,8 +3,8 @@ model:
   arch: causal
 
 wandb:
-  project: refine
-  entity: pdf-qwen2vl
+  project: pdelfin
+  entity: ai2-llm
 
 # TODO This is not used
 format:
@@ -93,10 +93,10 @@ hparams:
   gradient_checkpointing: true
   clip_grad_norm: 1.0
   learning_rate: 3e-4
-  max_steps: 10000
+  max_steps: 200
   pad_multiple_of: 16
   log_every_steps: 5
-  eval_every_steps: 250
+  eval_every_steps: 100
   optim: adamw_torch
   lr_scheduler: cosine
   weight_decay: 0.01
@@ -118,7 +118,7 @@ lora:
       - down_proj
 
 save:
-  path: s3://ai2-tylerm-experimental/experiments/rephrase/v1/models/lucas
-  save_every_steps: 500
+  path: s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/
+  save_every_steps: 100
 
 max_workers: 1
