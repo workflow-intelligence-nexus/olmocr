@@ -26,7 +26,7 @@ gantry run \
     --task-name "${run_name}"\
     --allow-dirty \
     --host-networking \
-    --workspace ai2/oe-data-model-based-cleanup \
+    --workspace ai2/oe-data-pdf \
     --beaker-image 'lucas/refine-axelot-vllm' \
     --venv 'base' \
     --priority high \

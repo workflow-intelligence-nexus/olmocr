@@ -28,18 +28,18 @@ generate:
 train_data:
   seed: 1337
   sources:
-    - name: openai_batch_data_v2_mini
-      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl
-      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json
+    - name: openai_batch_data_v2
+      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json
       backend:
         - openai
       size: 100_000
 
 valid_data:
   sources:
-    - name: openai_batch_data_v2_mini
-      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl
-      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json
+    - name: openai_batch_data_eval_mini
+      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_eval_mini/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_eval_mini/*.json
       backend:
         - openai
       size: 100_000
@@ -52,7 +52,7 @@ hparams:
   gradient_checkpointing: false
   clip_grad_norm: 1.0
   learning_rate: 3e-4
-  max_steps: 200
+  max_steps: 2000
   pad_multiple_of: 16
   log_every_steps: 5
   eval_every_steps: 100
@@ -78,6 +78,6 @@ lora:
 
 save:
   path: s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/
-  save_every_steps: 100
+  save_every_steps: 500
 
 max_workers: 30
