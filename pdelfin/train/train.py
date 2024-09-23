@@ -1,14 +1,3 @@
-# Step 1, load the data
-# Probably, we want to see just a folder with openai batch input jsonls, plus the batch output jsonls
-# TODO: Figure out hyperparameters for image sizing
-# Step 2. Load those prompts through and do a forward pass to calculate the loss
-
-# Step 3. Add hugging face accelerate for training
-
-# Step 4. Checkpointing code, both saving and reloading to restart
-
-# Step 5. Move over from interactive session to gantry launch script
-
 import os
 import json
 import base64
@@ -121,8 +110,6 @@ def run_train(config: TrainConfig):
 
     run_name = RunName.get(config)
 
-    accelerator = accelerate.Accelerator()
-
     setup_environment(aws_config=config.aws, wandb_config=config.wandb, WANDB_RUN_GROUP=run_name.group)
 
     dataset = make_dataset(
@@ -133,7 +120,8 @@ def run_train(config: TrainConfig):
     )
 
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, device_map="auto"
+        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, device_map="auto",
+        _attn_implementation="flash_attention_2" if config.model.use_flash_attn else None
     )
     processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
 
@@ -187,8 +175,7 @@ def run_train(config: TrainConfig):
             save_steps=config.save.save_every_steps,
             warmup_steps=config.hparams.warmup_steps,
             warmup_ratio=config.hparams.warmup_ratio,
-            bf16=accelerator.mixed_precision == "bf16",
-            fp16=accelerator.mixed_precision == "fp16",
+            bf16=True,
             label_names=["labels"],  # fix from https://github.com/huggingface/transformers/issues/22885
             max_grad_norm=config.hparams.clip_grad_norm,
             remove_unused_columns=False,
@@ -219,13 +206,20 @@ def run_train(config: TrainConfig):
         trainer.train()  # pyright: ignore
 
         with get_local_dir(join_path("", save_path, "best")) as best_dir:
+            if config.lora is not None:
+                logger.info("Merging LoRA adapters into the base model...")
+                model = model.merge_and_unload()
+                logger.info("LoRA adapters merged successfully.")
+
             model.save_pretrained(best_dir)
             logger.info("Saved best model to %s", best_dir)
 
+
         # Uncomment to test speed of data loader
-        # train_dataloader = DataLoader(train_ds, batch_size=1, num_workers=2, shuffle=False)
+        # train_dataloader = DataLoader(formatted_dataset["train"], batch_size=1, num_workers=4, shuffle=False)
         # for entry in tqdm(train_dataloader):
         #     print("Step!")
+        #     model.forward(**{k: v.to("cuda:0") for (k,v) in entry.items()})
 
 
 def main():

@@ -1,6 +1,7 @@
 model:
   name_or_path: Qwen/Qwen2-VL-2B-Instruct
   arch: causal
+  use_flash_attn: true
 
 wandb:
   project: pdelfin
@@ -48,7 +49,7 @@ hparams:
   batch_size: 1
   eval_batch_size: 1
   gradient_accumulation_steps: 4
-  gradient_checkpointing: true
+  gradient_checkpointing: false
   clip_grad_norm: 1.0
   learning_rate: 3e-4
   max_steps: 200
@@ -79,4 +80,4 @@ save:
   path: s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/
   save_every_steps: 100
 
-max_workers: 1
+max_workers: 30
