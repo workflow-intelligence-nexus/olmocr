@@ -16,27 +16,8 @@ dependencies:
   - wandb
   - omegaconf
   - s3fs
-  - cached-path
   - smart_open
   - Pillow
-  - setuptools
-  - wheel
-  - packaging
-  - pytest
-  - pytest-cov
-  - pytest-sphinx
-  - mypy>=1.0,<1.5
-  - black>=23.0,<24.0
-  - isort>=5.12,<5.13
-  - twine>=1.11.0
-  - build
-  - Sphinx>=4.3.0,<7.1.0
-  - ruff
-  - furo==2023.7.26
-  - myst-parser>=1.0,<2.1
-  - sphinx-copybutton==0.5.2
-  - sphinx-autobuild==2021.3.14
-  - sphinx-autodoc-typehints==1.23.3
   - cudatoolkit=11.8
 
   # pip section for additional packages
@@ -47,6 +28,7 @@ dependencies:
       - transformers @ git+https://github.com/huggingface/transformers.git@f9b44097261270377199bb0fcbceb01fd9f7d0c0
       - lingua-language-detector
       - necessary
+      - cached-path
 
       # CUDA PyTorch package with index URL
       - --index-url https://download.pytorch.org/whl/cu118
