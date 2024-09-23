@@ -26,6 +26,13 @@ def prepare_data_for_qwen2_training(example, processor):
     # Decode image from base64
     main_image = Image.open(BytesIO(base64.b64decode(example["input_prompt_image_base64"])))
 
+    # Right now, we are going to downsample to 1024 on the longest dimension, because
+    # 2048 as we passed to OpenAI is too large for training
+    width, height = main_image.size
+    assert max(width, height) == 2048
+    main_image = main_image.resize((width // 2, height // 2), Image.LANCZOS)
+
+
     # Process inputs using processor
     inputs = processor(
         text=[text],
@@ -49,7 +56,9 @@ def prepare_data_for_qwen2_training(example, processor):
 
     # Concatenate input_ids and labels
     input_ids = np.concatenate([inputs.input_ids[0], labels.input_ids[0]], axis=0)
-    attention_mask = np.concatenate([inputs.attention_mask[0], labels.attention_mask[0]], axis=0)
+
+    # All columns will participate in attention fully
+    attention_mask = np.ones_like(input_ids)
 
     # Create labels, masking the input portion with -100
     labels_full = np.full_like(input_ids, fill_value=-100)

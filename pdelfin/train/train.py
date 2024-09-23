@@ -63,6 +63,46 @@ from pdelfin.train.dataloader import build_batch_query_response_vision_dataset
 from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
 
 
+class CheckpointUploadCallback(TrainerCallback):
+    def __init__(self, save_path: str, logger: Optional[Logger] = None):
+        self.save_path = save_path
+        self.logger = logger or get_logger(self.__class__.__name__)
+
+    def on_save(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        if state.is_local_process_zero:
+            latest_checkpoint = get_last_checkpoint(args.output_dir)
+            if not latest_checkpoint:
+                return
+
+            dir_name = Path(latest_checkpoint).name
+            copy_dir(str(latest_checkpoint), f"{self.save_path}/{dir_name}")
+            self.logger.info("Saved checkpoint to %s", f"{self.save_path}/{dir_name}")
+
+
+def update_wandb_config(config: TrainConfig, trainer: Trainer, model: torch.nn.Module):
+    # finding wandb callback
+    callbacks = [c for c in trainer.callback_handler.callbacks if isinstance(c, WandbCallback)]  # pyright: ignore
+    if not callbacks:
+        raise ValueError("WandbCallback not found in trainer callbacks")
+
+    wandb_callback = callbacks[0]
+    peft_config = to_native_types(getattr(model, "peft_config", {}))
+    script_config = to_native_types(config)
+    beaker_envs = {k: v for k, v in os.environ.items() if k.lower().startswith("beaker")}
+
+    on_setup_fn = wandb_callback.setup
+
+    def setup_and_update(args, state, model, **kwargs):
+        on_setup_fn(args=args, state=state, model=model, **kwargs)
+        wandb.config.update({"peft": peft_config}, allow_val_change=True)
+        wandb.config.update({"script": script_config}, allow_val_change=True)
+        wandb.config.update({"beaker": beaker_envs}, allow_val_change=True)
+        if (run := wandb.run) and (beaker_url := BeakerState().url):
+            run.notes = beaker_url
+
+    wandb_callback.setup = setup_and_update
+
+
 def get_rank() -> int:
     if torch.distributed.is_available() and torch.distributed.is_initialized():
         return torch.distributed.get_rank()
@@ -97,9 +137,7 @@ def run_train(config: TrainConfig):
     print(train_ds)
     print("---------------")
     
-    train_dataloader = DataLoader(train_ds, batch_size=1, num_workers=2, shuffle=False)
-
-
+ 
     with TemporaryDirectory() as output_dir:
 
         training_args = TrainingArguments(
@@ -141,20 +179,25 @@ def run_train(config: TrainConfig):
         collator = partial(packing_collator, pad_multiple_of=config.hparams.pad_multiple_of, do_shrink=False)
         #checkpoint_callback = CheckpointUploadCallback(save_path=save_path, logger=logger)
 
-        # Initialize Trainer
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_ds,
-            #eval_dataset=formatted_dataset["validation"],  # pyright: ignore
-            tokenizer=processor.tokenizer,
-            #data_collator=collator,
-            #callbacks=[checkpoint_callback],
-        )
+        # # Initialize Trainer
+        # trainer = Trainer(
+        #     model=model,
+        #     args=training_args,
+        #     train_dataset=train_ds,
+        #     #eval_dataset=formatted_dataset["validation"],  # pyright: ignore
+        #     tokenizer=processor.tokenizer,
+        #     #data_collator=collator,
+        #     #callbacks=[checkpoint_callback],
+        # )
 
 
-        # Train the model
-        trainer.train()  # pyright: ignore
+        # # Train the model
+        # trainer.train()  # pyright: ignore
+
+        # Uncomment to test speed of data loader
+        # train_dataloader = DataLoader(train_ds, batch_size=1, num_workers=2, shuffle=False)
+        # for entry in tqdm(train_dataloader):
+        #     print("Step!")
 
 
 def main():
