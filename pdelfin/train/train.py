@@ -59,7 +59,7 @@ from .utils import (
 )
 
 
-from pdelfin.train.dataloader import build_batch_query_response_vision_dataset
+from pdelfin.train.dataloader import make_dataset
 from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
 
 
@@ -125,10 +125,12 @@ def run_train(config: TrainConfig):
 
     setup_environment(aws_config=config.aws, wandb_config=config.wandb, WANDB_RUN_GROUP=run_name.group)
 
-    train_ds = build_batch_query_response_vision_dataset(
-                        query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl",
-                        response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json",
-                    )
+    dataset = make_dataset(
+        train_data_config=config.train_data,
+        valid_data_config=config.valid_data,
+        num_proc=config.num_proc,
+        logger=logger,
+    )
 
     model = Qwen2VLForConditionalGeneration.from_pretrained(
         "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, device_map="auto"

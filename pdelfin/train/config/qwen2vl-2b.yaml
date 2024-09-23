@@ -27,63 +27,21 @@ generate:
 train_data:
   seed: 1337
   sources:
-    - name: fw-edu-all
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/fw-edu-all/*.json.gz
-      backend:
-        - openai
-      size: 100_000
-    - name: dclm
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dclm/*.zstd
-      backend:
-        - openai
-      size: 100_000
-    - name: dolma-v17
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dolma-v17/*.zstd
-      backend:
-        - openai
-      size: 100_000
-    - name: dolma-v1-small
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dolma-v1-small/*.zstd
+    - name: openai_batch_data_v2_mini
+      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json
       backend:
         - openai
       size: 100_000
 
 valid_data:
   sources:
-    - name: fw-edu-10k
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/fw-edu-10k/valid/*.gz
+    - name: openai_batch_data_v2_mini
+      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json
       backend:
         - openai
-      size: 1500
-    - name: dolma-10k
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-10k/valid/*.gz
-      backend:
-        - openai
-      size: 1500
-    - name: dclm
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dclm/*.zstd
-      backend:
-        - openai
-      size: 1500
-    - name: dolma-v17
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dolma-v17/*.zstd
-      backend:
-        - openai
-      size: 1500
-    - name: dolma-v1-small
-      paths:
-        - s3://ai2-tylerm-experimental/experiments/rephrase/v1/dolma-dclm-300k/dolma-v1-small/*.zstd
-      backend:
-        - openai
-      size: 3000
+      size: 100_000
 
 # Mostly pulled from https://github.com/QwenLM/Qwen2/blob/main/examples/sft/finetune.sh
 hparams:

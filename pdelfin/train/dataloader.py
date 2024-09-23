@@ -2,11 +2,16 @@ import json
 import logging
 import multiprocessing
 import re
+import random
+
 from functools import partial
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from logging import Logger
 
 import boto3
 from datasets import Dataset, Features, Value, load_dataset
+
+from .core.config import DataConfig, SourceConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -121,7 +126,7 @@ def merge_query_response(query_example, response_data: Dataset, response_map: di
     return {"response": response_row["response"], "finish_reason": response_row["finish_reason"]}
 
 
-def build_batch_query_response_vision_dataset(query_glob_path: str, response_glob_path: str) -> Dataset:
+def build_batch_query_response_vision_dataset(query_glob_path: str, response_glob_path: str, num_proc: int=32) -> Dataset:
     logger.info("Loading query and response datasets")
     query_data = load_jsonl_from_s3(query_glob_path)
     response_data = load_jsonl_from_s3(response_glob_path)
@@ -145,8 +150,58 @@ def build_batch_query_response_vision_dataset(query_glob_path: str, response_glo
     logger.info("Running merge map")
     final_dataset = query_data.map(
         partial(merge_query_response, response_data=response_data, response_map=custom_id_to_response_row),
-        num_proc=multiprocessing.cpu_count(),
+        num_proc=num_proc
     )
     final_dataset = final_dataset.filter(lambda x: x["finish_reason"] == "stop")
 
     return final_dataset
+
+
+def make_dataset(
+    train_data_config: DataConfig,
+    valid_data_config: Optional[DataConfig] = None,
+    test_data_config: Optional[DataConfig] = None,
+    num_proc: int = 32,
+    logger: Optional[Logger] = None,
+):
+    logger = logger or get_logger(__name__)
+    random.seed(train_data_config.seed)
+
+    dataset_splits: Dict[str, datasets.Dataset] = {}
+    tmp_train_sets = []
+
+    logger.info("Loading training data from %s sources", len(train_data_config.sources))
+    for source in train_data_config.sources:
+        tmp_train_sets.append(
+            build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+        )
+    dataset_splits["train"] = datasets.concatenate_datasets(tmp_train_sets)
+    logger.info(
+        f"Loaded {len(dataset_splits['train'])} training samples from {len(train_data_config.sources)} sources"
+    )
+
+    if valid_data_config:
+        tmp_validation_sets = []
+        logger.info("Loading validation data from %s sources", len(valid_data_config.sources))
+        for source in valid_data_config.sources:
+            tmp_validation_sets.append(
+                build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+            )
+        dataset_splits["validation"] = datasets.concatenate_datasets(tmp_validation_sets)
+        logger.info(
+            f"Loaded {len(dataset_splits['validation'])} validation samples from {len(valid_data_config.sources)} sources"
+        )
+
+    if test_data_config:
+        tmp_test_sets = []
+        logger.info("Loading test data from %s sources", len(test_data_config.sources))
+        for source in test_data_config.sources:
+            tmp_test_sets.append(
+                build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+            )
+        dataset_splits["test"] = datasets.concatenate_datasets(tmp_test_sets)
+        logger.info(
+            f"Loaded {len(dataset_splits['test'])} test samples from {len(test_data_config.sources)} sources"
+        )
+
+    return datasets.DatasetDict(**dataset_splits)
