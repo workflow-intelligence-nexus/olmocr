@@ -1,0 +1,58 @@
+name: my_environment
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - nvidia
+
+dependencies:
+  - python=3.10
+  - pip
+  - pytorch
+  - torchvision
+  - accelerate
+  - datasets
+  - peft
+  - wandb
+  - omegaconf
+  - s3fs
+  - cached-path
+  - smart_open
+  - Pillow
+  - setuptools
+  - wheel
+  - packaging
+  - pytest
+  - pytest-cov
+  - pytest-sphinx
+  - mypy>=1.0,<1.5
+  - black>=23.0,<24.0
+  - isort>=5.12,<5.13
+  - twine>=1.11.0
+  - build
+  - Sphinx>=4.3.0,<7.1.0
+  - ruff
+  - furo==2023.7.26
+  - myst-parser>=1.0,<2.1
+  - sphinx-copybutton==0.5.2
+  - sphinx-autobuild==2021.3.14
+  - sphinx-autodoc-typehints==1.23.3
+
+  # CUDA 11.8 specific installation for PyTorch
+  - cudatoolkit=11.8
+
+  # Additional dependencies to be installed via pip
+  pip:
+    - pymupdf
+    - pypdf
+    - pypdfium2
+    - transformers @ git+https://github.com/huggingface/transformers.git@f9b44097261270377199bb0fcbceb01fd9f7d0c0
+    - lingua-language-detector
+    - necessary
+
+  # CUDA PyTorch package with index URL
+  - pip:
+    - --index-url https://download.pytorch.org/whl/cu118
+    - torch
+    - torchvision
+

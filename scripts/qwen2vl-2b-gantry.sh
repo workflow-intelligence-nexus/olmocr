@@ -29,7 +29,7 @@ gantry run \
     --workspace ai2/oe-data-pdf \
     --beaker-image 'lucas/refine-axelot-vllm' \
     --venv 'base' \
-    --pip gantry-requirements.txt \
+    --conda gantry-environment.yaml \
     --priority normal \
     --gpus 4 \
     --preemptible \
