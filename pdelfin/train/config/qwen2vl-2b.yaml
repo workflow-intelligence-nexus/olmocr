@@ -1,6 +1,7 @@
 model:
   name_or_path: Qwen/Qwen2-VL-2B-Instruct
   arch: causal
+  use_flash_attn: true
 
 wandb:
   project: pdelfin
