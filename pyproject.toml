@@ -24,7 +24,8 @@ dependencies = [
   "pypdf",
   "pymupdf",
   "pypdfium2",
-  "lingua-language-detector"
+  "lingua-language-detector",
+  "Pillow",
 ]
 license = {file = "LICENSE"}
 
