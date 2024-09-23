@@ -205,8 +205,9 @@ def run_train(config: TrainConfig):
             train_dataset=formatted_dataset["train"],
             eval_dataset=formatted_dataset["validation"],  # pyright: ignore
             tokenizer=processor.tokenizer,
+            #Collator is not needed as we are doing batch size 1 for now...
             #data_collator=collator,
-            #callbacks=[checkpoint_callback],
+            callbacks=[checkpoint_callback],
         )
 
         # Could not get this to work
@@ -219,7 +220,6 @@ def run_train(config: TrainConfig):
 
         with get_local_dir(join_path("", save_path, "best")) as best_dir:
             model.save_pretrained(best_dir)
-            tokenizer.tokenizer.save_pretrained(best_dir)
             logger.info("Saved best model to %s", best_dir)
 
         # Uncomment to test speed of data loader
