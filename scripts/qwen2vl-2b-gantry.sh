@@ -29,8 +29,8 @@ gantry run \
     --workspace ai2/oe-data-pdf \
     --beaker-image 'lucas/refine-axelot-vllm' \
     --venv 'base' \
-    --priority high \
-    --gpus 8 \
+    --priority normal \
+    --gpus 4 \
     --preemptible \
     --cluster "ai2/${CLUSTER}*" \
     --budget ai2/oe-data \
