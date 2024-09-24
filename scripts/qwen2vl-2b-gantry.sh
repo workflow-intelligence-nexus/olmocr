@@ -31,7 +31,7 @@ gantry run \
     --venv 'base' \
     --pip gantry-requirements.txt \
     --priority normal \
-    --gpus 4 \
+    --gpus 8 \
     --preemptible \
     --cluster "ai2/${CLUSTER}*" \
     --budget ai2/oe-data \
