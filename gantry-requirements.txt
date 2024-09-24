@@ -27,7 +27,7 @@ sphinx-autodoc-typehints==1.23.3
 packaging
 necessary
 accelerate
-datasets
+datasets>=3.0.0
 peft
 wandb
 omegaconf
