@@ -62,6 +62,7 @@ def run_inference(model_name: str, query_dataset_path: str):
         model_name, torch_dtype=torch.bfloat16, device_map="auto",
         _attn_implementation="flash_attention_2",
     )
+    model.eval()
     processor = AutoProcessor.from_pretrained(model_name)
 
     query_data = load_jsonl_from_s3(query_dataset_path)
