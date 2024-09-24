@@ -120,10 +120,10 @@ def run_train(config: TrainConfig):
     )
 
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2-VL-2B-Instruct", torch_dtype=torch.bfloat16, device_map="auto",
+        config.model.name_or_path, torch_dtype=torch.bfloat16, device_map="auto",
         _attn_implementation="flash_attention_2" if config.model.use_flash_attn else None
     )
-    processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
+    processor = AutoProcessor.from_pretrained(config.model.name_or_path)
 
     if config.lora is not None:
         peft_config = LoraConfig(
