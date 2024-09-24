@@ -29,8 +29,8 @@ train_data:
   seed: 1337
   sources:
     - name: openai_batch_data_v2
-      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl
-      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json
+      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json
       backend:
         - openai
       size: 100_000
