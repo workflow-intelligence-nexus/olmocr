@@ -150,12 +150,15 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
 
             gold_text = gold_data[goldkey]
 
+            if "completion_error" in data and len(data["completion_error"]) > 0:
+                continue
+
             # You need to consider the case when no input is provided to the refiner, it will hallucinate
             # So in that case we say there is no eval text
-            if len(data["text"].strip()) == 0:
+            if "text" in data and len(data["text"].strip()) == 0:
                 eval_text = ""
             else:
-                eval_text = data["outputs"][0]["text"][0]
+                eval_text = data["outputs"][0]["text"]
 
             # If the eval text or gold text is empty, we skip this page and don't use it for comparison
             # It means that something was an OCR page, and the text-based pipeline just won't be able to handle that
