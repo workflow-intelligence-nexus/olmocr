@@ -95,6 +95,75 @@ def batch_prepare_data_for_qwen2_training(batch, processor):
     }
 
 
+def prepare_data_for_qwen2_inference(example, processor):
+    # Prepare messages
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "image": example["input_prompt_image_base64"]  # Placeholder
+                },
+                {"type": "text", "text": example["input_prompt_text"]},
+            ],
+        }
+    ]
+    # Apply chat template to get the text
+    text = processor.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+
+    # Decode image from base64
+    main_image = Image.open(BytesIO(base64.b64decode(example["input_prompt_image_base64"])))
+
+    # Right now, we are going to downsample to 1024 on the longest dimension, because
+    # 2048 as we passed to OpenAI is too large for training
+    width, height = main_image.size
+    assert max(width, height) == 2048
+    main_image = main_image.resize((width // 2, height // 2), Image.LANCZOS)
+
+
+    # Process inputs using processor
+    inputs = processor(
+        text=[text],
+        images=[main_image],
+        padding=True,
+        return_tensors="np",
+    )
+
+    input_ids = inputs["input_ids"]
+
+    # All columns will participate in attention fully
+    attention_mask = np.ones_like(input_ids)
+
+    # Return as dict, including pixel_values
+    return {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "pixel_values": inputs.pixel_values,
+        "image_grid_thw": inputs["image_grid_thw"][0]
+    }
+
+
+def batch_prepare_data_for_qwen2_inference(batch, processor):
+    # Process each example in the batch using the helper function
+    processed_examples = []
+    for i in range(len(batch["input_prompt_image_base64"])):
+        example = {
+            "input_prompt_image_base64": batch["input_prompt_image_base64"][i],
+            "input_prompt_text": batch["input_prompt_text"][i],
+        }
+        processed_example = prepare_data_for_qwen2_inference(example, processor)
+        processed_examples.append(processed_example)
+
+    return {
+        "input_ids": [x["input_ids"] for x in processed_examples],
+        "attention_mask": [x["attention_mask"] for x in processed_examples],
+        "pixel_values": [x["pixel_values"] for x in processed_examples],
+        "image_grid_thw": [x["image_grid_thw"] for x in processed_examples],
+    }
+
 # Define a custom data collator
 class DataCollatorForVisionLanguageModeling:
     def __init__(self, processor):

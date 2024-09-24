@@ -48,53 +48,44 @@ from .utils import (
 )
 
 
-from pdelfin.train.dataloader import make_dataset
-from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
+from pdelfin.train.dataloader import load_jsonl_from_s3, extract_openai_batch_query
+from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_inference
 
 
-def run_train(model_name: str, dataset_path: str):
-    if get_rank() == 0:
-        logger_level = logging.INFO
-    else:
-        logger_level = logging.WARN
-        disable_progress_bars()
+def run_inference(model_name: str, query_dataset_path: str):
+    logger = get_logger(__name__, level=logging.INFO)
+    set_verbosity(logging.INFO)
 
-    logger = get_logger(__name__, level=logger_level)
-    set_verbosity(logger_level)
-
-    dataset = make_dataset(
-        train_data_config=config.train_data,
-        valid_data_config=config.valid_data,
-        num_proc=config.num_proc,
-        logger=logger,
-    )
-
+    
     model = Qwen2VLForConditionalGeneration.from_pretrained(
         model_name, torch_dtype=torch.bfloat16, device_map="auto",
-        _attn_implementation="flash_attention_2" if config.model.use_flash_attn else None
+        _attn_implementation="flash_attention_2",
     )
     processor = AutoProcessor.from_pretrained(model_name)
 
+    query_data = load_jsonl_from_s3(query_dataset_path)
 
-    formatted_dataset = dataset.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
+    # Map the datasets down to the core fields that we're going to need to make them easier to process
+    logger.info("Mapping query data")
+    query_data = query_data["train"]
+    query_data = query_data.map(extract_openai_batch_query, remove_columns=query_data.column_names)
+
+
+    formatted_dataset = query_data.with_transform(partial(batch_prepare_data_for_qwen2_inference, processor=processor))
     print(formatted_dataset)
     print("---------------")
     
 
     with TemporaryDirectory() as output_dir:
-
-
-
-        # Uncomment to test speed of data loader
-        # train_dataloader = DataLoader(formatted_dataset["train"], batch_size=1, num_workers=4, shuffle=False)
-        # for entry in tqdm(train_dataloader):
-        #     print("Step!")
-        #     model.forward(**{k: v.to("cuda:0") for (k,v) in entry.items()})
+        train_dataloader = DataLoader(formatted_dataset, batch_size=1, num_workers=4, shuffle=False)
+        for entry in tqdm(train_dataloader):
+            print("Step!")
+            model.forward(**{k: v.to("cuda:0") for (k,v) in entry.items()})
 
 
 def main():
     run_inference(model_name="Qwen/Qwen2-VL-2B-Instruct",
-                  dataset_path="s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl")
+                  query_dataset_path="s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl")
 
 
 if __name__ == "__main__":
