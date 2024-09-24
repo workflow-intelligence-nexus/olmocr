@@ -29,8 +29,8 @@ train_data:
   seed: 1337
   sources:
     - name: openai_batch_data_v2
-      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl
-      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json
+      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json
       backend:
         - openai
       size: 100_000
@@ -54,8 +54,8 @@ hparams:
   learning_rate: 3e-4
   max_steps: 2000
   pad_multiple_of: 16
-  log_every_steps: 5
-  eval_every_steps: 100
+  log_every_steps: 50
+  eval_every_steps: 1000
   optim: adamw_torch
   lr_scheduler: cosine
   weight_decay: 0.01
@@ -81,4 +81,4 @@ save:
   path: s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/
   save_every_steps: 500
 
-max_workers: 30
+max_workers: 10
