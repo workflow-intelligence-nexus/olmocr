@@ -132,7 +132,7 @@ def prepare_data_for_qwen2_inference(example, processor):
         return_tensors="np",
     )
 
-    input_ids = inputs["input_ids"]
+    input_ids = inputs["input_ids"][0]
 
     # All columns will participate in attention fully
     attention_mask = np.ones_like(input_ids)
