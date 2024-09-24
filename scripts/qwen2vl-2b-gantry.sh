@@ -27,7 +27,7 @@ gantry run \
     --allow-dirty \
     --host-networking \
     --workspace ai2/oe-data-pdf \
-    --beaker-image 'lucas/refine-axelot-vllm' \
+    --beaker-image 'jakep/jakep-pdf-finetune' \
     --venv 'base' \
     --pip gantry-requirements.txt \
     --priority normal \
