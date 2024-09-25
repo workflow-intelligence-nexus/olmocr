@@ -10,7 +10,7 @@ then
 fi
 
 
-EXTRA_ARGS="-c pdelfin/train/config/qwen2vl-2b.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/\${BEAKER_USER_ID}\""
+EXTRA_ARGS="-c pdelfin/train/config/qwen2vl-2b-lora.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/\${BEAKER_USER_ID}\""
 
 run_name=$(basename "$0" .sh)
 
@@ -31,7 +31,7 @@ gantry run \
     --venv 'base' \
     --pip gantry-requirements.txt \
     --priority normal \
-    --gpus 4 \
+    --gpus 8 \
     --preemptible \
     --cluster "ai2/${CLUSTER}*" \
     --budget ai2/oe-data \

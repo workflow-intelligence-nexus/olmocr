@@ -29,7 +29,7 @@ def prepare_data_for_qwen2_training(example, processor):
     # Right now, we are going to downsample to 1024 on the longest dimension, because
     # 2048 as we passed to OpenAI is too large for training
     width, height = main_image.size
-    assert max(width, height) == 2048
+    assert 1800 <= max(width, height) <= 2200, f"Image size {width}x{height} invalid"
     main_image = main_image.resize((width // 2, height // 2), Image.LANCZOS)
 
 
@@ -120,7 +120,7 @@ def prepare_data_for_qwen2_inference(example, processor):
     # Right now, we are going to downsample to 1024 on the longest dimension, because
     # 2048 as we passed to OpenAI is too large for training
     width, height = main_image.size
-    assert abs(max(width, height) - 2048) <= 2
+    assert 1800 <= max(width, height) <= 2200
     main_image = main_image.resize((width // 2, height // 2), Image.LANCZOS)
 
 
