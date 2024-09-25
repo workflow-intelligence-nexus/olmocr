@@ -212,6 +212,7 @@ def run_train(config: TrainConfig):
                 logger.info("LoRA adapters merged successfully.")
 
             model.save_pretrained(best_dir)
+            
             logger.info("Saved best model to %s", best_dir)
 
 

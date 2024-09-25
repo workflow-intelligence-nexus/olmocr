@@ -257,5 +257,5 @@ def do_eval(gold_data_path: str, eval_data_path: str, ) -> tuple[float, list[dic
 
 
 if __name__ == "__main__":
-    result = do_eval(gold_data_path="s3://ai2-oe-data/jakep/openai_batch_done_v2/",
-                     eval_data_path="s3://ai2-oe-data/birr-dev/qwen2-vl/outputs/for-jake/2b/2024-09-24/")
+    result = do_eval(gold_data_path="s3://ai2-oe-data/jakep/openai_batch_done_eval_mini",
+                     eval_data_path="s3://ai2-oe-data/jakep/qwen2vl/Qwen_Qwen2-VL-2B-Instruct-4c8e4c-01J8N1D42YV9F20AHFE6D3WK21/")
