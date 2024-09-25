@@ -75,7 +75,6 @@ lora:
       - gate_proj
       - up_proj
       - down_proj
-      - proj # For the vision net
 
 save:
   path: s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/
