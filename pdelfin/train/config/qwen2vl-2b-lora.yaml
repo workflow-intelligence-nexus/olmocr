@@ -84,6 +84,6 @@ lora:
 
 save:
   path: s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/
-  save_every_steps: 500
+  save_every_steps: 1000
 
 max_workers: 10
