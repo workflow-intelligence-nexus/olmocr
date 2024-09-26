@@ -4,6 +4,12 @@ from PIL import Image
 import base64
 import torch  # Make sure to import torch as it's used in the DataCollator
 
+
+def filter_by_max_seq_len(example, max_seq_len=4500):
+    sizes = example["input_ids"].shape
+    return sizes[-1] <= max_seq_len
+
+
 def prepare_data_for_qwen2_training(example, processor):
     # Prepare messages
     messages = [
