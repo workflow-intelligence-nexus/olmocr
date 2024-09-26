@@ -12,7 +12,7 @@ from pdelfin.train.dataloader import (
     load_jsonl_from_s3,
 )
 
-from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
+from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, prepare_data_for_qwen2_training
 
 
 class TestBatchQueryResponseDataset(unittest.TestCase):
@@ -92,6 +92,10 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
             response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json",
         )
         processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
-        
+
         formatted_dataset = dataset.to_iterable_dataset(num_shards=64)
-        formatted_dataset = formatted_dataset.map(partial(batch_prepare_data_for_qwen2_training, processor=processor)).filter(lambda x: x["input_ids"].shape[1] < 4500)
+        formatted_dataset = formatted_dataset.map(partial(prepare_data_for_qwen2_training, processor=processor)).filter(lambda x: x["input_ids"].shape[0] < 4500)
+
+        for entry in formatted_dataset:
+            print(entry)
+            break
