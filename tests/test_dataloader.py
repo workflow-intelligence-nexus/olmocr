@@ -94,7 +94,7 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
 
         formatted_dataset = dataset.to_iterable_dataset(num_shards=64)
-        formatted_dataset = formatted_dataset.map(partial(prepare_data_for_qwen2_training, processor=processor)).filter(lambda x: x["input_ids"].shape[0] < 4500)
+        formatted_dataset = formatted_dataset.map(partial(prepare_data_for_qwen2_training, processor=processor), remove_columns=formatted_dataset.column_names).filter(lambda x: x["input_ids"].shape[0] < 4500)
 
         for entry in formatted_dataset:
             print(entry)
