@@ -56,7 +56,7 @@ hparams:
   pad_multiple_of: 16
   log_every_steps: 50
   eval_every_steps: 500
-  optim: adamw_bnb_8bit
+  optim: adamw_torch
   lr_scheduler: cosine
   weight_decay: 0.01
   warmup_ratio: 0.03

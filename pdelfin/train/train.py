@@ -137,7 +137,12 @@ def run_train(config: TrainConfig):
         model = get_peft_model(model=model, peft_config=peft_config)
         log_trainable_parameters(model=model, logger=logger)
 
-    formatted_dataset = dataset.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
+    # formatted_dataset = dataset.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
+
+    # Convert to an iteratble dataset, so we can apply map and filter without doing a full calculation in advance
+    formatted_dataset = dataset.to_iterable_dataset(num_shards=64)
+    formatted_dataset = formatted_dataset.map(partial(batch_prepare_data_for_qwen2_training, processor=processor)).filter(lambda x: x["input_ids"].shape[1] < 4500)
+
     print(formatted_dataset)
     print("---------------")
     
