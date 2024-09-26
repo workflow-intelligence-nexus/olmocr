@@ -143,8 +143,8 @@ def run_train(config: TrainConfig):
     train_ds = dataset["train"].to_iterable_dataset(num_shards=64)
     validation_ds = dataset["validation"]
 
-    train_ds = train_ds.map(partial(prepare_data_for_qwen2_training, processor=processor), remove_columns=train_ds.column_names).filter(filter_by_max_seq_len)
-    validation_ds = validation_ds.map(partial(prepare_data_for_qwen2_training, processor=processor), remove_columns=validation_ds.column_names)
+    train_ds = train_ds.map(partial(prepare_data_for_qwen2_training, processor=processor, add_batch_dim=True), remove_columns=train_ds.column_names).filter(filter_by_max_seq_len)
+    validation_ds = validation_ds.map(partial(prepare_data_for_qwen2_training, processor=processor, add_batch_dim=True)), remove_columns=validation_ds.column_names)
 
     print(train_ds)
     print(validation_ds)

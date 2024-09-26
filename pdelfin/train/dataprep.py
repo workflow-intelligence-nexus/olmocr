@@ -10,7 +10,7 @@ def filter_by_max_seq_len(example, max_seq_len=4500):
     return sizes[-1] <= max_seq_len
 
 
-def prepare_data_for_qwen2_training(example, processor):
+def prepare_data_for_qwen2_training(example, processor, add_batch_dim=False):
     # Prepare messages
     messages = [
         {
@@ -71,13 +71,22 @@ def prepare_data_for_qwen2_training(example, processor):
     labels_full[len(inputs.input_ids[0]):] = labels.input_ids[0]
 
     # Return as dict, including pixel_values
-    return {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "labels": labels_full,
-        "pixel_values": inputs.pixel_values,
-        "image_grid_thw": inputs["image_grid_thw"][0]
-    }
+    if add_batch_dim:
+      return {
+            "input_ids": input_ids[np.newaxis, ...],
+            "attention_mask": attention_mask[np.newaxis, ...],
+            "labels": labels_full[np.newaxis, ...],
+            "pixel_values": inputs.pixel_values[np.newaxis, ...],
+            "image_grid_thw": inputs["image_grid_thw"]
+        }
+    else:
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "labels": labels_full,
+            "pixel_values": inputs.pixel_values,
+            "image_grid_thw": inputs["image_grid_thw"][0]
+        }
 
 
 def batch_prepare_data_for_qwen2_training(batch, processor):
