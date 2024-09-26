@@ -85,3 +85,13 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
 
         print(response_data)
         print(response_data[0])
+
+    def testIterableDataset(self):
+        dataset = build_batch_query_response_vision_dataset(
+            query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl",
+            response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json",
+        )
+        processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
+        
+        formatted_dataset = dataset.to_iterable_dataset(num_shards=64)
+        formatted_dataset = formatted_dataset.map(partial(batch_prepare_data_for_qwen2_training, processor=processor)).filter(lambda x: x["input_ids"].shape[1] < 4500)
