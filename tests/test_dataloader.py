@@ -40,6 +40,9 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         )
         processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
 
+        from pdelfin.train.dataprep import filter_by_max_seq_len
+        ds = ds.filter(partial(filter_by_max_seq_len, processor=processor))
+
         formatted_dataset = ds.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
         train_dataloader = DataLoader(formatted_dataset, batch_size=1, num_workers=50, shuffle=False)
 

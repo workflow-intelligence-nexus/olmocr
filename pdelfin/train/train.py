@@ -49,7 +49,7 @@ from .utils import (
 
 
 from pdelfin.train.dataloader import make_dataset
-from pdelfin.train.dataprep import filter_by_max_seq_len, prepare_data_for_qwen2_training
+from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, filter_by_max_seq_len
 
 
 class CheckpointUploadCallback(TrainerCallback):
@@ -137,17 +137,10 @@ def run_train(config: TrainConfig):
         model = get_peft_model(model=model, peft_config=peft_config)
         log_trainable_parameters(model=model, logger=logger)
 
-    # formatted_dataset = dataset.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
+    filtered_dataset = {split: dataset[split].filter(partial(filter_by_max_seq_len, processor=processor)) for split in dataset}
 
-    # Convert to an iteratble dataset, so we can apply map and filter without doing a full calculation in advance
-    train_ds = dataset["train"].to_iterable_dataset(num_shards=64)
-    validation_ds = dataset["validation"]
-
-    train_ds = train_ds.map(partial(prepare_data_for_qwen2_training, processor=processor), remove_columns=train_ds.column_names).filter(filter_by_max_seq_len)
-    validation_ds = validation_ds.map(partial(prepare_data_for_qwen2_training, processor=processor), remove_columns=validation_ds.column_names)
-
-    print(train_ds)
-    print(validation_ds)
+    formatted_dataset = filtered_dataset.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
+    print(formatted_dataset)
     print("---------------")
     
     save_path = join_path("", config.save.path, run_name.run)
@@ -188,9 +181,6 @@ def run_train(config: TrainConfig):
             label_names=["labels"],  # fix from https://github.com/huggingface/transformers/issues/22885
             max_grad_norm=config.hparams.clip_grad_norm,
             remove_unused_columns=False,
-            accelerator_config={
-                "dispatch_batches": False
-            }
         )
 
         # Set the collator
@@ -201,8 +191,8 @@ def run_train(config: TrainConfig):
         trainer = Trainer(
             model=model,
             args=training_args,
-            train_dataset=train_ds,
-            eval_dataset=validation_ds,
+            train_dataset=formatted_dataset["train"],
+            eval_dataset=formatted_dataset["validation"],  # pyright: ignore
             tokenizer=processor.tokenizer,
             #Collator is not needed as we are doing batch size 1 for now...
             #data_collator=collator,

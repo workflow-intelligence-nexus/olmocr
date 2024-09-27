@@ -5,9 +5,15 @@ import base64
 import torch  # Make sure to import torch as it's used in the DataCollator
 
 
-def filter_by_max_seq_len(example, max_seq_len=4500):
-    sizes = example["input_ids"].shape
-    return sizes[-1] <= max_seq_len
+def filter_by_max_seq_len(example, processor, max_prompt_len: int=2000, max_response_len: int=2000):
+    if len(processor.tokenizer.tokenize(example["input_prompt_text"])) > max_prompt_len:
+        return False
+    
+    if len(processor.tokenizer.tokenize(example["response"])) > max_response_len:
+        return False
+    
+    return True
+
 
 
 def prepare_data_for_qwen2_training(example, processor, add_batch_dim=False):
