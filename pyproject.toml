@@ -67,6 +67,7 @@ train = [
     "wandb",
     "omegaconf",
     "s3fs",
+    "necessary",
     "transformers @ git+https://github.com/huggingface/transformers.git@f9b44097261270377199bb0fcbceb01fd9f7d0c0"
 ]
 
