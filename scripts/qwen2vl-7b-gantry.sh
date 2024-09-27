@@ -26,11 +26,11 @@ gantry run \
     --task-name "${run_name}"\
     --allow-dirty \
     --host-networking \
-    --workspace ai2/oe-data-pdf \
+    --workspace ai2/oe-data-model-based-cleanup \
     --beaker-image 'jakep/jakep-pdf-finetunev1.1' \
     --venv 'base' \
     --pip gantry-requirements.txt \
-    --priority normal \
+    --priority high \
     --gpus 8 \
     --preemptible \
     --cluster "ai2/${CLUSTER}*" \

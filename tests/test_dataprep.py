@@ -9,7 +9,7 @@ from pdelfin.train.dataloader import (
 )
 
 from pdelfin.train.dataprep import (
-    prepare_data_for_qwen2_training
+    prepare_data_for_qwen2_training, _build_finetuning_prompt
 )
 
 
@@ -32,7 +32,7 @@ class TestDataprep(unittest.TestCase):
                         "type": "image",
                         "image": example["input_prompt_image_base64"]  # Placeholder
                     },
-                    {"type": "text", "text": example["input_prompt_text"]},
+                    {"type": "text", "text": _build_finetuning_prompt(example["raw_page_text"])},
                 ],
             },
 
@@ -46,6 +46,11 @@ class TestDataprep(unittest.TestCase):
 
         # Decode image from base64
         main_image = Image.open(BytesIO(base64.b64decode(example["input_prompt_image_base64"])))
+
+        width, height = main_image.size
+        assert 1800 <= max(width, height) <= 2200, f"Image size {width}x{height} invalid"
+        main_image = main_image.resize((width // 2, height // 2), Image.LANCZOS)
+
 
         # Process inputs using processor
         inference_inputs = processor(

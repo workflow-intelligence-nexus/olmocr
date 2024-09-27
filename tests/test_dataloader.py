@@ -73,7 +73,7 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         fig.write_image("sequence_lengths_histogram.png")
 
     def testExtractBatch(self):
-        query_data = load_jsonl_from_s3("s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl", first_n_files=3)
+        query_data = load_jsonl_from_s3("s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl", first_n_files=3)
         query_data = query_data["train"]
         query_data = query_data.map(extract_openai_batch_query, remove_columns=query_data.column_names)
 

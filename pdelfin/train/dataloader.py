@@ -149,10 +149,24 @@ def extract_openai_batch_query(query: Dict[str, Any]) -> Dict[str, Any]:
                     except IndexError:
                         input_prompt_image_base64 = ""
 
+    # At this point, the input_prompt_text is the raw text that was passed to the OpenAI model
+    # to generate our silver data. But, we want to have a simplfied prompt for this here fine tune,
+    # so we're going to extract out just the raw extracted prompt text
+    pattern = r"RAW_TEXT_START\s*\n(.*?)\nRAW_TEXT_END"
+
+    # Use re.DOTALL to ensure that the dot matches newline characters
+    match = re.search(pattern, input_prompt_text, re.DOTALL)
+
+    if match:
+        raw_page_text = match.group(1).strip()
+    else:
+        raw_page_text = ""
+
     return {
         "custom_id": custom_id,
         "input_prompt_text": input_prompt_text,
         "input_prompt_image_base64": input_prompt_image_base64,
+        "raw_page_text": raw_page_text,
     }
 
 
@@ -223,7 +237,7 @@ def build_batch_query_response_vision_dataset(query_glob_path: str, response_glo
     final_dataset = final_dataset.filter(pick_image_sizes)
 
     # Limit the size of the input text not to explode the context size
-    final_dataset = final_dataset.filter(lambda x: len(x["input_prompt_text"]) < 4000)
+    final_dataset = final_dataset.filter(lambda x: len(x["raw_page_text"]) < 4000)
 
     return final_dataset
 
