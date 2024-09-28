@@ -112,6 +112,7 @@ def batch_prepare_data_for_qwen2_training(batch, processor):
         example = {
             "input_prompt_image_base64": batch["input_prompt_image_base64"][i],
             "input_prompt_text": batch["input_prompt_text"][i],
+            "raw_page_text": batch["raw_page_text"][i],
             "response": batch["response"][i]
         }
         processed_example = prepare_data_for_qwen2_training(example, processor)
@@ -184,6 +185,7 @@ def batch_prepare_data_for_qwen2_inference(batch, processor):
         example = {
             "input_prompt_image_base64": batch["input_prompt_image_base64"][i],
             "input_prompt_text": batch["input_prompt_text"][i],
+            "raw_page_text": batch["raw_page_text"][i],
         }
         processed_example = prepare_data_for_qwen2_inference(example, processor)
         processed_examples.append(processed_example)
