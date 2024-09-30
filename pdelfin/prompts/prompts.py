@@ -5,7 +5,7 @@ def build_openai_silver_data_prompt(base_text: str) -> str:
         f"Just return the plain text representation of this document as if you were reading it naturally.\n"
         f"Turn equations into a LaTeX representation, and tables into markdown format. Remove the headers and footers, but keep references and footnotes.\n"
         f"Read any natural handwriting.\n"
-        f"This is likely one page out of several in the document, so be sure to preserve any sentences that come from the previous page, or continue onto the next page, exactly as they are.\n"
+        f"Strive to output the text as it appears on the page, without making any corrections\n"
         f"If there is no text at all that you think you should read, just output [NO TEXT].\n"
         f"If the page has no English text on it at all, just output [NO ENGLISH TEXT].\n"
         f"Do not hallucinate.\n"

@@ -153,11 +153,15 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
             if "completion_error" in data and len(data["completion_error"]) > 0:
                 continue
 
-            # You need to consider the case when no input is provided to the refiner, it will hallucinate
-            # So in that case we say there is no eval text
             if "text" in data and len(data["text"].strip()) == 0:
+                # You need to consider the case when no input is provided to the refiner, it will hallucinate
+                # So in that case we say there is no eval text
                 eval_text = ""
+            elif "response" in data:
+                # This is the case of loading openai generated data as eval
+                eval_text = data["response"]["body"]["choices"][0]["message"]["content"]
             else:
+                # This is the normal case of loading birr generated data
                 eval_text = data["outputs"][0]["text"]
 
             # If the eval text or gold text is empty, we skip this page and don't use it for comparison
@@ -231,8 +235,8 @@ def do_eval(gold_data_path: str, eval_data_path: str, ) -> tuple[float, list[dic
 
             # Generate the eval data
             for pd_key, pd in page_data.items():
-                if pd["alignment"] > 0.97:
-                    continue
+                # if pd["alignment"] > 0.97:
+                #     continue
 
                 if len(pd["gold_text"]) < 200 and len(pd["eval_text"]) < 200:
                     continue
@@ -257,5 +261,5 @@ def do_eval(gold_data_path: str, eval_data_path: str, ) -> tuple[float, list[dic
 
 
 if __name__ == "__main__":
-    result = do_eval(gold_data_path="s3://ai2-oe-data/jakep/openai_batch_done_eval_mini",
-                     eval_data_path="s3://ai2-oe-data/jakep/qwen2vl/Qwen_Qwen2-VL-2B-Instruct-4c8e4c-01J8N1D42YV9F20AHFE6D3WK21/")
+    result = do_eval(gold_data_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v3_eval/",
+                     eval_data_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v3_eval/")
