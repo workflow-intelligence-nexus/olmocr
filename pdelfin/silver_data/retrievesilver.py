@@ -17,6 +17,7 @@ def download_batch_result(batch_id, output_folder):
         batch_data = client.batches.retrieve(batch_id)
 
         if batch_data.status != "completed":
+            print(f"WARNING: {batch_id} is not completed, status: {batch_data.status}")
             return batch_id, False
 
         file_response = client.files.content(batch_data.output_file_id)
@@ -48,6 +49,9 @@ if __name__ == "__main__":
     with open(args.batch_id_file, 'r') as f:
         batch_ids = [line.strip() for line in f.readlines()]
 
+    total_files = 0
+    total_success = 0
+
     # Progress bar for batch downloads
     with tqdm(total=len(batch_ids), desc="Downloading batches", unit="batch") as pbar:
         # Use ThreadPoolExecutor to download in parallel (8 threads)
@@ -58,8 +62,16 @@ if __name__ == "__main__":
                 batch_id, success = future.result()
                 if success:
                     pbar.set_postfix({"Last batch": batch_id, "Status": "Success"})
+                    total_success += 1
                 else:
                     pbar.set_postfix({"Last batch": batch_id, "Status": "Failed"})
+
+                total_files += 1
                 pbar.update(1)
 
-    print("Download complete!")
+    print("Download complete")
+    print(f"Total files: {total_files}")
+    print(f"Total successful downloads: {total_success}")
+
+    if total_success != total_files:
+        print("WARNING, some files did not download, please double check that your batch requests were finished")
