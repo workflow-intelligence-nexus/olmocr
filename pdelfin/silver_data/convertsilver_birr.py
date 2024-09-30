@@ -113,24 +113,35 @@ def construct_output_file_path(input_file_path, input_dir, output_dir):
         str: Path to the output file.
     """
     input_file = Path(input_file_path)
-    input_dir_path = Path(input_dir)
-    relative_path = input_file.relative_to(input_dir_path)
 
-    if is_s3_path(output_dir):
-        # For S3 output paths, construct the S3 URL manually
-        output_file_path = output_dir.rstrip('/') + '/' + str(relative_path).replace('\\', '/')
+    if is_s3_path(input_dir):
+        # For S3 paths, manually construct the relative path based on the input S3 path
+        input_prefix = input_dir.split('s3://')[1]
+        input_prefix = input_prefix.rstrip('*')  # Remove any glob patterns like *.jsonl
+
+        # Remove the 's3://' part from input_file_path and extract the relative part
+        input_file_key = input_file_path.split('s3://')[1]
+        relative_path = input_file_key[len(input_prefix):].lstrip('/')
+
+        # Construct the output S3 path by appending the relative part to the output S3 directory
+        output_file_path = output_dir.rstrip('/') + '/' + relative_path
+
     else:
-        # For local output paths
+        # For local paths, use the existing relative path logic
+        input_dir_path = Path(input_dir)
+        relative_path = input_file.relative_to(input_dir_path)
         output_file_path = str(Path(output_dir) / relative_path)
+
     return output_file_path
 
 
 def list_input_files(input_dir):
     """
-    List all JSONL files in the input directory.
+    List all JSONL files in the input directory. If input_dir is an S3 path, handle
+    globbing manually by listing objects and filtering based on patterns.
 
     Args:
-        input_dir (str): Path to the input directory.
+        input_dir (str): Path to the input directory or S3 URL.
 
     Returns:
         list: List of input file paths.
@@ -138,16 +149,33 @@ def list_input_files(input_dir):
     if is_s3_path(input_dir):
         # Use smart_open's s3 functionality to list files
         import boto3
-        s3 = boto3.resource('s3')
+        import fnmatch
+
+        # Parse bucket and prefix
         bucket_name = input_dir.split('s3://')[1].split('/')[0]
-        prefix = '/'.join(input_dir.split('s3://')[1].split('/')[1:])
+        path_and_pattern = '/'.join(input_dir.split('s3://')[1].split('/')[1:])
+
+        # Separate the prefix and pattern
+        if '/' in path_and_pattern:
+            prefix = path_and_pattern.rsplit('/', 1)[0] + '/'
+            pattern = path_and_pattern.rsplit('/', 1)[1]
+        else:
+            prefix = ''
+            pattern = path_and_pattern
+
+        # Set up S3 resource and bucket
+        s3 = boto3.resource('s3')
         bucket = s3.Bucket(bucket_name)
+
+        # Get all objects and filter them manually based on the pattern
         files = []
         for obj in bucket.objects.filter(Prefix=prefix):
-            if obj.key.endswith('.jsonl'):
+            if fnmatch.fnmatch(obj.key, f'{prefix}{pattern}'):
                 files.append(f's3://{bucket_name}/{obj.key}')
+
         return files
     else:
+        # Local path handling (with glob pattern)
         input_dir_path = Path(input_dir)
         return [str(p) for p in input_dir_path.glob('*.jsonl')]
 
