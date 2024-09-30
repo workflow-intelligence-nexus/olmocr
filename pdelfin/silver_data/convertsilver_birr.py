@@ -3,11 +3,14 @@
 
 import argparse
 import json
-import os
+import re
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import sys
 import logging
+
+from pdelfin.prompts import build_finetuning_prompt
+
 
 def setup_logging():
     """Configure logging for the script."""
@@ -18,6 +21,7 @@ def setup_logging():
             logging.StreamHandler(sys.stdout)
         ]
     )
+
 
 def transform_json_object(obj):
     """
@@ -41,7 +45,8 @@ def transform_json_object(obj):
         logging.error(f"Missing key {e} in object: {obj.get('custom_id', 'unknown')}")
         return None
 
-def process_file(input_file: Path, output_file: Path):
+
+def process_file(input_file: Path, output_file: Path, rewrite_prompt_str: bool):
     """
     Process a single JSONL file: read, transform, and write to output.
 
@@ -68,6 +73,17 @@ def process_file(input_file: Path, output_file: Path):
                     continue
 
                 transformed = transform_json_object(obj)
+
+                if transformed is not None and rewrite_prompt_str:
+                    pattern = r"RAW_TEXT_START\s*\n(.*?)\nRAW_TEXT_END"
+
+                    # Use re.DOTALL to ensure that the dot matches newline characters
+                    match = re.search(pattern, transformed["chat_messages"][0]["content"][0]["text"], re.DOTALL)
+
+                    if match:
+                        raw_page_text = match.group(1).strip()
+                        transformed["chat_messages"][0]["content"][0]["text"] = build_finetuning_prompt(raw_page_text)
+
                 if transformed is not None:
                     json.dump(transformed, outfile)
                     outfile.write('\n')
@@ -83,6 +99,12 @@ def main():
     setup_logging()
     parser = argparse.ArgumentParser(
         description="Transform JSONL files by extracting and renaming specific fields."
+    )
+    parser.add_argument(
+        '--rewrite_finetuning_prompt',
+        action='store_true',
+        default=False,
+        help="Rewrites the input prompt from standard OPENAI instruction format, into our finetuned format"
     )
     parser.add_argument(
         'input_dir',
@@ -127,7 +149,7 @@ def main():
     tasks = []
     with ProcessPoolExecutor(max_workers=max_jobs) as executor:
         future_to_file = {
-            executor.submit(process_file, file, output_dir / file.name): file
+            executor.submit(process_file, file, output_dir / file.name, args.rewrite_finetuning_prompt): file
             for file in jsonl_files
         }
 
