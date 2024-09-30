@@ -4,6 +4,7 @@ from PIL import Image
 import base64
 import torch  # Make sure to import torch as it's used in the DataCollator
 
+from pdelfin.prompts import build_finetuning_prompt
 
 def filter_by_max_seq_len(example, processor, max_prompt_len: int=2000, max_response_len: int=2000):
     if len(processor.tokenizer.tokenize(example["input_prompt_text"])) > max_prompt_len:
@@ -13,17 +14,6 @@ def filter_by_max_seq_len(example, processor, max_prompt_len: int=2000, max_resp
         return False
     
     return True
-
-
-# This is a base prompt that will be used for training and running the fine tuned model
-# It's simplified from the prompt which was used to generate the silver data, and can change from dataset to dataset
-def _build_finetuning_prompt(base_text: str) -> str:
-    return (
-        f"Below is the image of one page of a document, as well as some raw textual content that was previously extracted for it. "
-        f"Just return the plain text representation of this document as if you were reading it naturally.\n"
-        f"Do not hallucinate.\n"
-        f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
-    )
 
 
 def prepare_data_for_qwen2_training(example, processor, add_batch_dim=False):
@@ -36,7 +26,7 @@ def prepare_data_for_qwen2_training(example, processor, add_batch_dim=False):
                     "type": "image",
                     "image": example["input_prompt_image_base64"]  # Placeholder
                 },
-                {"type": "text", "text": _build_finetuning_prompt(example["raw_page_text"])},
+                {"type": "text", "text": build_finetuning_prompt(example["raw_page_text"])},
             ],
         }
     ]
