@@ -50,24 +50,25 @@ def process_folder(folder_path, batch_id_file, max_workers=8):
 
     batch_ids = []
 
-    # Use ThreadPoolExecutor to process files concurrently
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Create a dictionary to store futures
-        futures = {executor.submit(upload_and_start_batch, os.path.join(folder_path, jsonl_file)): jsonl_file for jsonl_file in jsonl_files}
-
-        # Use tqdm to show progress and collect batch IDs as files are processed
-        for future in tqdm(as_completed(futures), total=len(jsonl_files), desc="Processing files"):
-            jsonl_file = futures[future]
-            try:
-                batch_id = future.result()
-                if batch_id:
-                    batch_ids.append(batch_id)
-            except Exception as e:
-                print(f"Error processing {jsonl_file}: {str(e)}")
-
-    print(f"All files processed. Created {len(batch_ids)} batch jobs.")
-
+    # Open the batch id file first, to prevent case where you send the batches, then you can't write the file
     with open(batch_id_file, "w") as f:
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Create a dictionary to store futures
+            futures = {executor.submit(upload_and_start_batch, os.path.join(folder_path, jsonl_file)): jsonl_file for jsonl_file in jsonl_files}
+
+            # Use tqdm to show progress and collect batch IDs as files are processed
+            for future in tqdm(as_completed(futures), total=len(jsonl_files), desc="Processing files"):
+                jsonl_file = futures[future]
+                try:
+                    batch_id = future.result()
+                    if batch_id:
+                        batch_ids.append(batch_id)
+                except Exception as e:
+                    print(f"Error processing {jsonl_file}: {str(e)}")
+
+        print(f"All files processed. Created {len(batch_ids)} batch jobs.")
+   
         for id in batch_ids:
             f.write(id)
             f.write("\n")
