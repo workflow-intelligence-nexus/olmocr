@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from jinja2 import Template
 import random
 import os
@@ -41,48 +42,56 @@ def render_pdf_to_base64png(s3_path, page):
         return image_base64
 
 
+def process_entry(i, entry):
+    # Randomly decide whether to display gold on the left or right
+    if random.choice([True, False]):
+        left_text, right_text = entry["gold_text"], entry["eval_text"]
+        left_alignment, right_alignment = entry["alignment"], entry["alignment"]
+        left_class, right_class = "gold", "eval"
+    else:
+        left_text, right_text = entry["eval_text"], entry["gold_text"]
+        left_alignment, right_alignment = entry["alignment"], entry["alignment"]
+        left_class, right_class = "eval", "gold"
+
+    # Convert newlines to <p> tags for proper formatting
+    left_text = "<p>" + left_text.replace("\n", "</p><p>") + "</p>"
+    right_text = "<p>" + right_text.replace("\n", "</p><p>") + "</p>"
+
+    parsed_url = urlparse(entry["s3_path"])
+    bucket = parsed_url.netloc
+    s3_key = parsed_url.path.lstrip('/')
+    signed_pdf_link = s3_client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": s3_key}, ExpiresIn=604800)
+
+    return {
+        "entry_id": i,
+        "page_image": render_pdf_to_base64png(entry["s3_path"], entry["page"]),
+        "s3_path": entry["s3_path"],
+        "page": entry["page"],
+        "signed_pdf_link": signed_pdf_link,
+        "left_text": left_text,
+        "right_text": right_text,
+        "left_alignment": left_alignment,
+        "right_alignment": right_alignment,
+        "left_class": left_class,
+        "right_class": right_class,
+        "gold_class": "gold" if left_class == "gold" else "eval",
+        "eval_class": "eval" if right_class == "eval" else "gold"
+    }
+
+
 def create_review_html(data, filename="review_page.html"):
     # Load the Jinja2 template from the file
     with open(os.path.join(os.path.dirname(__file__), "evalhtml_template.html"), "r") as f:
         template = Template(f.read())
-    
+
     entries = []
-    for i, entry in tqdm(enumerate(data)):
-        # Randomly decide whether to display gold on the left or right
-        if random.choice([True, False]):
-            left_text, right_text = entry["gold_text"], entry["eval_text"]
-            left_alignment, right_alignment = entry["alignment"], entry["alignment"]
-            left_class, right_class = "gold", "eval"
-        else:
-            left_text, right_text = entry["eval_text"], entry["gold_text"]
-            left_alignment, right_alignment = entry["alignment"], entry["alignment"]
-            left_class, right_class = "eval", "gold"
+    with ThreadPoolExecutor() as executor:
+        # Submit tasks to the executor
+        futures = [executor.submit(process_entry, i, entry) for i, entry in enumerate(data)]
 
-        # Convert newlines to <p> tags for proper formatting
-        left_text = "<p>" + left_text.replace("\n", "</p><p>") + "</p>"
-        right_text = "<p>" + right_text.replace("\n", "</p><p>") + "</p>"
-
-        parsed_url = urlparse(entry["s3_path"])
-        bucket = parsed_url.netloc
-        s3_key = parsed_url.path.lstrip('/')
-        signed_pdf_link = s3_client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": s3_key}, ExpiresIn=604800)
-
-        # Create a dictionary for each entry
-        entries.append({
-            "entry_id": i,
-            "page_image": render_pdf_to_base64png(entry["s3_path"], entry["page"]),
-            "s3_path": entry["s3_path"],
-            "page": entry["page"],
-            "signed_pdf_link": signed_pdf_link,
-            "left_text": left_text,
-            "right_text": right_text,
-            "left_alignment": left_alignment,
-            "right_alignment": right_alignment,
-            "left_class": left_class,
-            "right_class": right_class,
-            "gold_class": "gold" if left_class == "gold" else "eval",
-            "eval_class": "eval" if right_class == "eval" else "gold"
-        })
+        # Process the results as they are completed
+        for future in tqdm(futures):
+            entries.append(future.result())
 
     # Render the template with the entries
     final_html = template.render(entries=entries)

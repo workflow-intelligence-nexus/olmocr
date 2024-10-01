@@ -10,6 +10,7 @@ import hashlib
 import random
 import zstandard
 import sys
+import argparse
 
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
@@ -58,42 +59,24 @@ def load_gold_data(gold_data_path: str) -> dict:
 
     gold_data = {}
     
-    # List the contents of the S3 bucket
-    bucket_name, prefix = gold_data_path.replace("s3://", "").split("/", 1)
-    paginator = s3_client.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
+    gold_jsonl_files = list_jsonl_files(gold_data_path)
 
-    for page in pages:
-        for obj in page.get('Contents', []):
-            s3_key = obj['Key']
-            if s3_key.endswith('.json'):
-                local_file_path = os.path.join(CACHE_DIR, os.path.basename(s3_key))
-                etag = obj['ETag'].strip('"')  # ETag is the checksum
+    for path in gold_jsonl_files:          
+        # Load the JSON file
+        with smart_open(path, 'r') as f:
+            for line in f:
+                data = json.loads(line)
                 
-                # Check if the file is already cached and verify its checksum
-                if os.path.exists(local_file_path):
-                    cached_file_hash = compute_file_hash(local_file_path)
-                    if cached_file_hash != etag:
-                        raise ValueError(f"File {local_file_path} has changed on S3. Clear the cache in {CACHE_DIR} and reload.")
+                if "custom_id" in data:
+                    # This is for loading gold data that came out of openai's batch API directly
+                    custom_id = data["custom_id"]
+                    text = data["response"]["body"]["choices"][0]["message"]["content"]
                 else:
-                    # Download the file from S3 if not cached
-                    download_from_s3(f"s3://{bucket_name}/{s3_key}", local_file_path)
-                
-                # Load the JSON file
-                with smart_open(local_file_path, 'r') as f:
-                    for line in f:
-                        data = json.loads(line)
-                        
-                        if "custom_id" in data:
-                            # This is for loading gold data that came out of openai's batch API directly
-                            custom_id = data["custom_id"]
-                            text = data["response"]["body"]["choices"][0]["message"]["content"]
-                        else:
-                            # This is for loading gold data that went through the mise pdf refine pipeline
-                            custom_id = data["s3_path"] + "-" + str(data["page"])
-                            text = data["outputs"][0]["text"]
+                    # This is for loading gold data that went through the mise pdf refine pipeline
+                    custom_id = data["s3_path"] + "-" + str(data["page"])
+                    text = data["outputs"][0]["text"]
 
-                        gold_data[custom_id] = text
+                gold_data[custom_id] = text
 
     print(f"Loaded {len(gold_data):,} gold data entries for comparison")
 
@@ -197,7 +180,7 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
 
     return total_alignment_score, char_weighted_alignment_score, total_chars, total_pages, page_data
 
-def do_eval(gold_data_path: str, eval_data_path: str, ) -> tuple[float, list[dict]]:
+def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str) -> tuple[float, list[dict]]:
     gold_data = load_gold_data(gold_data_path)
     
     total_alignment_score = 0
@@ -238,28 +221,52 @@ def do_eval(gold_data_path: str, eval_data_path: str, ) -> tuple[float, list[dic
                 # if pd["alignment"] > 0.97:
                 #     continue
 
-                if len(pd["gold_text"]) < 200 and len(pd["eval_text"]) < 200:
-                    continue
+                # if len(pd["gold_text"]) < 200 and len(pd["eval_text"]) < 200:
+                #     continue
 
                 page_eval_data.append(pd)
-
-    # Select random entries to return in the page_eval_data
-    page_eval_data = random.sample(page_eval_data, 20)
-
-    # Select the top 20 lowest alignments
-    # page_eval_data.sort(key=lambda x: x["alignment"])
-    # page_eval_data = page_eval_data[:20]
-
-    # Uncomment this to generate a nice review page to use with tinyhost
-    create_review_html(page_eval_data, filename="review_page.html")
 
     print(f"Compared {len(total_pages_compared):,} pages")
     print(f"Total corpus alignment: {total_alignment_score:.2f}")
     print(f"Mean alignment: {total_alignment_score / total_weight:.3f}")
 
+    print("...creating review page")
+
+    # Select random entries to return in the page_eval_data
+    page_eval_data = random.sample(page_eval_data, 20)
+    create_review_html(page_eval_data, filename=review_page_name + "_sample.html")
+
+    # Select the top 20 lowest alignments
+    page_eval_data.sort(key=lambda x: x["alignment"])
+    page_eval_data = page_eval_data[:20]
+
+    # Uncomment this to generate a nice review page to use with tinyhost
+    create_review_html(page_eval_data, filename=review_page_name + "_worst.html")
+
+
     return total_alignment_score / total_weight, page_eval_data
 
 
 if __name__ == "__main__":
-    result = do_eval(gold_data_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v3_eval/",
-                     eval_data_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v3_eval/")
+    parser = argparse.ArgumentParser(
+        description="Transform JSONL files by extracting and renaming specific fields."
+    )
+    parser.add_argument(
+        '--name',
+        default="review_page",
+        help="What name to give to this evaluation/comparison"
+    )
+    parser.add_argument(
+        'gold_data_path',
+        type=str,
+        help='Path to the gold data directory containing JSONL files. Can be a local path or S3 URL. Can be openai "done" data, or birr "done" data'
+    )
+    parser.add_argument(
+        'eval_data_path',
+        type=str,
+        help='Path to the eval data directory containing JSONL files. Can be a local path or S3 URL. Can be openai "done" data, or birr "done" data'
+    )
+
+    args = parser.parse_args()
+
+    result = do_eval(gold_data_path=args.gold_data_path, eval_data_path=args.eval_data_path, review_page_name=args.name)
