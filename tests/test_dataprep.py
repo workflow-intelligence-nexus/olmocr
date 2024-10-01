@@ -9,7 +9,7 @@ from pdelfin.train.dataloader import (
 )
 
 from pdelfin.train.dataprep import (
-    prepare_data_for_qwen2_training, _build_finetuning_prompt
+    prepare_data_for_qwen2_training, build_finetuning_prompt
 )
 
 
@@ -32,7 +32,7 @@ class TestDataprep(unittest.TestCase):
                         "type": "image",
                         "image": example["input_prompt_image_base64"]  # Placeholder
                     },
-                    {"type": "text", "text": _build_finetuning_prompt(example["raw_page_text"])},
+                    {"type": "text", "text": build_finetuning_prompt(example["raw_page_text"])},
                 ],
             },
 
