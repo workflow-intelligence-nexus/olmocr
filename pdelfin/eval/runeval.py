@@ -229,8 +229,11 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str) -> 
     print(f"Compared {len(total_pages_compared):,} pages")
     print(f"Total corpus alignment: {total_alignment_score:.2f}")
     print(f"Mean alignment: {total_alignment_score / total_weight:.3f}")
-
+    print("")
     print("...creating review page")
+
+    # TODO Temporary filter to see other stuff
+    #page_eval_data = [x for x in page_eval_data if "NO ENGLISH TEXT" not in x["gold_text"]]
 
     # Select the top 20 lowest alignments
     page_eval_data.sort(key=lambda x: x["alignment"])
