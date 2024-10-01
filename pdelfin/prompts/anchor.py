@@ -39,8 +39,8 @@ def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftote
 
         scores = [get_document_coherency(text) for text in options]
 
-        # return option with the lowest score
-        return options[scores.index(min(scores))]
+        # return option with the best (highest) score (higher is more likley, as these are logprobs)
+        return options[scores.index(max(scores))]
 
 
 def _get_pdftotext(local_pdf_path: str, page: int) -> str:
@@ -66,6 +66,5 @@ def _get_pypdf_raw(local_pdf_path: str, page: int) -> str:
 def _get_pdfium(local_pdf_path: str, page: int) -> str:
     pdf = pdfium.PdfDocument(local_pdf_path)
     textpage = pdf[page - 1].get_textpage()
-
-    return textpage
+    return textpage.get_text_range()
 

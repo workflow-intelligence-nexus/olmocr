@@ -7,6 +7,7 @@ import unittest
 from pdelfin.extract_text import get_document_text, get_page_text
 from pdelfin.filter.coherency import get_document_coherency
 
+from pdelfin.prompts.anchor import get_anchor_text
 
 class TestCoherencyScores(unittest.TestCase):
     def testBadOcr1(self):
@@ -63,3 +64,8 @@ class TestCoherencyScores(unittest.TestCase):
         print("pdfium_text", pdfium_score := get_document_coherency(pdfium_text))
 
         self.assertLess(pdftotext_score, pymupdf_score)
+        self.assertLess(pdfium_score, pymupdf_score)
+
+        anchor_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), 2, pdf_engine="topcoherency")
+
+        self.assertEqual(anchor_text, pymupdf_text)

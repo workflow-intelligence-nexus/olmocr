@@ -63,7 +63,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
 
     try:
         with smart_open.open(input_file, 'r', encoding='utf-8') as infile, \
-                smart_open.open(output_file, 'w', encoding='utf-8') as outfile:
+             smart_open.open(output_file, 'w', encoding='utf-8') as outfile:
 
             for line_number, line in enumerate(infile, 1):
                 line = line.strip()
@@ -96,6 +96,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
 
         logging.info(f"Processed '{input_file}': {processed_count} records transformed, {error_count} errors.")
     except Exception as e:
+        logging.exception(e)
         logging.error(f"Failed to process file {input_file}: {e}")
 
 
