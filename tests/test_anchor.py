@@ -4,32 +4,37 @@ import json
 
 from pypdf import PdfReader
 
+from pdelfin.prompts.anchor import _pdf_report, _linearize_pdf_report, get_anchor_text
+
 class AnchorTest(unittest.TestCase):
     def testExtractText(self):
-        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf")
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "some_ocr1.pdf")
         reader = PdfReader(local_pdf_path)
-        page = reader.pages[1]
+        page = reader.pages[0]
 
         def visitor_body(text, cm, tm, font_dict, font_size):
-            print(repr(text))
+            print(repr(text), cm, tm, font_size)
 
-        page.extract_text(visitor_text=visitor_body)
+        def visitor_op(op, args, cm, tm):
+            #print(op, args, cm, tm)
+            pass
+
+        page.extract_text(visitor_text=visitor_body, visitor_operand_before=visitor_op)
 
     def testAnchorBase(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf")
 
-        from pdelfin.prompts._adv_anchor import extract_page
-        reader = PdfReader(local_pdf_path)
-        pypage = reader.pages[1]
+        report = _pdf_report(local_pdf_path, 2)
 
-        def visitor_body(text, cm, tm, font_dict, font_size):
-            print(repr(text))
+        print(report)
 
-        extract_page(pypage, reader, visitor_text=visitor_body)
+        print(get_anchor_text(local_pdf_path, 2, pdf_engine="pdfreport"))
 
-        # report = parse_pdf(local_pdf_path)
-        # print(json.dumps(report, indent=1))
+    def testAnchorImage(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "some_ocr1.pdf")
 
-        # report = _pdf_report(local_pdf_path, 1)
+        report = _pdf_report(local_pdf_path, 2)
 
-        # print(json.dumps(report, indent=1))
+        print(report)
+
+        print(get_anchor_text(local_pdf_path, 2, pdf_engine="pdfreport"))
