@@ -1,3 +1,5 @@
+import re
+
 # This is the prompt we use for getting chat gpt 4o to convert documents into our silver training data
 def build_openai_silver_data_prompt(base_text: str) -> str:
     return (
@@ -22,3 +24,14 @@ def build_finetuning_prompt(base_text: str) -> str:
         f"Do not hallucinate.\n"
         f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
     )
+
+def extract_raw_text(prompt: str) -> str:
+    pattern = r"RAW_TEXT_START\s*\n(.*?)\nRAW_TEXT_END"
+
+    # Use re.DOTALL to ensure that the dot matches newline characters
+    match = re.search(pattern, prompt, re.DOTALL)
+
+    if match:
+        return match.group(1).strip()
+    else
+        raise ValueError("Prompt does not contain raw text")
