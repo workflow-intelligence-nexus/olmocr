@@ -232,16 +232,13 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str) -> 
 
     print("...creating review page")
 
+    # Select the top 20 lowest alignments
+    page_eval_data.sort(key=lambda x: x["alignment"])
+    create_review_html(page_eval_data[:20], filename=review_page_name + "_worst.html")
+
     # Select random entries to return in the page_eval_data
     page_eval_data = random.sample(page_eval_data, 20)
     create_review_html(page_eval_data, filename=review_page_name + "_sample.html")
-
-    # Select the top 20 lowest alignments
-    page_eval_data.sort(key=lambda x: x["alignment"])
-    page_eval_data = page_eval_data[:20]
-
-    # Uncomment this to generate a nice review page to use with tinyhost
-    create_review_html(page_eval_data, filename=review_page_name + "_worst.html")
 
 
     return total_alignment_score / total_weight, page_eval_data
