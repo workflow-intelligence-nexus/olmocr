@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
 from pdelfin.prompts import build_openai_silver_data_prompt
+from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.filter import PdfFilter
 
 TARGET_IMAGE_DIM = 2048
@@ -45,15 +46,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
     assert pdftoppm_result.returncode == 0, pdftoppm_result.stderr
     image_base64 = base64.b64encode(pdftoppm_result.stdout).decode("utf-8")
 
-    # Extract text from the PDF page using pdftotext
-    pdftotext_result = subprocess.run(
-        ["pdftotext", "-f", str(page), "-l", str(page), local_pdf_path, "-"],
-        timeout=60,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    assert pdftotext_result.returncode == 0
-    base_text = pdftotext_result.stdout.decode("utf-8")
+    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
     # Construct OpenAI Batch API request format
     return {
@@ -66,7 +59,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": build_openai_silver_data_prompt(base_text)},
+                        {"type": "text", "text": build_openai_silver_data_prompt(anchor_text)},
                         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
                     ],
                 }
