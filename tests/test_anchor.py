@@ -33,8 +33,8 @@ class AnchorTest(unittest.TestCase):
     def testAnchorImage(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "some_ocr1.pdf")
 
-        report = _pdf_report(local_pdf_path, 2)
+        report = _pdf_report(local_pdf_path, 1)
 
         print(report)
 
-        print(get_anchor_text(local_pdf_path, 2, pdf_engine="pdfreport"))
+        print(get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport"))

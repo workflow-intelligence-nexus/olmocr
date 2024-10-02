@@ -1,6 +1,8 @@
 # ml stuff
 wandb/
 
+/*.html
+
 # build artifacts
 
 .eggs/

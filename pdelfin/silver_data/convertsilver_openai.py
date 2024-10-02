@@ -81,7 +81,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
 
                         from pdelfin.prompts.anchor import get_anchor_text
 
-                        raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="topcoherency")
+                        raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
                         from pdelfin.prompts import build_openai_silver_data_prompt
                         obj["body"]["messages"][0]["content"][0]["text"] = build_openai_silver_data_prompt(raw_page_text)
