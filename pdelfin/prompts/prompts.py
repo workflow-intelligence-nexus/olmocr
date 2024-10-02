@@ -8,8 +8,7 @@ def build_openai_silver_data_prompt(base_text: str) -> str:
         f"Turn equations into a LaTeX representation, and tables into markdown format. Remove the headers and footers, but keep references and footnotes.\n"
         f"Read any natural handwriting.\n"
         f"This is likely one page out of several in the document, so be sure to preserve any sentences that come from the previous page, or continue onto the next page, exactly as they are.\n"
-        f"If there is no text at all that you think you should read, just output [NO TEXT].\n"
-        f"If the page has no English text on it at all, just output [NO ENGLISH TEXT].\n"
+        f"If there is no text at all that you think you should read, you can output null.\n"
         f"Do not hallucinate.\n"
         f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
     )
@@ -31,7 +30,7 @@ def openai_response_format_schema() -> dict:
                         "type": "boolean",
                         "description": "Is this page oriented correctly for reading? Answer only considering the textual content, do not factor in the rotation of any charts, tables, drawings, or figures.",
                     },
-                    "rotation_correct": {
+                    "rotation_correction": {
                         "type": "integer",
                         "description": "Indicates the degree of clockwise rotation needed if the page is not oriented correctly.",
                         "enum": [0, 90, 180, 270],
@@ -46,7 +45,7 @@ def openai_response_format_schema() -> dict:
                         "description": "Indicates if the majority of the page content is a visual diagram.",
                     },
                     "natural_text": {
-                        "type": "string",
+                        "type": ["string", "null"],
                         "description": "The natural text content extracted from the page.",
                     },
                 },
