@@ -94,14 +94,14 @@ def fetch_s3_file(s3_url: str, local_path: str) -> str:
     s3.download_file(bucket_name, key, local_path)
     return local_path
 
-def process_pdf(pdf_path: str, first_n_pages: int, max_sample_pages: int) -> Generator[dict, None, None]:
+def process_pdf(pdf_path: str, first_n_pages: int, max_sample_pages: int, no_filter: bool) -> Generator[dict, None, None]:
     if pdf_path.startswith("s3://"):
         local_pdf_path = os.path.join("/tmp", os.path.basename(pdf_path))
         fetch_s3_file(pdf_path, local_pdf_path)
     else:
         local_pdf_path = pdf_path
 
-    if pdf_filter.filter_out_pdf(local_pdf_path):
+    if (not no_filter) and pdf_filter.filter_out_pdf(local_pdf_path):
         print(f"Skipping {local_pdf_path} due to common filter")
         return []
     
@@ -126,6 +126,7 @@ def main():
     parser = argparse.ArgumentParser(description="Sample PDFs and create requests for GPT-4o.")
     parser.add_argument("--glob_path", type=str, help="Local or S3 path glob (e.g., *.pdf or s3://bucket/pdfs/*.pdf).")
     parser.add_argument("--path_list", type=str, help="Path to a file containing paths to PDFs, one per line.")
+    parser.add_argument("--no_filter", action="store_true", help="Disables the basic spam/language filtering so that ALL pdfs listed are used")
     parser.add_argument("--num_sample_docs", type=int, default=5000, help="Number of PDF documents to sample.")
     parser.add_argument("--first_n_pages", type=int, default=0, help="Always sample the first N pages of each PDF.")
     parser.add_argument("--max_sample_pages", type=int, default=15, help="Max number of pages to sample per PDF.")
@@ -213,7 +214,7 @@ def main():
 
         with tqdm(desc="Processing PDFs", leave=False, total=args.num_sample_docs) as pb:
             for pdf_path in pdf_paths:
-                futures.append(executor.submit(process_pdf, pdf_path, args.first_n_pages, args.max_sample_pages))
+                futures.append(executor.submit(process_pdf, pdf_path, args.first_n_pages, args.max_sample_pages, args.no_filter))
 
             for future in as_completed(futures):
                 has_output = False  # Track if the current PDF produces at least one request
