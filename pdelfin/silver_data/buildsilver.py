@@ -88,7 +88,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
                 }
             ],
             "temperature": 0.1,
-            "max_tokens": 3000,
+            "max_tokens": 6000,
             "logprobs": True,
             "top_logprobs": 5,
             "response_format": openai_response_format_schema(),
