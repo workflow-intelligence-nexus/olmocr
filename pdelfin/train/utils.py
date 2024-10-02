@@ -150,3 +150,5 @@ def get_local_dir(output_dir: str):
         else:
             yield tmp_dir
             copy_dir(tmp_dir, output_dir)
+
+            

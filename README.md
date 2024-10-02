@@ -15,6 +15,6 @@ Things supported:
 You will probably need to install some fonts on your computer so that any pdfs you render come out looking nice.
 
 ```
-sudo apt-get install ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts
+sudo apt-get install ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 
 ```

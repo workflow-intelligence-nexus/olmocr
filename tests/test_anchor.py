@@ -38,3 +38,33 @@ class AnchorTest(unittest.TestCase):
         print(report)
 
         print(get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport"))
+
+    def testSmallPage(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "small_page_size.pdf")
+
+        report = _pdf_report(local_pdf_path, 1)
+
+        print(report)
+
+        print(get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport"))
+
+class BuildSilverTest(unittest.TestCase):
+    def testSmallPage(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "small_page_size.pdf")
+
+        from pdelfin.silver_data.buildsilver import build_page_query
+
+        result = build_page_query(local_pdf_path, "s3://test.pdf", 1)
+
+        from pdelfin.train.dataloader import get_png_dimensions_from_base64
+
+        base64data = result["body"]["messages"][0]["content"][1]["image_url"]["url"]
+
+        if base64data.startswith("data:image/png;base64,"):
+            base64data = base64data[22:]
+
+        width, height = get_png_dimensions_from_base64(base64data)
+
+        print(width, height)
+
+        assert max(width, height) == 2048

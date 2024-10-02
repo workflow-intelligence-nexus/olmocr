@@ -71,7 +71,14 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
     # )
     # print(response)
 
-    # Construct OpenAI Batch API request format
+    # Construct OpenAI Batch API request format#
+    # There are a few tricks to know when doing data processing with OpenAI's apis
+    # First off, use the batch query system, it's 1/2 the price and exactly the same performance
+    # Second off, use structured outputs. If your application is not an actual chatbot, use structured outputs!
+    # Even if the last 10 queries you ran with the regular chat api returned exactly what you wanted without extra "LLM fluff text", that doesn't mean this will hold across 1000's of queries
+    # Also, structured outputs let you cheat, because the order in which fields are in your schema, is the order in which the model will answer them, so you can have it answer some "preperatory" or "chain of thought" style questions first before going into the meat of your response, which is going to give better answers
+    # Check your prompt for typos, it makes a performance difference!
+    # Ask for logprobs, it's not any more expensive and you can use them later to help identify problematic responses
     return {
         "custom_id": f"{pretty_pdf_path}-{page}",
         "method": "POST",
