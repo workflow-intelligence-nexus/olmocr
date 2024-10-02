@@ -6,7 +6,7 @@ import torch  # Make sure to import torch as it's used in the DataCollator
 
 from pdelfin.prompts import build_finetuning_prompt
 
-def filter_by_max_seq_len(example, processor, max_prompt_len: int=2000, max_response_len: int=2000):
+def filter_by_max_seq_len(example, processor, max_prompt_len: int=2200, max_response_len: int=2200):
     if len(processor.tokenizer.tokenize(example["input_prompt_text"])) > max_prompt_len:
         return False
     
