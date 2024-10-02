@@ -15,6 +15,56 @@ def build_openai_silver_data_prompt(base_text: str) -> str:
     )
 
 
+def openai_response_format_schema() -> dict:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "page_response",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "primary_language": {
+                        "type": ["string", "null"],
+                        "description": "The primary language of the text using two-letter codes or null if there is no text at all that you think you should read.",
+                    },
+                    "is_rotation_valid": {
+                        "type": "boolean",
+                        "description": "Is this page oriented correctly for reading? Answer only considering the textual content, do not factor in the rotation of any charts, tables, drawings, or figures.",
+                    },
+                    "rotation_correct": {
+                        "type": "integer",
+                        "description": "Indicates the degree of clockwise rotation needed if the page is not oriented correctly.",
+                        "enum": [0, 90, 180, 270],
+                        "default": 0,
+                    },
+                    "is_table": {
+                        "type": "boolean",
+                        "description": "Indicates if the majority of the page content is in tabular format.",
+                    },
+                    "is_diagram": {
+                        "type": "boolean",
+                        "description": "Indicates if the majority of the page content is a visual diagram.",
+                    },
+                    "natural_text": {
+                        "type": "string",
+                        "description": "The natural text content extracted from the page.",
+                    },
+                },
+                "additionalProperties": False,
+                "required": [
+                    "primary_language",
+                    "is_rotation_valid",
+                    "rotation_correct",
+                    "is_table",
+                    "is_diagram",
+                    "natural_text",
+                ],
+            },
+            "strict": True
+        },
+    }
+
+
 # This is a base prompt that will be used for training and running the fine tuned model
 # It's simplified from the prompt which was used to generate the silver data, and can change from dataset to dataset
 def build_finetuning_prompt(base_text: str) -> str:
@@ -26,6 +76,7 @@ def build_finetuning_prompt(base_text: str) -> str:
     )
 
 
+# Extracts the anchor text component from an existing prompt string
 def extract_raw_text(prompt: str) -> str:
     pattern = r"RAW_TEXT_START\s*\n(.*?)\nRAW_TEXT_END"
 

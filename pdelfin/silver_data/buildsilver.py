@@ -12,7 +12,7 @@ from typing import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
-from pdelfin.prompts import build_openai_silver_data_prompt
+from pdelfin.prompts import build_openai_silver_data_prompt, openai_response_format_schema
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.filter import PdfFilter
 
@@ -48,6 +48,29 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
 
     anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
+    # DEBUG crappy temporary code here that does the actual api call live so I can debug it a bit
+    # from openai import OpenAI
+    # client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    # response = client.chat.completions.create(
+    #     model="gpt-4o-2024-08-06",
+    #     messages= [
+    #             {
+    #                 "role": "user",
+    #                 "content": [
+    #                     {"type": "text", "text": build_openai_silver_data_prompt(anchor_text)},
+    #                     {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+    #                 ],
+    #             }
+    #         ],
+    #     temperature=0.1,
+    #     max_tokens=3000,
+    #     logprobs=True,
+    #     top_logprobs=5,
+    #     response_format=openai_response_format_schema()
+    # )
+    # print(response)
+
     # Construct OpenAI Batch API request format
     return {
         "custom_id": f"{pretty_pdf_path}-{page}",
@@ -65,7 +88,10 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
                 }
             ],
             "temperature": 0.1,
-            "max_tokens": 3000
+            "max_tokens": 3000,
+            "logprobs": True,
+            "top_logprobs": 5,
+            "response_format": openai_response_format_schema(),
         }
     }
 
