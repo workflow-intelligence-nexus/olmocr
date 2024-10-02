@@ -53,7 +53,7 @@ def openai_response_format_schema() -> dict:
                 "required": [
                     "primary_language",
                     "is_rotation_valid",
-                    "rotation_correct",
+                    "rotation_correction",
                     "is_table",
                     "is_diagram",
                     "natural_text",
