@@ -36,17 +36,21 @@ def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftote
     elif pdf_engine == "pymupdf":
         return _get_pymupdf(local_pdf_path, page)
     elif pdf_engine == "topcoherency":
-        options = [
-            _get_pdftotext(local_pdf_path, page),
-            _get_pymupdf(local_pdf_path, page),
-            _get_pdfium(local_pdf_path, page),
-            _get_pypdf_raw(local_pdf_path, page)
-        ]
+        options = {
+            "pdftotext": _get_pdftotext(local_pdf_path, page),
+            "pymupdf": _get_pymupdf(local_pdf_path, page),
+            "pdfium": _get_pdfium(local_pdf_path, page),
+            "pypdf_raw": _get_pypdf_raw(local_pdf_path, page)
+        }
 
-        scores = [get_document_coherency(text) for text in options]
+        scores = {label: get_document_coherency(text) for label, text in options.items()}
 
-        # return option with the best (highest) score (higher is more likley, as these are logprobs)
-        return options[scores.index(max(scores))]
+        best_option_label = max(scores, key=scores.get)
+        best_option = options[best_option_label]
+
+        print(f"topcoherency chosen: {best_option_label}")
+
+        return best_option
     elif pdf_engine == "pdfreport":
         return _linearize_pdf_report(_pdf_report(local_pdf_path, page))
     else:

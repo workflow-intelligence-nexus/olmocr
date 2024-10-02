@@ -180,7 +180,7 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
 
     return total_alignment_score, char_weighted_alignment_score, total_chars, total_pages, page_data
 
-def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str) -> tuple[float, list[dict]]:
+def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, review_page_size: int) -> tuple[float, list[dict]]:
     gold_data = load_gold_data(gold_data_path)
     
     total_alignment_score = 0
@@ -237,10 +237,10 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str) -> 
 
     # Select the top 20 lowest alignments
     page_eval_data.sort(key=lambda x: x["alignment"])
-    create_review_html(page_eval_data[:20], filename=review_page_name + "_worst.html")
+    create_review_html(page_eval_data[:review_page_size], filename=review_page_name + "_worst.html")
 
     # Select random entries to return in the page_eval_data
-    page_eval_data = random.sample(page_eval_data, 20)
+    page_eval_data = random.sample(page_eval_data, review_page_size)
     create_review_html(page_eval_data, filename=review_page_name + "_sample.html")
 
 
@@ -257,6 +257,12 @@ if __name__ == "__main__":
         help="What name to give to this evaluation/comparison"
     )
     parser.add_argument(
+        '--review_size',
+        default=20,
+        type=int,
+        help="Number of entries to show on the generated review page",
+    )
+    parser.add_argument(
         'gold_data_path',
         type=str,
         help='Path to the gold data directory containing JSONL files. Can be a local path or S3 URL. Can be openai "done" data, or birr "done" data'
@@ -269,4 +275,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    result = do_eval(gold_data_path=args.gold_data_path, eval_data_path=args.eval_data_path, review_page_name=args.name)
+    result = do_eval(gold_data_path=args.gold_data_path, eval_data_path=args.eval_data_path, review_page_name=args.name, review_page_size=args.review_size)

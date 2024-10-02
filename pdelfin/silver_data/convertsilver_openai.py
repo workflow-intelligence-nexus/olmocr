@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import sys
+import os
 import logging
 
 import smart_open
@@ -63,6 +64,25 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
 
                     if match:
                         raw_page_text = match.group(1).strip()
+
+                        # Ok, now we want to try to see if it's better if we recalculate the anchor text
+                        goldkey = obj["custom_id"]
+                        s3_path = goldkey[:goldkey.rindex("-")]
+                        page = int(goldkey[goldkey.rindex("-") + 1:])
+
+                        # Save the pdf to a temporary cache folder
+                        import os
+                        local_pdf_path = "/home/ubuntu/.cache/samplepdfs/" + os.path.basename(s3_path)
+
+                        if not os.path.exists(local_pdf_path):
+                            print("Loading pdf", s3_path)
+                            with smart_open.smart_open(s3_path, "rb") as fin, open(local_pdf_path, "wb") as fout:
+                                fout.write(fin.read())
+
+                        from pdelfin.prompts.anchor import get_anchor_text
+
+                        raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="topcoherency")
+
                         from pdelfin.prompts import build_openai_silver_data_prompt
                         obj["body"]["messages"][0]["content"][0]["text"] = build_openai_silver_data_prompt(raw_page_text)
 
@@ -74,6 +94,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
 
         logging.info(f"Processed '{input_file}': {processed_count} records transformed, {error_count} errors.")
     except Exception as e:
+        logging.exception(e)
         logging.error(f"Failed to process file {input_file}: {e}")
 
 
@@ -190,6 +211,9 @@ def main():
     input_dir = args.input_dir.rstrip('/')
     output_dir = args.output_dir.rstrip('/')
     max_jobs = args.jobs
+
+    if not output_dir.startswith("s3:"):
+        os.makedirs(output_dir, exist_ok=True)
 
     # List input files
     input_files = list_input_files(input_dir)
