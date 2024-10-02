@@ -85,6 +85,9 @@ class PdfFilter:
             "file",
             "save",
             "casino",
+            "viagra",
+            "cialis",
+            "ciprofloxacin",
         }
         seo_word_probs = {word: self.ngram_log_probs[word] for word in seo_words}
 
