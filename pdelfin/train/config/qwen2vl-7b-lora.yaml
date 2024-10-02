@@ -28,21 +28,20 @@ generate:
 train_data:
   seed: 1337
   sources:
-    - name: openai_batch_data_v2
-      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl
-      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json
-      backend:
-        - openai
-      size: 100_000
+    - name: openai_batch_data_v5_1_eval # TODO This is just for testing the job, once ready change to a real train dataset
+      query_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.jsonl
 
 valid_data:
   sources:
-    - name: openai_batch_data_eval_mini
-      query_glob_path: s3://ai2-oe-data/jakep/openai_batch_data_eval_mini/*.jsonl
-      response_glob_path: s3://ai2-oe-data/jakep/openai_batch_done_eval_mini/*.json
-      backend:
-        - openai
-      size: 100_000
+    - name: openai_batch_data_v5_1_eval
+      query_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.jsonl
+    - name: openai_batch_data_v5_1_iabooks_eval
+      query_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_iabooks_eval/*.jsonl
+      response_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_iabooks_eval/*.jsonl
+
+
 
 # Mostly pulled from https://github.com/QwenLM/Qwen2/blob/main/examples/sft/finetune.sh
 hparams:
@@ -52,10 +51,10 @@ hparams:
   gradient_checkpointing: false
   clip_grad_norm: 1.0
   learning_rate: 3e-4
-  max_steps: 5000
+  max_steps: 2000
   pad_multiple_of: 16
   log_every_steps: 50
-  eval_every_steps: 500
+  eval_every_steps: 100
   optim: adamw_torch
   lr_scheduler: cosine
   weight_decay: 0.01

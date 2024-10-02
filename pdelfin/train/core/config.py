@@ -75,10 +75,8 @@ class AwsConfig:
 @dataclass
 class SourceConfig:
     name: str = field(help="The name of the source")
-    size: int = field(help="Limit size for the source")
     query_glob_path: str = field(help="The s3 bucket pointing to the inputs sent to OpenAI to generate the silver data")
     response_glob_path: str = field(help="The s3 bucket pointing to the batch api response json's sent back from open ai")
-    backend: List[str] = field(help="The data generation backend to use to train the model")
 
 
 @dataclass

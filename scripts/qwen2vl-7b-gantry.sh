@@ -19,7 +19,7 @@ run_name=$(basename "$0" .sh)
 # --cluster 'ai2/allennlp-cirrascale' \
 # --priority high \
 
-CLUSTER='jupiter'
+CLUSTER='pluto'
 
 gantry run \
     --description "${run_name}"\
