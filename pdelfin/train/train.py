@@ -222,15 +222,16 @@ def run_train(config: TrainConfig):
         # Train the model
         trainer.train()  # pyright: ignore
 
-        with get_local_dir(join_path("", save_path, "best")) as best_dir:
-            if config.lora is not None:
-                logger.info("Merging LoRA adapters into the base model...")
-                model = model.merge_and_unload()
-                logger.info("LoRA adapters merged successfully.")
+        if get_rank() == 0:
+            with get_local_dir(join_path("", save_path, "best")) as best_dir:
+                if config.lora is not None:
+                    logger.info("Merging LoRA adapters into the base model...")
+                    model = model.merge_and_unload()
+                    logger.info("LoRA adapters merged successfully.")
 
-            model.save_pretrained(best_dir)
+                model.save_pretrained(best_dir)
 
-            logger.info("Saved best model to %s", best_dir)
+                logger.info("Saved best model to %s", best_dir)
 
         # Uncomment to test speed of data loader
         # train_dataloader = DataLoader(formatted_dataset["train"], batch_size=1, num_workers=4, shuffle=False)
