@@ -33,6 +33,7 @@ train_data:
       response_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json
 
 valid_data:
+  metric_for_best_model: openai_batch_data_v5_1_eval_loss
   sources:
     - name: openai_batch_data_v5_1_eval
       query_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl
@@ -51,10 +52,10 @@ hparams:
   gradient_checkpointing: false
   clip_grad_norm: 1.0
   learning_rate: 3e-4
-  max_steps: 500
+  max_steps: 50
   pad_multiple_of: 16
-  log_every_steps: 50
-  eval_every_steps: 100
+  log_every_steps: 10
+  eval_every_steps: 50
   optim: adamw_torch
   lr_scheduler: cosine
   weight_decay: 0.01

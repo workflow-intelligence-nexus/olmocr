@@ -82,6 +82,7 @@ class SourceConfig:
 @dataclass
 class DataConfig:
     seed: int = field(default=42, help="The seed to use for data loading")
+    metric_for_best_model: Optional[str] = field(help="metric to pass to trainer args to use for picking best model checkpoint at end", default=None)
     sources: List[SourceConfig] = field(help="The source configurations")
 
 

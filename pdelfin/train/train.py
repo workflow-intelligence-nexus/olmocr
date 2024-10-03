@@ -3,6 +3,7 @@ import json
 import base64
 import logging
 import time
+import random
 from io import BytesIO
 from PIL import Image
 from functools import partial
@@ -194,6 +195,7 @@ def run_train(config: TrainConfig):
             max_grad_norm=config.hparams.clip_grad_norm,
             remove_unused_columns=False,
             eval_on_start=True,
+            metric_for_best_model=config.valid_data.metric_for_best_model,
         )
 
         # Set the collator
