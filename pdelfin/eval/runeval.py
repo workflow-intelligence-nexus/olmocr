@@ -59,8 +59,9 @@ def compute_file_hash(file_path: str) -> str:
 class NormalizedEntry:
     s3_path: str
     pagenum: int
-    text: str
+    text: Optional[str]
     finish_reason: Optional[str]
+    error: Optional[str] = None
 
     @staticmethod
     def from_goldkey(goldkey: str, **kwargs):
@@ -73,7 +74,30 @@ class NormalizedEntry:
         return f"{self.s3_path}-{self.pagenum}"
 
 def normalize_json_entry(data: dict) -> NormalizedEntry:
-    if "custom_id" in data:
+    if "outputs" in data:
+        # Birr case
+        if data["outputs"] is None:
+            text = None
+            finish_reason = None
+        else:
+            text = data["outputs"][0]["text"]
+            finish_reason = data["outputs"][0]["finish_reason"]
+
+        # Try to parse the structured output if possible
+        try:
+            if text is not None:
+                parsed_content = json.loads(text)
+                text = parsed_content["natural_text"]
+        except json.JSONDecodeError:
+            pass
+        
+        return NormalizedEntry.from_goldkey(
+            goldkey=data["custom_id"],
+            text=text,
+            finish_reason=finish_reason,
+            error=data.get("completion_error", None)
+        )
+    else:
         # OpenAI case
         try:
             # Attempt to parse the JSON content from OpenAI's response
@@ -90,15 +114,6 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
                 text=data["response"]["body"]["choices"][0]["message"]["content"],
                 finish_reason=data["response"]["body"]["choices"][0]["finish_reason"]
             )
-    else:
-        # Birr case
-        text = data["outputs"][0]["text"]
-        return NormalizedEntry(
-            s3_path=data["s3_path"],
-            pagenum=data["page"],
-            text=text,
-            finish_reason=data["outputs"][0]["finish_reason"]
-        )
 
 # Load every .json file from GOLD_DATA_S3_PATH (and saves it to some temp folder for quick loading next time)
 # returns map from  "custom_id" ex. "s3://ai2-s2-pdfs/39ce/3db4516cd6e7d7f8e580a494c7a665a6a16a.pdf-4" (where the -4 means page 4)
