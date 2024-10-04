@@ -158,8 +158,6 @@ def process_folder(folder_path: str, max_gb: int):
     if starting_free_space < max_gb * 2:
         raise ValueError(f"Insufficient free space in OpenAI's file storage: Only {starting_free_space} GB left, but 2x{max_gb} GB are required (1x for your uploads, 1x for your results).")
 
-    starting_free_space = 250 * 1024 * 1024
-
     while not all(state["state"] in FINISHED_STATES for state in get_state(folder_path).values()):
         done, total = get_done_total(folder_path)
         print(f"Total items {total}, done {done}, {done/total*100:.1f}%")

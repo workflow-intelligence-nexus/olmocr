@@ -9,7 +9,7 @@ import json
 from pypdf import PdfReader
 from tqdm import tqdm
 from typing import Generator
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from urllib.parse import urlparse
 
 from pdelfin.prompts import build_openai_silver_data_prompt, openai_response_format_schema
@@ -235,7 +235,7 @@ def main():
     pdfs_with_output = 0
 
     # Using ThreadPoolExecutor to process files concurrently
-    with ThreadPoolExecutor(max_workers=60) as executor:
+    with ProcessPoolExecutor(max_workers=300) as executor:
         futures = []
 
         with tqdm(desc="Processing PDFs", leave=False, total=args.num_sample_docs) as pb:
