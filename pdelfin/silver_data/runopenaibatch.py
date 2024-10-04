@@ -77,6 +77,12 @@ def _json_datetime_decoder(obj):
             pass  # If it's not a valid ISO format, leave it as is
     return obj
 
+def _json_datetime_encoder(obj):
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()  # Convert datetime to ISO format string
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
+
 def get_state(folder_path: str) -> dict:
     state_file = os.path.join(folder_path, UPLOAD_STATE_FILENAME)
 
@@ -96,11 +102,11 @@ def get_state(folder_path: str) -> dict:
                         "batch_id": None,
                         "state": "init",
                         "size": os.path.getsize(os.path.join(folder_path, f)),
-                        "last_checked": datetime.datetime.now().isoformat(),
+                        "last_checked": datetime.datetime.now(),
                     } for f in jsonl_files}
 
         with open(state_file, "w") as f:
-            json.dump(state, f)
+            json.dump(state, f, default=_json_datetime_encoder)
         
         return state
 
@@ -109,11 +115,11 @@ def update_state(folder_path: str, filename: str, **kwargs):
     for kwarg_name, kwarg_value in kwargs.items():
         all_state[filename][kwarg_name] = kwarg_value
 
-    all_state[filename]["last_checked"] = datetime.datetime.now().isoformat()
+    all_state[filename]["last_checked"] = datetime.datetime.now()
 
     state_file = os.path.join(folder_path, UPLOAD_STATE_FILENAME)
     with open(state_file, "w") as f:
-        return json.dump(all_state, f)
+        return json.dump(all_state, f, default=_json_datetime_encoder)
         
 def get_total_space_usage():
     return sum(file.bytes for file in client.files.list())
