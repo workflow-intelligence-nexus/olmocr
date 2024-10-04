@@ -138,14 +138,16 @@ def get_next_work_item(folder_path):
     return all_states[0] if len(all_states) > 0 else None
 
 def get_done_total(folder_path):
-    done, total = 0,0
+    processing, done, total = 0,0,0
 
     for state in get_state(folder_path).values():
         if state["state"] in FINISHED_STATES:
             done += 1
+        if state["state"] == "processing":
+            processing += 1
         total += 1
 
-    return done, total
+    return processing, done, total
 
 # Main function to process all .jsonl files in a folder
 def process_folder(folder_path: str, max_gb: int):
@@ -155,22 +157,22 @@ def process_folder(folder_path: str, max_gb: int):
 
     starting_free_space = MAX_OPENAI_DISK_SPACE - get_total_space_usage()
 
-    if starting_free_space < max_gb * 2:
+    if starting_free_space < (max_gb * 1024**3) * 2:
         raise ValueError(f"Insufficient free space in OpenAI's file storage: Only {starting_free_space} GB left, but 2x{max_gb} GB are required (1x for your uploads, 1x for your results).")
 
     while not all(state["state"] in FINISHED_STATES for state in get_state(folder_path).values()):
-        done, total = get_done_total(folder_path)
-        print(f"Total items {total}, done {done}, {done/total*100:.1f}%")
+        processing, done, total = get_done_total(folder_path)
+        print(f"Total items {total}, processing {processing}, done {done}, {done/total*100:.1f}%")
 
         work_item = get_next_work_item(folder_path)
         print(f"Processing {os.path.basename(work_item['filename'])}, cur status = {work_item['state']}")
 
         # If all work items have been checked on, then you need to sleep a bit
         if last_loop_time > datetime.datetime.now() - datetime.timedelta(seconds=1):
-            time.sleep(1)
+            time.sleep(0.2)
 
         if work_item["state"] == "init":
-            if starting_free_space - get_estimated_space_usage(folder_path) > 0:
+            if get_estimated_space_usage(folder_path) < (max_gb * 1024**3):
                 try:
                     batch_id = upload_and_start_batch(os.path.join(folder_path, work_item["filename"]))
                     update_state(folder_path, work_item["filename"], state="processing", batch_id=batch_id)
