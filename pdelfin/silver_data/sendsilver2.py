@@ -19,32 +19,27 @@ UPLOAD_STATE_FILENAME = "SENDSILVER_DATA"
 
 # Function to upload a file to OpenAI and start batch processing
 def upload_and_start_batch(file_path):
-    try:
-        # Upload the file to OpenAI
-        with open(file_path, 'rb') as file:
-            print(f"Uploading {file_path} to OpenAI Batch API...")
-            upload_response = client.files.create(file=file, purpose="batch")
-            file_id = upload_response.id
-            print(f"File uploaded successfully: {file_id}")
+    # Upload the file to OpenAI
+    with open(file_path, 'rb') as file:
+        print(f"Uploading {file_path} to OpenAI Batch API...")
+        upload_response = client.files.create(file=file, purpose="batch")
+        file_id = upload_response.id
+        print(f"File uploaded successfully: {file_id}")
 
-        # Create a batch job
-        print(f"Creating batch job for {file_path}...")
-        batch_response = client.batches.create(
-            input_file_id=file_id,
-            endpoint="/v1/chat/completions",
-            completion_window="24h",
-            metadata={
-            "description": "pdf gold/silver data"
-            }
-        )
-        
-        batch_id = batch_response.id
-        print(f"Batch created successfully: {batch_id}")
-        return batch_id
-
-    except Exception as e:
-        print(f"Error processing {file_path}: {str(e)}")
-        return None
+    # Create a batch job
+    print(f"Creating batch job for {file_path}...")
+    batch_response = client.batches.create(
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+        completion_window="24h",
+        metadata={
+        "description": "pdf gold/silver data"
+        }
+    )
+    
+    batch_id = batch_response.id
+    print(f"Batch created successfully: {batch_id}")
+    return batch_id
 
 def download_batch_result(batch_id, output_folder):
     # Retrieve the batch result from OpenAI API
@@ -52,6 +47,10 @@ def download_batch_result(batch_id, output_folder):
 
     if batch_data.status != "completed":
         print(f"WARNING: {batch_id} is not completed, status: {batch_data.status}")
+        return batch_id, False
+    
+    if batch_data.output_file_id is None:
+        print(f"WARNING: {batch_id} is completed, but not output file was generated")
         return batch_id, False
 
     file_response = client.files.content(batch_data.output_file_id)
@@ -117,7 +116,7 @@ def update_state(folder_path: str, filename: str, **kwargs):
         return json.dump(all_state, f)
         
 def get_total_space_usage():
-    return sum(file.size for file in client.files.list())
+    return sum(file.bytes for file in client.files.list())
 
 def get_estimated_space_usage(folder_path):
     all_states = get_state(folder_path)
@@ -153,9 +152,10 @@ def process_folder(folder_path: str, max_gb: int):
         if work_item["state"] == "init":
             if starting_free_space - get_estimated_space_usage(folder_path) > 0:
                 try:
-                    batch_id = upload_and_start_batch(work_item["filename"])
+                    batch_id = upload_and_start_batch(os.path.join(folder_path, work_item["filename"]))
                     update_state(folder_path, work_item["filename"], state="processing", batch_id=batch_id)
-                except:
+                except Exception as ex:
+                    print(ex)
                     update_state(folder_path, work_item["filename"], state="init")
             else:
                 print("waiting for something to finish processing before uploading more")
@@ -170,8 +170,17 @@ def process_folder(folder_path: str, max_gb: int):
                 else:
                     update_state(folder_path, work_item["filename"], state="errored_out")
 
-                client.files.delete(batch_data.input_file_id)
-                client.files.delete(batch_data.output_file_id)
+                try:
+                    client.files.delete(batch_data.input_file_id)
+                except Exception as ex:
+                    print(ex)
+                    print("Could not delete old input data")
+
+                try:
+                    client.files.delete(batch_data.output_file_id)
+                except Exception as ex:
+                    print(ex)
+                    print("Could not delete old output data")
             elif batch_data.status in ["failed", "expired", "cancelled"]:
                 update_state(folder_path, work_item["filename"], state="errored_out")
 
@@ -179,7 +188,11 @@ def process_folder(folder_path: str, max_gb: int):
                     client.files.delete(batch_data.input_file_id)
                 except:
                     print("Could not delete old file data")
+            else:
+                # Update the time you checked so you can move onto the next time
+                update_state(folder_path, work_item["filename"], state="processing")
 
+    print("All work has been completed")
 
 if __name__ == "__main__":
     # Set up argument parsing for folder input
