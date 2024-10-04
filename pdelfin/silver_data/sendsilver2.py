@@ -100,7 +100,7 @@ def get_state(folder_path: str) -> dict:
                     } for f in jsonl_files}
 
         with open(state_file, "w") as f:
-            return json.dump(state, f)
+            json.dump(state, f)
         
         return state
 
@@ -129,7 +129,15 @@ def get_next_work_item(folder_path):
 
     return all_states[0] if len(all_states) > 0 else None
 
+def get_done_total(folder_path):
+    done, total = 0,0
 
+    for state in get_state(folder_path).values():
+        if state["state"] in FINISHED_STATES:
+            done += 1
+        total += 1
+
+    return done, total
 
 # Main function to process all .jsonl files in a folder
 def process_folder(folder_path: str, max_gb: int):
@@ -142,6 +150,9 @@ def process_folder(folder_path: str, max_gb: int):
         raise ValueError(f"Insufficient free space in OpenAI's file storage: Only {starting_free_space} GB left, but 2x{max_gb} GB are required (1x for your uploads, 1x for your results).")
 
     while not all(state["state"] in FINISHED_STATES for state in get_state(folder_path).values()):
+        done, total = get_done_total(folder_path)
+        print(f"Total items {total}, done {done}, {done/total*100:.1f}%")
+
         work_item = get_next_work_item(folder_path)
         print(f"Processing {os.path.basename(work_item['filename'])}, cur status = {work_item['state']}")
 
