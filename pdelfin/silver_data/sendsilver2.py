@@ -46,7 +46,6 @@ def upload_and_start_batch(file_path):
         print(f"Error processing {file_path}: {str(e)}")
         return None
 
-
 def download_batch_result(batch_id, output_folder):
     # Retrieve the batch result from OpenAI API
     batch_data = client.batches.retrieve(batch_id)
@@ -68,18 +67,24 @@ def download_batch_result(batch_id, output_folder):
 
     
 
-
 ALL_STATES = ["init", "processing", "completed", "errored_out", "could_not_upload"]
 FINISHED_STATES = [ "completed", "errored_out" ]
 
+def _json_datetime_decoder(obj):
+    if 'last_checked' in obj:
+        try:
+            obj['last_checked'] = datetime.datetime.fromisoformat(obj['last_checked'])
+        except (TypeError, ValueError):
+            pass  # If it's not a valid ISO format, leave it as is
+    return obj
 
 def get_state(folder_path: str) -> dict:
     state_file = os.path.join(folder_path, UPLOAD_STATE_FILENAME)
 
-    if os.path.exists(state_file):
+    try:
         with open(state_file, "r") as f:
-            return json.load(f)
-    else:
+            return json.load(f, object_hook=_json_datetime_decoder)
+    except (json.decoder.JSONDecodeError, FileNotFoundError):
         # List all .jsonl files in the specified folder
         jsonl_files = [f for f in os.listdir(folder_path) if f.endswith('.jsonl')]
 
@@ -91,12 +96,12 @@ def get_state(folder_path: str) -> dict:
                         "filename": f,
                         "batch_id": None,
                         "state": "init",
-                        "size": os.path.getsize(f),
-                        "last_checked": datetime.datetime.now(),
+                        "size": os.path.getsize(os.path.join(folder_path, f)),
+                        "last_checked": datetime.datetime.now().isoformat(),
                     } for f in jsonl_files}
 
         with open(state_file, "w") as f:
-            return json.dump(state)
+            return json.dump(state, f)
         
         return state
 
@@ -105,11 +110,11 @@ def update_state(folder_path: str, filename: str, **kwargs):
     for kwarg_name, kwarg_value in kwargs.items():
         all_state[filename][kwarg_name] = kwarg_value
 
-    all_state[filename]["last_checked"] = datetime.datetime.now()
+    all_state[filename]["last_checked"] = datetime.datetime.now().isoformat()
 
     state_file = os.path.join(folder_path, UPLOAD_STATE_FILENAME)
     with open(state_file, "w") as f:
-        return json.dump(all_state)
+        return json.dump(all_state, f)
         
 def get_total_space_usage():
     return sum(file.size for file in client.files.list())
@@ -120,7 +125,7 @@ def get_estimated_space_usage(folder_path):
 
 def get_next_work_item(folder_path):
     all_states = get_state(folder_path)
-    all_states = [s for s in all_states if s["state"] not in FINISHED_STATES]
+    all_states = [s for s in all_states.values() if s["state"] not in FINISHED_STATES]
     all_states.sort(key=lambda s: s["last_checked"])
 
     return all_states[0] if len(all_states) > 0 else None
@@ -137,9 +142,9 @@ def process_folder(folder_path: str, max_gb: int):
     if starting_free_space < max_gb * 2:
         raise ValueError(f"Insufficient free space in OpenAI's file storage: Only {starting_free_space} GB left, but 2x{max_gb} GB are required (1x for your uploads, 1x for your results).")
 
-    while not all(state["state"] in FINISHED_STATES for (file, state) in get_state(folder_path)):
+    while not all(state["state"] in FINISHED_STATES for state in get_state(folder_path).values()):
         work_item = get_next_work_item(folder_path)
-        print(f"Processing {os.path.basename(work_item['file'])}, cur status = {work_item['state']}")
+        print(f"Processing {os.path.basename(work_item['filename'])}, cur status = {work_item['state']}")
 
         # If all work items have been checked on, then you need to sleep a bit
         if work_item["last_checked"] > datetime.datetime.now() - datetime.timedelta(seconds=1):
