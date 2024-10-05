@@ -235,7 +235,7 @@ def main():
     pdfs_with_output = 0
 
     # Using ThreadPoolExecutor to process files concurrently
-    with ProcessPoolExecutor(max_workers=300) as executor:
+    with ProcessPoolExecutor() as executor:
         futures = []
 
         with tqdm(desc="Processing PDFs", leave=False, total=args.num_sample_docs) as pb:
