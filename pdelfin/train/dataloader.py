@@ -51,7 +51,7 @@ def load_jsonl_into_ds(s3_glob_path: str, first_n_files: int = None) -> Dataset:
     """
     Loads JSONL files from the specified S3 path into a Hugging Face Dataset.
     """
-    all_json_files = s3_glob_path(s3_glob_path)
+    all_json_files = list_dataset_files(s3_glob_path)
 
     if first_n_files:
         all_json_files = all_json_files[:first_n_files]
