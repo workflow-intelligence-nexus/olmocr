@@ -17,7 +17,7 @@ import torch.nn.functional as F
 from transformers import AutoProcessor
 from accelerate import Accelerator
 from accelerate.utils import PrecisionType
-from datasets import Dataset, concatenate_datasets, DatasetDict
+from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
 from .core.cli import to_native_types
 from .core.config import AwsConfig, TrainConfig, WandbConfig
@@ -28,7 +28,7 @@ from .core.state import BeakerState
 
 T = TypeVar("T")
 
-from pdelfin.train.dataloader import build_batch_query_response_vision_dataset
+from pdelfin.train.dataloader import build_batch_query_response_vision_dataset, list_dataset_files
 from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, filter_by_max_seq_len
 
 
@@ -42,6 +42,12 @@ def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
         return torch.float8_e4m3fn
     return torch.float32
 
+def get_rawdataset_from_source(source) -> Dataset:
+    if source.parquet_path is not None:
+        return load_dataset("parquet", data_files=list_dataset_files(source.parquet_path))
+    else:
+        return build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+
 def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset, Dataset]:
     random.seed(config.train_data.seed)
 
@@ -49,7 +55,7 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
     train_dataset = (
         concatenate_datasets(
             [
-                build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+                get_rawdataset_from_source(source)
                 for source in config.train_data.sources
             ]
         )
@@ -60,7 +66,7 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
     # Validation sets get put into a datasetdict so each can report a loss separately
     valid_dataset = DatasetDict(
         **{
-            source.name: build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+            source.name: get_rawdataset_from_source(source)
             .filter(partial(filter_by_max_seq_len, processor=processor))
             .with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
             for source in config.valid_data.sources

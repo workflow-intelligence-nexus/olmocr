@@ -19,16 +19,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def list_jsonl_files(s3_path: str):
+def list_dataset_files(s3_glob_path: str):
     """
     Lists files in the specified S3 path that match the glob pattern.
     """
-    if s3_path.startswith("s3://"):
+    if s3_glob_path.startswith("s3://"):
         s3 = boto3.client("s3")
-        match = re.match(r"s3://([^/]+)/(.+)", s3_path)
+        match = re.match(r"s3://([^/]+)/(.+)", s3_glob_path)
         if not match:
-            logger.error(f"Invalid S3 path: {s3_path}")
-            raise ValueError(f"Invalid S3 path: {s3_path}")
+            logger.error(f"Invalid S3 path: {s3_glob_path}")
+            raise ValueError(f"Invalid S3 path: {s3_glob_path}")
 
         bucket, prefix_pattern = match.groups()
         prefix = prefix_pattern.split("*")[0]  # Extract prefix before the wildcard
@@ -44,14 +44,14 @@ def list_jsonl_files(s3_path: str):
                     files.append(f"s3://{bucket}/{key}")
         return files
     else:
-        return glob.glob(s3_path)
+        return glob.glob(s3_glob_path)
 
 
 def load_jsonl_into_ds(s3_glob_path: str, first_n_files: int = None) -> Dataset:
     """
     Loads JSONL files from the specified S3 path into a Hugging Face Dataset.
     """
-    all_json_files = list_jsonl_files(s3_glob_path)
+    all_json_files = s3_glob_path(s3_glob_path)
 
     if first_n_files:
         all_json_files = all_json_files[:first_n_files]
