@@ -37,6 +37,21 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
 
         print(ds[0])
 
+    def testLocalDS(self):
+        ds = build_batch_query_response_vision_dataset(
+            query_glob_path="/root/openai_batch_data_v5_1_train/*.jsonl",
+            response_glob_path="/root/openai_batch_data_v5_1_train_done/*.json",
+        )
+
+        print(ds)
+
+        ds.to_parquet("/root/trainds_parquet/bigds.parquet")
+
+        processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
+        from pdelfin.train.dataprep import filter_by_max_seq_len
+        ds = ds.filter(partial(filter_by_max_seq_len, processor=processor, max_prompt_len=1000))
+
+        print(ds[0])
 
     def testPlotSequenceLengthHistogram(self):
         import plotly.express as px  

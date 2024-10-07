@@ -1,6 +1,7 @@
 import json
 import multiprocessing
 import os
+import random
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -13,6 +14,7 @@ import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
 from accelerate.utils import PrecisionType
+from datasets import Dataset, concatenate_datasets, DatasetDict
 
 from .core.cli import to_native_types
 from .core.config import AwsConfig, TrainConfig, WandbConfig
@@ -22,6 +24,9 @@ from .core.state import BeakerState
 #from .tokenization import ModelTokenizer
 
 T = TypeVar("T")
+
+from pdelfin.train.dataloader import build_batch_query_response_vision_dataset
+from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, filter_by_max_seq_len
 
 
 def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
@@ -33,6 +38,33 @@ def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
     elif pt == PrecisionType.FP8:
         return torch.float8_e4m3fn
     return torch.float32
+
+def make_dataset(config: TrainConfig) -> tuple[Dataset, Dataset]:
+    random.seed(config.train_data.seed)
+
+    # Training sets get all concatenated and shuffled
+    train_dataset = (
+        concatenate_datasets(
+            [
+                build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+                for source in config.train_data.sources
+            ]
+        )
+        .filter(partial(filter_by_max_seq_len, processor=processor))
+        .with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
+    )
+
+    # Validation sets get put into a datasetdict so each can report a loss separately
+    valid_dataset = DatasetDict(
+        **{
+            source.name: build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+            .filter(partial(filter_by_max_seq_len, processor=processor))
+            .with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
+            for source in config.valid_data.sources
+        }
+    )
+
+    return train_dataset, valid_dataset
 
 
 def setup_environment(

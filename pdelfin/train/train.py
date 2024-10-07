@@ -47,6 +47,7 @@ from .utils import (
     log_trainable_parameters,
     packing_collator,
     setup_environment,
+    make_dataset
 )
 
 
@@ -113,6 +114,15 @@ def run_train(config: TrainConfig):
     run_name = RunName.get(config)
 
     setup_environment(aws_config=config.aws, wandb_config=config.wandb, WANDB_RUN_GROUP=run_name.group)
+    accelerator = accelerate.Accelerator()
+
+    # Build and download the dataset on process 0
+    if accelerator.is_main_process:
+        make_dataset(config)
+
+    accelerator.wait_for_everyone()
+
+    train_dataset, valid_dataset = make_dataset(config)    
 
     model = Qwen2VLForConditionalGeneration.from_pretrained(
         config.model.name_or_path, torch_dtype=torch.bfloat16,
@@ -131,30 +141,6 @@ def run_train(config: TrainConfig):
         )
         model = get_peft_model(model=model, peft_config=peft_config)
         log_trainable_parameters(model=model, logger=logger)
-
-    random.seed(config.train_data.seed)
-
-    # Training sets get all concatenated and shuffled
-    train_dataset = (
-        concatenate_datasets(
-            [
-                build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
-                for source in config.train_data.sources
-            ]
-        )
-        .filter(partial(filter_by_max_seq_len, processor=processor))
-        .with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
-    )
-
-    # Validation sets get put into a datasetdict so each can report a loss separately
-    valid_dataset = DatasetDict(
-        **{
-            source.name: build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
-            .filter(partial(filter_by_max_seq_len, processor=processor))
-            .with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
-            for source in config.valid_data.sources
-        }
-    )
 
     save_path = join_path("", config.save.path, run_name.run)
 
