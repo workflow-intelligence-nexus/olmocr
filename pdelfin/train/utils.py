@@ -59,7 +59,7 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
                 for source in config.train_data.sources
             ]
         )
-        .filter(partial(filter_by_max_seq_len, processor=processor))
+        .filter(partial(filter_by_max_seq_len, processor=processor), num_proc=multiprocessing.cpu_count())
         .with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
     )
 
