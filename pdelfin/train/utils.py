@@ -14,6 +14,7 @@ from functools import partial
 
 import torch
 import torch.nn.functional as F
+from transformers import AutoProcessor
 from accelerate import Accelerator
 from accelerate.utils import PrecisionType
 from datasets import Dataset, concatenate_datasets, DatasetDict
@@ -41,7 +42,7 @@ def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
         return torch.float8_e4m3fn
     return torch.float32
 
-def make_dataset(config: TrainConfig) -> tuple[Dataset, Dataset]:
+def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset, Dataset]:
     random.seed(config.train_data.seed)
 
     # Training sets get all concatenated and shuffled

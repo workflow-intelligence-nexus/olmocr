@@ -116,9 +116,11 @@ def run_train(config: TrainConfig):
     setup_environment(aws_config=config.aws, wandb_config=config.wandb, WANDB_RUN_GROUP=run_name.group)
     accelerator = accelerate.Accelerator()
 
+    processor = AutoProcessor.from_pretrained(config.model.name_or_path)
+
     # Build and download the dataset on process 0
     if accelerator.is_main_process:
-        make_dataset(config)
+        make_dataset(config, processor)
 
     accelerator.wait_for_everyone()
 
@@ -128,8 +130,7 @@ def run_train(config: TrainConfig):
         config.model.name_or_path, torch_dtype=torch.bfloat16,
         _attn_implementation="flash_attention_2" if config.model.use_flash_attn else None
     )
-    processor = AutoProcessor.from_pretrained(config.model.name_or_path)
-
+ 
     if config.lora is not None:
         peft_config = LoraConfig(
             r=config.lora.rank,
