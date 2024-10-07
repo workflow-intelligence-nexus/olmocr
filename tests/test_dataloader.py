@@ -9,7 +9,7 @@ from pdelfin.train.dataloader import (
     build_batch_query_response_vision_dataset,
     extract_openai_batch_query,
     extract_openai_batch_response,
-    load_jsonl_from_s3,
+    load_jsonl_into_ds,
 )
 
 from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, prepare_data_for_qwen2_training
@@ -17,7 +17,7 @@ from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, prepar
 
 class TestBatchQueryResponseDataset(unittest.TestCase):
     def testLoadS3(self):
-        ds = load_jsonl_from_s3("s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl", first_n_files=3)
+        ds = load_jsonl_into_ds("s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl", first_n_files=3)
 
         print(f"Loaded {len(ds)} entries")
         print(ds)
@@ -27,6 +27,20 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         ds = build_batch_query_response_vision_dataset(
             query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl",
             response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json",
+        )
+
+        print(ds)
+
+        processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
+        from pdelfin.train.dataprep import filter_by_max_seq_len
+        ds = ds.filter(partial(filter_by_max_seq_len, processor=processor, max_prompt_len=1000))
+
+        print(ds[0])
+
+    def testLocalDS(self):
+        ds = build_batch_query_response_vision_dataset(
+            query_glob_path="/root/openai_batch_data_v5_1_train/*.jsonl",
+            response_glob_path="/root/openai_batch_data_v5_1_train_done/*.json",
         )
 
         print(ds)
@@ -83,7 +97,7 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         fig.write_image("sequence_lengths_histogram.png")
 
     def testExtractBatch(self):
-        query_data = load_jsonl_from_s3("s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl", first_n_files=3)
+        query_data = load_jsonl_into_ds("s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl", first_n_files=3)
         query_data = query_data["train"]
         query_data = query_data.map(extract_openai_batch_query, remove_columns=query_data.column_names)
 
@@ -91,7 +105,7 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         print(query_data[0]["custom_id"], query_data[0]["input_prompt_text"])
 
     def testExtractResponse(self):
-        response_data = load_jsonl_from_s3("s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json", first_n_files=3)
+        response_data = load_jsonl_into_ds("s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json", first_n_files=3)
         response_data = response_data["train"]
 
         response_data = response_data.map(extract_openai_batch_response, remove_columns=response_data.column_names)

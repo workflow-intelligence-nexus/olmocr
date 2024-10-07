@@ -48,7 +48,7 @@ from .utils import (
 )
 
 
-from pdelfin.train.dataloader import load_jsonl_from_s3, extract_openai_batch_query
+from pdelfin.train.dataloader import load_jsonl_into_ds, extract_openai_batch_query
 from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_inference
 
 
@@ -65,7 +65,7 @@ def run_inference(model_name: str, query_dataset_path: str):
     model.eval()
     processor = AutoProcessor.from_pretrained(model_name)
 
-    query_data = load_jsonl_from_s3(query_dataset_path)
+    query_data = load_jsonl_into_ds(query_dataset_path)
 
     # Map the datasets down to the core fields that we're going to need to make them easier to process
     logger.info("Mapping query data")
