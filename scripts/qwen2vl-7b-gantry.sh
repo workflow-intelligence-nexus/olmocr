@@ -19,7 +19,7 @@ run_name=$(basename "$0" .sh)
 # --cluster 'ai2/allennlp-cirrascale' \
 # --priority high \
 
-CLUSTER='pluto'
+CLUSTER='jupiter'
 
 gantry run \
     --description "${run_name}"\
@@ -35,6 +35,7 @@ gantry run \
     --preemptible \
     --cluster "ai2/${CLUSTER}*" \
     --budget ai2/oe-data \
+    --weka "oe-data-default:/data" \
     --env LOG_FILTER_TYPE=local_rank0_only \
     --env OMP_NUM_THREADS=8 \
     --env BEAKER_USER_ID=$(beaker account whoami --format json | jq '.[0].name' -cr) \
