@@ -240,9 +240,6 @@ def build_batch_query_response_vision_dataset(query_glob_path: str, response_glo
 
     final_dataset = final_dataset.filter(pick_image_sizes, num_proc=num_proc)
 
-    # Limit the size of the input text not to explode the context size
-    final_dataset = final_dataset.filter(lambda x: len(x["raw_page_text"]) < 4000, num_proc=num_proc)
-
     return final_dataset
 
 

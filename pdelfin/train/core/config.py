@@ -75,8 +75,9 @@ class AwsConfig:
 @dataclass
 class SourceConfig:
     name: str = field(help="The name of the source")
-    query_glob_path: str = field(help="The s3 bucket pointing to the inputs sent to OpenAI to generate the silver data")
-    response_glob_path: str = field(help="The s3 bucket pointing to the batch api response json's sent back from open ai")
+    parquet_path: Optional[str] = field(help="The s3/glob path to a bunch of parquet files for a preprocessed dataset.", default=None)
+    query_glob_path: Optional[str] = field(help="The s3 bucket pointing to the inputs sent to OpenAI to generate the silver data", default=None)
+    response_glob_path: Optional[str] = field(help="The s3 bucket pointing to the batch api response json's sent back from open ai", default=None)
 
 
 @dataclass
