@@ -1,10 +1,12 @@
 import unittest
 import os
 import json
+import io
 
 from pypdf import PdfReader
 
 from pdelfin.prompts.anchor import _pdf_report, _linearize_pdf_report, get_anchor_text
+
 
 class AnchorTest(unittest.TestCase):
     def testExtractText(self):
@@ -47,6 +49,24 @@ class AnchorTest(unittest.TestCase):
         print(report)
 
         print(get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport"))
+
+    def testBadUTFSurrogatePairsGeneration(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "badlines.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 4, pdf_engine="pdfreport")
+
+        jsondata = json.dumps({
+            "text": anchor_text
+        })
+
+        import pyarrow as pa
+        import pyarrow.json as paj
+        import pyarrow.compute as pc
+
+        buffer = io.BytesIO(jsondata.encode('utf-8'))
+        paj.read_json(buffer, read_options=paj.ReadOptions(use_threads=False, block_size=len(jsondata)))
+
+
 
 class BuildSilverTest(unittest.TestCase):
     def testSmallPage(self):

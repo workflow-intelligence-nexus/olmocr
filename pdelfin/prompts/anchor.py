@@ -11,6 +11,7 @@
 import subprocess
 import sys
 import json
+import ftfy
 from dataclasses import dataclass
 from typing import Literal, List
 
@@ -163,6 +164,8 @@ def _linearize_pdf_report(report: PageReport) -> str:
             if len(element.text.strip()) == 0:
                 continue
 
-            result += f"[{element.x:.0f}x{element.y:.0f}]{element.text}"
+            # Need to use ftfy to fix text, because occasionally there are invalid surrogate pairs and other UTF issues that cause
+            # pyarrow to fail to load the json later
+            result += f"[{element.x:.0f}x{element.y:.0f}]{ftfy.fix_text(element.text)}"
 
     return result

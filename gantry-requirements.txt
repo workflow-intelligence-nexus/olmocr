@@ -33,3 +33,4 @@ omegaconf
 s3fs
 transformers>=4.45.1
 bitsandbytes
+ftfy
