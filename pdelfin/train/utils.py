@@ -44,7 +44,7 @@ def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
 
 def get_rawdataset_from_source(source) -> Dataset:
     if source.parquet_path is not None:
-        return load_dataset("parquet", data_files=list_dataset_files(source.parquet_path))
+        return load_dataset("parquet", data_files=list_dataset_files(source.parquet_path))["train"]
     else:
         return build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
 
