@@ -211,11 +211,11 @@ def build_batch_query_response_vision_dataset(query_glob_path: str, response_glo
     # Map the datasets down to the core fields that we're going to need to make them easier to process
     logger.info("Mapping query data")
     query_data = query_data["train"]
-    query_data = query_data.map(extract_openai_batch_query, remove_columns=query_data.column_names)
+    query_data = query_data.map(extract_openai_batch_query, remove_columns=query_data.column_names, num_proc=num_proc)
 
     logger.info("Mapping response data")
     response_data = response_data["train"]
-    response_data = response_data.map(extract_openai_batch_response, remove_columns=response_data.column_names)
+    response_data = response_data.map(extract_openai_batch_response, remove_columns=response_data.column_names, num_proc=num_proc)
 
     # What we're going to do, is build an in-memory map for the response data from custom_id to row
     # This will let us do quick lookups when we do a merge step, but it will not scale past a certain point
@@ -231,17 +231,17 @@ def build_batch_query_response_vision_dataset(query_glob_path: str, response_glo
     )
 
     # Don't include data where the model cut off due to a length issue, or moderation issue
-    final_dataset = final_dataset.filter(lambda x: x["finish_reason"] == "stop")
+    final_dataset = final_dataset.filter(lambda x: x["finish_reason"] == "stop", num_proc=num_proc)
 
     # Pick things that have a reasonable image size only
     def pick_image_sizes(x):
         width, height = get_png_dimensions_from_base64(x["input_prompt_image_base64"])
         return 1800 <= max(width, height) <= 2200
 
-    final_dataset = final_dataset.filter(pick_image_sizes)
+    final_dataset = final_dataset.filter(pick_image_sizes, num_proc=num_proc)
 
     # Limit the size of the input text not to explode the context size
-    final_dataset = final_dataset.filter(lambda x: len(x["raw_page_text"]) < 4000)
+    final_dataset = final_dataset.filter(lambda x: len(x["raw_page_text"]) < 4000, num_proc=num_proc)
 
     return final_dataset
 
