@@ -126,6 +126,9 @@ def load_gold_data(gold_data_path: str) -> dict:
     
     gold_jsonl_files = list_jsonl_files(gold_data_path)
 
+    gold_errors = 0
+    gold_overruns = 0
+
     for path in gold_jsonl_files:          
         # Load the JSON file
         with smart_open(path, 'r') as f:
@@ -133,9 +136,17 @@ def load_gold_data(gold_data_path: str) -> dict:
                 data = json.loads(line)
                 data = normalize_json_entry(data)
 
-                gold_data[data.goldkey] = data.text
+                if data.error is not None:
+                    gold_errors += 1
+                elif data.finish_reason != "stop":
+                    gold_overruns += 1
+                else:
+                    gold_data[data.goldkey] = data.text
 
     print(f"Loaded {len(gold_data):,} gold data entries for comparison")
+    print(f"Gold processing errors: {gold_errors}")
+    print(f"Gold overrun errors: {gold_overruns}")
+    print("-----------------------------------------------------------")
 
     return gold_data
 
@@ -173,6 +184,8 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
     char_weighted_alignment_score = 0
     total_pages = 0
     total_chars = 0
+    total_errors = 0
+    total_overruns = 0
 
     with smart_open(jsonl_file, 'r') as f:
         for line in f:
@@ -189,12 +202,16 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
             gold_text = gold_text or ""
             eval_text = eval_text or ""
 
-            # If the eval text or gold text is empty, we skip this page and don't use it for comparison
-            # It means that something was an OCR page, and the text-based pipeline just won't be able to handle that
-            # if len(eval_text.strip()) < 10 or len(gold_text.strip()) < 10:
-            #     continue
+            if data.error is not None:
+                total_errors += 1
+            
+            if data.finish_reason != "stop":
+                total_overruns += 1
 
-            alignment = comparer.compute(gold_text, eval_text)
+            if len(gold_text.strip()) < 3 and len(eval_text.strip()) < 3:
+                alignment = 1.0
+            else:
+                alignment = comparer.compute(gold_text, eval_text)
 
             page_data[data.goldkey] = {
                 "s3_path": data.s3_path,
@@ -209,13 +226,17 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
             total_chars += len(gold_text)
             total_pages += 1
 
-    return total_alignment_score, char_weighted_alignment_score, total_chars, total_pages, page_data
+    return total_alignment_score, char_weighted_alignment_score, total_chars, total_pages, total_errors, total_overruns, page_data
 
 def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, review_page_size: int) -> tuple[float, list[dict]]:
     gold_data = load_gold_data(gold_data_path)
     
     total_alignment_score = 0
+    total_char_alignment_score = 0
     total_weight = 0
+    total_pages = 0
+    total_errors = 0
+    total_overruns = 0
     total_pages_compared = set()
     
     page_eval_data = []
@@ -240,11 +261,15 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, rev
 
         # Process each future as it completes
         for future in tqdm(as_completed(futures), total=len(jsonl_files)):
-            alignment_score, char_weighted_score, chars, pages, page_data = future.result()  # Get the result of the completed task
+            alignment_score, char_weighted_score, chars, pages, errors, overruns, page_data = future.result()  # Get the result of the completed task
             
             # Aggregate statistics
-            total_alignment_score += char_weighted_score
+            total_alignment_score += alignment_score
+            total_char_alignment_score += char_weighted_score
             total_weight += chars
+            total_pages += pages
+            total_errors += errors
+            total_overruns += overruns
             total_pages_compared |= page_data.keys()
 
             # Generate the eval data
@@ -258,8 +283,9 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, rev
                 page_eval_data.append(pd)
 
     print(f"Compared {len(total_pages_compared):,} pages")
-    print(f"Total corpus alignment: {total_alignment_score:.2f}")
-    print(f"Mean alignment: {total_alignment_score / total_weight:.3f}")
+    print(f"Found {total_errors} errors in the eval set, and {total_overruns} cases of length overruns")
+    print(f"Mean page-weighted alignment: {total_alignment_score / total_pages:.3f}")
+    print(f"Mean char-weighted alignment: {total_char_alignment_score / total_weight:.3f}")
     print("")
     print("...creating review page")
 
