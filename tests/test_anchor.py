@@ -66,6 +66,31 @@ class AnchorTest(unittest.TestCase):
         buffer = io.BytesIO(jsondata.encode('utf-8'))
         paj.read_json(buffer, read_options=paj.ReadOptions(use_threads=False, block_size=len(jsondata)))
 
+    def testLargePromptHint1(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "large_prompt_hint1.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 4, pdf_engine="pdfreport")
+
+        print(anchor_text)
+        print(len(anchor_text))
+
+    def testLargePromptHint2(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "large_prompt_hint2.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 2, pdf_engine="pdfreport")
+
+        print(anchor_text)
+        print(len(anchor_text))
+
+    def testNewsPaperPromptHint(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "newspaper.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport")
+
+        print(anchor_text)
+        print(len(anchor_text))
+
+
 
 
 class BuildSilverTest(unittest.TestCase):
