@@ -52,7 +52,7 @@ hparams:
   batch_size: 1
   eval_batch_size: 1
   gradient_accumulation_steps: 4
-  gradient_checkpointing: false
+  gradient_checkpointing: true
   clip_grad_norm: 1.0
   learning_rate: 3e-4
   max_steps: 9000
