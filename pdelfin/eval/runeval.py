@@ -205,7 +205,7 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
             if data.error is not None:
                 total_errors += 1
             
-            if data.finish_reason != "stop":
+            if data.error is None and data.finish_reason != "stop":
                 total_overruns += 1
 
             if len(gold_text.strip()) < 3 and len(eval_text.strip()) < 3:
