@@ -1,8 +1,8 @@
 import json
 import logging
-import multiprocessing
+import tempfile
 import re
-import random
+import os
 import base64
 import glob
 
@@ -13,6 +13,8 @@ from logging import Logger
 import boto3
 from datasets import Dataset, Features, Value, load_dataset, concatenate_datasets, DatasetDict
 from .core.config import DataConfig, SourceConfig
+
+from pdelfin.prompts.anchor import get_anchor_text
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -124,6 +126,8 @@ def get_png_dimensions_from_base64(base64_data) -> tuple[int, int]:
     return width, height
 
 
+
+
 def extract_openai_batch_query(query: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extracts necessary fields from a query entry passed to openai's batch API for vision LMs
@@ -153,19 +157,42 @@ def extract_openai_batch_query(query: Dict[str, Any]) -> Dict[str, Any]:
                     except IndexError:
                         input_prompt_image_base64 = ""
 
-    # At this point, the input_prompt_text is the raw text that was passed to the OpenAI model
-    # to generate our silver data. But, we want to have a simplfied prompt for this here fine tune,
-    # so we're going to extract out just the raw extracted prompt text
-    pattern = r"RAW_TEXT_START\s*\n(.*?)\nRAW_TEXT_END"
+    # This code builds the finetuning prompt from the original openai prompt by extracting the "pdf_report hint anchor text" from that
+    # and reusing it
+    # # At this point, the input_prompt_text is the raw text that was passed to the OpenAI model
+    # # to generate our silver data. But, we want to have a simplfied prompt for this here fine tune,
+    # # so we're going to extract out just the raw extracted prompt text
+    # pattern = r"RAW_TEXT_START\s*\n(.*?)\nRAW_TEXT_END"
 
-    # Use re.DOTALL to ensure that the dot matches newline characters
-    match = re.search(pattern, input_prompt_text, re.DOTALL)
+    # # Use re.DOTALL to ensure that the dot matches newline characters
+    # match = re.search(pattern, input_prompt_text, re.DOTALL)
 
-    if match:
-        raw_page_text = match.group(1).strip()
-    else:
-        raw_page_text = ""
+    # if match:
+    #     raw_page_text = match.group(1).strip()
+    # else:
+    #     raw_page_text = ""
 
+
+    # This code builds the finetuning prompt by redownloading the PDF and extracting it's report one more time
+    s3_path = custom_id[:custom_id.rindex("-")]
+    page_num = int(custom_id[custom_id.rindex("-") + 1:])
+
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id=os.getenv('DS_AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('DS_AWS_SECRET_ACCESS_KEY')
+    )
+
+    # Split the s3_path into bucket and key
+    bucket_name = s3_path.split('s3://')[1].split('/')[0]
+    s3_key = '/'.join(s3_path.split('s3://')[1].split('/')[1:])
+
+
+    with tempfile.NamedTemporaryFile(delete=False) as tf:
+        s3_client.download_fileobj(bucket_name, s3_key, tf)
+
+    raw_page_text = get_anchor_text(tf.name, page_num, pdf_engine="pdfreport")
+        
     return {
         "custom_id": custom_id,
         "input_prompt_text": input_prompt_text,

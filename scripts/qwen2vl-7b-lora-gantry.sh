@@ -41,6 +41,8 @@ gantry run \
     --env BEAKER_USER_ID=$(beaker account whoami --format json | jq '.[0].name' -cr) \
     --env-secret AWS_ACCESS_KEY_ID=S2_AWS_ACCESS_KEY_ID \
     --env-secret AWS_SECRET_ACCESS_KEY=S2_AWS_SECRET_ACCESS_KEY \
+    --env-secret DS_AWS_ACCESS_KEY_ID=S2_AWS_ACCESS_KEY_ID \
+    --env-secret DS_AWS_SECRET_ACCESS_KEY=S2_AWS_SECRET_ACCESS_KEY \
     --env-secret WANDB_API_KEY=JAKE_WANDB_API_KEY \
     --shared-memory 10GiB \
     --yes \

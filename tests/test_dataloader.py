@@ -9,7 +9,8 @@ from pdelfin.train.dataloader import (
     build_batch_query_response_vision_dataset,
     extract_openai_batch_query,
     extract_openai_batch_response,
-    load_jsonl_into_ds
+    load_jsonl_into_ds,
+    list_dataset_files
 )
 
 from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, prepare_data_for_qwen2_training
@@ -25,8 +26,8 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
 
     def testCombinedQueryResponse(self):
         ds = build_batch_query_response_vision_dataset(
-            query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_train/*.jsonl",
-            response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_train/*.json",
+            query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl",
+            response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json",
         )
 
         print(ds)
@@ -115,16 +116,25 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         print(response_data)
         print(response_data[0])
 
-    def testIterableDataset(self):
-        dataset = build_batch_query_response_vision_dataset(
-            query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl",
-            response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2/*.json",
-        )
-        processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
+    def testPyArrowDirectJson(self):
+        query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_train/*.jsonl"
+        response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_train/*.json"
+        
+        all_files = list_dataset_files(query_glob_path)
 
-        formatted_dataset = dataset.to_iterable_dataset(num_shards=64)
-        formatted_dataset = formatted_dataset.map(partial(prepare_data_for_qwen2_training, processor=processor, add_batch_dim=True), remove_columns=formatted_dataset.column_names).filter(lambda x: x["input_ids"].shape[0] < 4500)
+        import pyarrow as pa
+        import pyarrow.json as paj
+        import pyarrow.compute as pc
+        import pyarrow.fs as fs
+        
+        s3 = fs.S3FileSystem()
+        
+        block_size = 200 * 1024**2
 
-        for entry in formatted_dataset:
-            print(entry)
-            break
+        for file in all_files:
+            with s3.open_input_stream(file.replace("s3://", "")) as f:
+                table = paj.read_json(f, read_options=paj.ReadOptions(use_threads=False, block_size=block_size))
+
+                print(f"file {file} rows {table.num_rows}")
+                print(table.schema)
+
