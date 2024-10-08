@@ -73,6 +73,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
+        self.assertLess(len(anchor_text), 1000)
 
     def testLargePromptHint2(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "large_prompt_hint2.pdf")
@@ -81,6 +82,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
+        self.assertLess(len(anchor_text), 4000)
 
     def testNewsPaperPromptHint(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "newspaper.pdf")
@@ -89,6 +91,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
+        self.assertLess(len(anchor_text), 4000)
 
 
 

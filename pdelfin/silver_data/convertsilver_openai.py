@@ -185,10 +185,10 @@ def main():
         description="Transform JSONL files by extracting and renaming specific fields."
     )
     parser.add_argument(
-        '--rewrite_finetuning_prompt',
+        '--rewrite_prompt',
         action='store_true',
         default=False,
-        help="Rewrites the input prompt from standard OPENAI instruction format into our finetuned format"
+        help="Rewrites the input prompt by reloading the pdf from source"
     )
     parser.add_argument(
         'input_dir',
@@ -233,7 +233,7 @@ def main():
     # Process files in parallel
     with ProcessPoolExecutor(max_workers=max_jobs) as executor:
         future_to_file = {
-            executor.submit(process_file, input_file, output_file, args.rewrite_finetuning_prompt): input_file
+            executor.submit(process_file, input_file, output_file, args.rewrite_prompt): input_file
             for input_file, output_file in tasks
         }
 
