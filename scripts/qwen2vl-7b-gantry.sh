@@ -41,7 +41,7 @@ gantry run \
     --env BEAKER_USER_ID=$(beaker account whoami --format json | jq '.[0].name' -cr) \
     --env-secret AWS_ACCESS_KEY_ID=S2_AWS_ACCESS_KEY_ID \
     --env-secret AWS_SECRET_ACCESS_KEY=S2_AWS_SECRET_ACCESS_KEY \
-    --env-secret WANDB_API_KEY=WANDB_API_KEY \
+    --env-secret WANDB_API_KEY=JAKE_WANDB_API_KEY \
     --shared-memory 10GiB \
     --yes \
     -- /bin/bash -c "source scripts/beaker/${CLUSTER}-ib.sh && accelerate launch --use_fsdp --num_processes \${BEAKER_ASSIGNED_GPU_COUNT} --fsdp_offload_params false --fsdp_sharding_strategy FULL_SHARD --fsdp_auto_wrap_policy TRANSFORMER_BASED_WRAP --mixed_precision bf16 -m pdelfin.train.train ${EXTRA_ARGS}"
