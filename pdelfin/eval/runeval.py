@@ -208,9 +208,11 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
 
             if data.error is not None:
                 total_errors += 1
+                eval_text = f"[Error processing this page: {data.error}]"
             
             if data.error is None and data.finish_reason != "stop":
                 total_overruns += 1
+                eval_text += f"\n[Error processing this page: overrun {data.finish_reason}]"
 
             if len(gold_text.strip()) < 3 and len(eval_text.strip()) < 3:
                 alignment = 1.0

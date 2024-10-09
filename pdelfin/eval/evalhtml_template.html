@@ -41,6 +41,7 @@
             flex-direction: column;
             justify-content: space-between;
             cursor: pointer;
+            position: relative;
         }
         .text-block:hover {
             background-color: #e0e0e0;
@@ -159,6 +160,25 @@
         .voting-buttons button.selected {
             border: 3px solid #000;
         }
+        /* for diffs */
+        .added {
+            background-color: #d4fcdc;
+        }
+        .removed {
+            background-color: #fcd4d4;
+            text-decoration: line-through;
+        }
+
+        /* Diff Toggle Styles */
+        body.diffed .right-text {
+            display: none;
+        }
+        body.diffed .diff-text {
+            display: block;
+        }
+        .diff-text {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -166,8 +186,15 @@
 
     <!-- Floating Reveal Box -->
     <div class="reveal-box">
-        <input type="checkbox" id="reveal-toggle" />
-        <label for="reveal-toggle">Reveal Gold/Eval</label>
+        <div>
+            <input type="checkbox" id="diff-toggle" />
+            <label for="diff-toggle">Toggle diff</label>
+        </div>
+
+        <div>
+            <input type="checkbox" id="reveal-toggle" />
+            <label for="reveal-toggle">Reveal Gold/Eval</label>
+        </div>
         <div class="reveal-info" id="vote-info">Votes</div>
     </div>
 
@@ -177,7 +204,7 @@
             <div class="image-container">
                 <img src="data:image/png;base64,{{ entry.page_image }}" alt="Render">
 
-                <div class="alignment">Alignment: {{ entry.left_alignment }}</div>
+                <div class="alignment">Alignment: {{ entry.alignment }}</div>
                 <a href="{{entry.signed_pdf_link}}#page={{ entry.page }}" target="_blank">{{ entry.s3_path }} (Page {{ entry.page }})</a>
                 
                 <!-- Voting Buttons -->
@@ -190,8 +217,10 @@
             <div class="text-block {{ entry.left_class }}" data-choice="left">
                 <div>{{ entry.left_text|safe }}</div>
             </div>
+            <!-- Updated Right Text-Block with separate divs for right_text and diff_text -->
             <div class="text-block {{ entry.right_class }}" data-choice="right">
-                <div>{{ entry.right_text|safe }}</div>
+                <div class="right-text">{{ entry.right_text|safe }}</div>
+                <div class="diff-text">{{ entry.diff_text|safe }}</div>
             </div>
         </div>
         {% endfor %}
@@ -221,9 +250,16 @@
                 overlay.classList.remove('active');
             });
 
+            // Handle Reveal Gold/Eval Toggle
             document.getElementById('reveal-toggle').addEventListener('change', (e) => {
                 document.body.classList.toggle('revealed', e.target.checked);
                 updateReveal();
+            });
+
+            // Handle Diff Toggle
+            document.getElementById('diff-toggle').addEventListener('change', (e) => {
+                document.body.classList.toggle('diffed', e.target.checked);
+                toggleDiff(e.target.checked);
             });
 
             // Handle text-block selections
@@ -263,7 +299,9 @@
                 }
             });
 
-            updateVoteInfo(datastore);
+            // Ensure diff state is consistent on load
+            const diffToggle = document.getElementById('diff-toggle');
+            toggleDiff(diffToggle.checked);
         }
 
         async function selectChoice(block, save = true) {
@@ -390,6 +428,15 @@
                 }
                 // Additional votes already handled in handleAdditionalVote
             });
+        }
+
+        // Function to toggle diff text
+        function toggleDiff(isDiffed) {
+            if (isDiffed) {
+                document.body.classList.add('diffed');
+            } else {
+                document.body.classList.remove('diffed');
+            }
         }
 
     </script>

@@ -26,7 +26,8 @@ dependencies = [
   "pypdfium2",
   "lingua-language-detector",
   "Pillow",
-  "ftfy"
+  "ftfy",
+  "bleach"
 ]
 license = {file = "LICENSE"}
 
