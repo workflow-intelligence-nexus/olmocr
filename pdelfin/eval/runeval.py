@@ -101,6 +101,8 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
             finish_reason=finish_reason,
             error=data.get("completion_error", None)
         )
+    elif all(field in data for field in ["s3_path", "pagenum", "text", "error", "finish_reason"]):
+        return NormalizedEntry(**data)
     else:
         # OpenAI case
         try:

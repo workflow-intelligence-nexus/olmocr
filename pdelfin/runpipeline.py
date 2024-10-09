@@ -177,19 +177,19 @@ def main():
 
     # Load PDF paths from positional arguments or path_list
     if args.pdf_paths:
-        if len(args.pdf_paths) == 1 and is_glob_pattern(args.pdf_paths[0]):
-            glob_path = args.pdf_paths[0]
-            if glob_path.startswith("s3://"):
-                # Handle S3 globbing
-                expanded_paths = expand_s3_glob(glob_path)
-                pdf_paths.extend(expanded_paths)
+        for path in args.pdf_paths:
+            if is_glob_pattern(path):
+                glob_path = path
+                if glob_path.startswith("s3://"):
+                    # Handle S3 globbing
+                    expanded_paths = expand_s3_glob(glob_path)
+                    pdf_paths.extend(expanded_paths)
+                else:
+                    # Handle local filesystem globbing
+                    expanded_paths = glob.glob(glob_path, recursive=True)
+                    pdf_paths.extend(expanded_paths)
             else:
-                # Handle local filesystem globbing
-                expanded_paths = glob.glob(glob_path, recursive=True)
-                pdf_paths.extend(expanded_paths)
-        else:
-            # Treat positional arguments as list of PDF paths
-            pdf_paths.extend(args.pdf_paths)
+                pdf_paths.append(path)
 
     if args.path_list:
         with open(args.path_list, 'r') as f:

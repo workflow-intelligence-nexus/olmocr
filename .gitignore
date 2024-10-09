@@ -1,8 +1,10 @@
 # ml stuff
 wandb/
 *histogram.png
+*.json
 
 /*.html
+
 
 # build artifacts
 

@@ -14,12 +14,8 @@ from pypdf import PdfReader
 from cached_path import cached_path
 from smart_open import smart_open
 
-from dataclasses import dataclass
-
-# Import your existing modules if necessary
-# from dolma_refine.evaluate.metrics import DocumentEditSimilarity
-# from dolma_refine.evaluate.segmenters import SpacySegmenter
-# from dolma_refine.evaluate.aligners import HirschbergAligner
+from pdelfin.prompts.anchor import get_anchor_text
+from dataclasses import dataclass, asdict
 
 @dataclass(frozen=True)
 class NormalizedEntry:
@@ -56,7 +52,7 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
                 text = parsed_content["natural_text"]
         except json.JSONDecodeError:
             pass
-        
+
         return NormalizedEntry.from_goldkey(
             goldkey=data["custom_id"],
             text=text,
@@ -82,10 +78,10 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
             )
 
 def parse_s3_path(s3_path):
-    if not s3_path.startswith('s3://'):
-        raise ValueError('Invalid S3 path')
+    if not s3_path.startswith("s3://"):
+        raise ValueError("Invalid S3 path")
     s3_path = s3_path[5:]
-    bucket_name, _, key = s3_path.partition('/')
+    bucket_name, _, key = s3_path.partition("/")
     return bucket_name, key
 
 def process_document(s3_path, entries, output_dir):
@@ -104,10 +100,11 @@ def process_document(s3_path, entries, output_dir):
     except Exception as e:
         logging.error(f"Error downloading or reading PDF {s3_path}: {e}")
         return {
-            'processed': 1,
-            'successful_documents': 0,
-            'successful_pages': 0,
-            'total_pages': 0
+            "processed": 1,
+            "successful_documents": 0,
+            "successful_pages": 0,
+            "total_pages": 0,
+            "errored_entries": []
         }
 
     # Build mapping from pagenum to entry
@@ -122,7 +119,7 @@ def process_document(s3_path, entries, output_dir):
         entry = entry_by_pagenum.get(page_num)
         if entry is None:
             missing_pages.append(page_num)
-        elif entry.error is not None or entry.finish_reason != 'stop':
+        elif entry.error is not None or entry.finish_reason != "stop":
             errors.append(entry)
         else:
             valid_entries.append(entry)
@@ -130,72 +127,77 @@ def process_document(s3_path, entries, output_dir):
     if not missing_pages and not errors:
         # Assemble text
         valid_entries_sorted = sorted(valid_entries, key=lambda x: x.pagenum)
-        text = '\n'.join(entry.text for entry in valid_entries_sorted if entry.text)
+        text = "\n".join(entry.text for entry in valid_entries_sorted if entry.text)
 
         # Generate a filename based on the s3_path
-        doc_hash = hashlib.md5(s3_path.encode('utf-8')).hexdigest()
-        output_filename = os.path.join(output_dir, f'{doc_hash}.json')
+        doc_hash = hashlib.md5(s3_path.encode("utf-8")).hexdigest()
+        output_filename = os.path.join(output_dir, f"{doc_hash}.json")
 
         output_data = {
-            'source': s3_path,
-            'total_pages': total_pages_in_pdf,
-            'text': text
+            "source": s3_path,
+            "total_pages": total_pages_in_pdf,
+            "text": text
         }
 
         try:
-            with open(output_filename, 'w') as f_out:
+            with open(output_filename, "w") as f_out:
                 json.dump(output_data, f_out)
             return {
-                'processed': 1,
-                'successful_documents': 1,
-                'successful_pages': len(valid_entries),
-                'total_pages': total_pages_in_pdf
+                "processed": 1,
+                "successful_documents": 1,
+                "successful_pages": len(valid_entries),
+                "total_pages": total_pages_in_pdf,
+                "errored_entries": []
             }
         except Exception as e:
             logging.error(f"Error writing output file {output_filename}: {e}")
             return {
-                'processed': 1,
-                'successful_documents': 0,
-                'successful_pages': 0,
-                'total_pages': total_pages_in_pdf
+                "processed": 1,
+                "successful_documents": 0,
+                "successful_pages": 0,
+                "total_pages": total_pages_in_pdf,
+                "errored_entries": []
             }
     else:
         missing = [page for page in missing_pages]
         error_pages = [e.pagenum for e in errors]
-        logging.info(f'Document {s3_path} has missing pages: {missing} or errors in pages: {error_pages}')
+        logging.info(f"Document {s3_path} has missing pages: {missing} or errors in pages: {error_pages}")
+        # Collect the errored entries
+        errored_entries = [asdict(entry) for entry in errors]
         return {
-            'processed': 1,
-            'successful_documents': 0,
-            'successful_pages': len(valid_entries),
-            'total_pages': total_pages_in_pdf
+            "processed": 1,
+            "successful_documents": 0,
+            "successful_pages": len(valid_entries),
+            "total_pages": total_pages_in_pdf,
+            "errored_entries": errored_entries
         }
 
 def main():
-    parser = argparse.ArgumentParser(description='Process finished birr inference outputs into dolma docs')
-    parser.add_argument('s3_path', help='S3 path to the directory containing JSON or JSONL files')
-    parser.add_argument('--output_dir', default='output', help='Directory to save the output files')
-    parser.add_argument('--max_workers', type=int, default=8, help='Maximum number of worker threads')
+    parser = argparse.ArgumentParser(description="Process finished birr inference outputs into dolma docs")
+    parser.add_argument("s3_path", help="S3 path to the directory containing JSON or JSONL files")
+    parser.add_argument("--output_dir", default="output", help="Directory to save the output files")
+    parser.add_argument("--max_workers", type=int, default=8, help="Maximum number of worker threads")
     args = parser.parse_args()
 
     # Set up logging
-    logging.basicConfig(filename='processing.log', level=logging.INFO, format='%(asctime)s %(message)s')
+    logging.basicConfig(filename="processing.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Initialize S3 client
-    s3 = boto3.client('s3')
+    s3 = boto3.client("s3")
     bucket_name, prefix = parse_s3_path(args.s3_path)
 
     # List all .json and .jsonl files in the specified S3 path
-    paginator = s3.get_paginator('list_objects_v2')
+    paginator = s3.get_paginator("list_objects_v2")
     page_iterator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
 
     files = []
     for page in page_iterator:
-        if 'Contents' in page:
-            for obj in page['Contents']:
-                key = obj['Key']
-                if key.endswith('.json') or key.endswith('.jsonl'):
+        if "Contents" in page:
+            for obj in page["Contents"]:
+                key = obj["Key"]
+                if key.endswith(".json") or key.endswith(".jsonl"):
                     files.append(key)
 
     # Build documents mapping
@@ -203,9 +205,9 @@ def main():
 
     print("Processing JSON files and building documents mapping...")
     for key in tqdm(files):
-        file_s3_path = f's3://{bucket_name}/{key}'
+        file_s3_path = f"s3://{bucket_name}/{key}"
         try:
-            with smart_open(file_s3_path, 'r') as f:
+            with smart_open(file_s3_path, "r") as f:
                 for line in f:
                     data = json.loads(line)
                     entry = normalize_json_entry(data)
@@ -217,6 +219,7 @@ def main():
     successful_documents = 0
     total_pages = 0
     successful_pages = 0
+    all_errored_entries = []
 
     print("Processing documents with ThreadPoolExecutor...")
     with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
@@ -234,17 +237,40 @@ def main():
         for future in tqdm(as_completed(future_to_s3), total=len(future_to_s3)):
             try:
                 result = future.result()
-                successful_documents += result.get('successful_documents', 0)
-                successful_pages += result.get('successful_pages', 0)
-                total_pages += result.get('total_pages', 0)
+                successful_documents += result.get("successful_documents", 0)
+                successful_pages += result.get("successful_pages", 0)
+                total_pages += result.get("total_pages", 0)
+                all_errored_entries.extend(result.get("errored_entries", []))
             except Exception as e:
                 s3_path = future_to_s3[future]
                 logging.error(f"Error processing document {s3_path}: {e}")
 
-    print(f'Total documents: {total_documents}')
-    print(f'Successful documents: {successful_documents}')
-    print(f'Total pages: {total_pages}')
-    print(f'Successful pages: {successful_pages}')
+    # Write errored entries to a new JSONL file
+    os.makedirs(os.path.join(args.output_dir, "cleanups"), exist_ok=True)
+    os.makedirs(os.path.join(args.output_dir, "errors"), exist_ok=True)
+    error_output_file = os.path.join(args.output_dir, "errors", "errored_pages.jsonl")
 
-if __name__ == '__main__':
+    with open(error_output_file, "w") as f_err:
+        for entry in all_errored_entries:
+            json.dump(entry, f_err)
+            f_err.write("\n")
+
+    clean_output_file = os.path.join(args.output_dir, "cleanups", "cleanup_pages.jsonl")
+
+    with open(clean_output_file, "w") as f_err:
+        for entry in all_errored_entries:
+            local_path = cached_path(entry["s3_path"])
+            entry["text"] = get_anchor_text(local_path, entry["pagenum"], pdf_engine="pdftotext")
+            entry["error"] = None
+            entry["finish_reason"] = "stop"
+            json.dump(entry, f_err)
+            f_err.write("\n")
+
+
+    print(f"Total documents: {total_documents}")
+    print(f"Successful documents: {successful_documents}")
+    print(f"Total pages: {total_pages}")
+    print(f"Successful pages: {successful_pages}")
+
+if __name__ == "__main__":
     main()
