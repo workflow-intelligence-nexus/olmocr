@@ -8,7 +8,7 @@ import os
 import logging
 
 import smart_open
-
+from cached_path import cached_path
 from pdelfin.prompts import build_finetuning_prompt
 
 
@@ -71,13 +71,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                         page = int(goldkey[goldkey.rindex("-") + 1:])
 
                         # Save the pdf to a temporary cache folder
-                        import os
-                        local_pdf_path = "/home/ubuntu/.cache/samplepdfs/" + os.path.basename(s3_path)
-
-                        if not os.path.exists(local_pdf_path):
-                            print("Loading pdf", s3_path)
-                            with smart_open.smart_open(s3_path, "rb") as fin, open(local_pdf_path, "wb") as fout:
-                                fout.write(fin.read())
+                        local_pdf_path = cached_path(s3_path, quiet=True)
 
                         from pdelfin.prompts.anchor import get_anchor_text
 

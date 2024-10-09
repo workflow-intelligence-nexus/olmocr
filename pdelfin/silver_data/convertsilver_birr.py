@@ -7,8 +7,9 @@ import sys
 import logging
 
 import smart_open
-
+from cached_path import cached_path
 from pdelfin.prompts import build_finetuning_prompt
+from pdelfin.prompts.anchor import get_anchor_text
 
 # Import Plotly for plotting
 import plotly.express as px
@@ -91,11 +92,26 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
 
                     if match:
                         raw_page_text = match.group(1).strip()
+
+                        # Ok, now we want to try to see if it's better if we recalculate the anchor text
+                        goldkey = obj["custom_id"]
+                        s3_path = goldkey[:goldkey.rindex("-")]
+                        page = int(goldkey[goldkey.rindex("-") + 1:])
+
+                        # Save the pdf to a temporary cache folder
+                        local_pdf_path = cached_path(s3_path, quiet=True)
+
+                        raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
                         transformed["chat_messages"][0]["content"][0]["text"] = build_finetuning_prompt(raw_page_text)
+
 
                 if transformed is not None:
                     prompt_text = transformed["chat_messages"][0]["content"][0]["text"]
                     prompt_length = len(prompt_text)
+
+                    if prompt_length > 6000:
+                        print(transformed["custom_id"], "length ", prompt_length)
+
                     prompt_lengths.append(prompt_length)
 
                     outfile.write(json.dumps(transformed) + '\n')
