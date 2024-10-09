@@ -84,6 +84,15 @@ class AnchorTest(unittest.TestCase):
         print(len(anchor_text))
         self.assertLess(len(anchor_text), 4000)
 
+    def testLargePromptHint3(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "large_prompt_hint3.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 2, pdf_engine="pdfreport")
+
+        print(anchor_text)
+        print(len(anchor_text))
+        self.assertLess(len(anchor_text), 4000)
+
     def testNewsPaperPromptHint(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "newspaper.pdf")
 

@@ -9,7 +9,7 @@
 
 # coherency score best of these three
 import subprocess
-import math
+import re
 import ftfy
 from dataclasses import dataclass
 from typing import Literal, List
@@ -219,10 +219,38 @@ def _merge_image_elements(images: List[ImageElement], tolerance: float=0.5) -> L
     # Return the merged images along with other elements
     return merged_images
 
+def _cap_split_string(text: str, max_length: int) -> str:
+    if len(text) <= max_length:
+        return text
+
+    head_length = max_length // 2 - 3
+    tail_length = head_length
+
+    head = text[:head_length].rsplit(' ', 1)[0] or text[:head_length]
+    tail = text[-tail_length:].split(' ', 1)[-1] or text[-tail_length:]
+
+    return f"{head} ... {tail}"
+
+def _cleanup_element_text(element_text: str) -> str:
+    MAX_TEXT_ELEMENT_LENGTH = 250
+    TEXT_REPLACEMENTS = {
+            "[": "\\[",
+            "]": "\\]",
+            "\n": "\\n",
+            "\r": "\\r",
+            "\t": "\\t"
+        }
+    text_replacement_pattern = re.compile("|".join(re.escape(key) for key in TEXT_REPLACEMENTS.keys()))
+    
+    element_text = ftfy.fix_text(element_text).strip()
+
+    # Replace square brackets with escaped brackets and other escaped chars
+    element_text = text_replacement_pattern.sub(lambda match: TEXT_REPLACEMENTS[match.group(0)], element_text)
+
+    return _cap_split_string(element_text, MAX_TEXT_ELEMENT_LENGTH)
 
 def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     result = ""
-
     result += f"Page dimensions: {report.mediabox.x1:.1f}x{report.mediabox.y1:.1f}\n"
 
     images = _merge_image_elements(report.image_elements)
@@ -230,7 +258,7 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     # Process image elements
     image_strings = []
     for element in images:
-        image_str = f"[Image {element.bbox.x0:.0f}x{element.bbox.y0:.0f} to {element.bbox.x1:.0f}x{element.bbox.y1:.0f}]"
+        image_str = f"[Image {element.bbox.x0:.0f}x{element.bbox.y0:.0f} to {element.bbox.x1:.0f}x{element.bbox.y1:.0f}]\n"
         # Use element's unique identifier (e.g., id or position) for comparison
         image_strings.append((element, image_str))
 
@@ -239,12 +267,9 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     for element in report.text_elements:
         if len(element.text.strip()) == 0:
             continue
-
-        element_text = ftfy.fix_text(element.text)
-        # Replace square brackets with escaped brackets
-        element_text = element_text.replace("[", "\\[").replace("]", "\\]")
-
-        text_str = f"[{element.x:.0f}x{element.y:.0f}]{element_text}"
+        
+        element_text = _cleanup_element_text(element.text)
+        text_str = f"[{element.x:.0f}x{element.y:.0f}]{element_text}\n"
         text_strings.append((element, text_str))
 
     # Combine all elements with their positions for sorting
