@@ -285,6 +285,8 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, rev
 
                 # if len(pd["gold_text"]) < 200 and len(pd["eval_text"]) < 200:
                 #     continue
+                if "[Error processing this page: overrun" not in pd["eval_text"]:
+                    continue
 
                 page_eval_data.append(pd)
 

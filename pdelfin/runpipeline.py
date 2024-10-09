@@ -1,8 +1,19 @@
+# The way this script works is it gets a list of pdfs to process
+# and an output/scratch folder location either locally or in s3 to work with
+# On the first run, with an empty output folder, it will queue up each page in each pdf to go into a VLM
+# Then, the user queues up that task in birr, and it outputs to a new subfolder in the same location
+# Then, you run your script again, and it will see that you have some valid output files
+# If so, then it will check those output files, and if it has a complete document, it will build a dolma doc for it, and that's considered done
+# For any remaining pages that got errored out, or failed due to stop_reason not being "stop" (ex. over length)
+# Then, it will queue up another set of tasks, hopefully much smaller, to send into batch inference again
+# This process will keep going, until you run it with the --fallback option, at which point it will
+# just use a basic text extraction on any remaining pages, and assemble the rest of the dolma docs
+#
+#
+#
 import os
 import glob
 import random
-import subprocess
-import base64
 import argparse
 import boto3
 import json
@@ -258,6 +269,7 @@ def main():
 
     # Print the number of PDFs that resulted in at least one output
     print(f"Number of sampled PDFs that produced at least one output: {pdfs_with_output}")
+    print(f"Now you should run these prompts through mise/birr")
 
 if __name__ == "__main__":
     main()
