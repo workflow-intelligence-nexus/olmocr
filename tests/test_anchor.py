@@ -109,7 +109,7 @@ class BuildSilverTest(unittest.TestCase):
     def testSmallPage(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "small_page_size.pdf")
 
-        from pdelfin.silver_data.buildsilver import build_page_query
+        from pdelfin.data.buildsilver import build_page_query
 
         result = build_page_query(local_pdf_path, "s3://test.pdf", 1)
 

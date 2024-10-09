@@ -17,6 +17,10 @@ from pdelfin.prompts import build_finetuning_prompt
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.filter import PdfFilter
 
+import logging
+
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+
 pdf_filter = PdfFilter()
 
 def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> dict:
@@ -212,8 +216,7 @@ def main():
                         cur_file.write("\n")
                         cur_file_size += request_size
 
-                        pb.update(1)
-
+                    pb.update(1)
                 except Exception as e:
                     print(f"Error processing a PDF: {str(e)}")
 
