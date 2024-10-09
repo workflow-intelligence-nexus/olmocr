@@ -12,34 +12,10 @@ from urllib.parse import urlparse
 from PIL import Image
 from tqdm import tqdm
 
+from pdelfin.silver_data.renderpdf import render_pdf_to_base64png
+
 session = boto3.Session(profile_name='s2')
 s3_client = session.client('s3')
-
-
-def render_pdf_to_base64png(s3_path, page):
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_pdf:
-        pdf_path = tmp_pdf.name
-        bucket, key = s3_path.replace("s3://", "").split('/', 1)
-        s3_client.download_file(bucket, key, pdf_path)
-
-        # Render the PDF to an image, and display it in the first position
-        pdftoppm_result = subprocess.run(
-                    ["pdftoppm",
-                        "-png",
-                        "-f", str(page),
-                        "-l", str(page),
-                        pdf_path],
-                        timeout=120,
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        assert pdftoppm_result.returncode == 0, pdftoppm_result.stderr
-
-        png_image = Image.open(io.BytesIO(pdftoppm_result.stdout))
-        webp_output = io.BytesIO()
-        png_image.save(webp_output, format="WEBP")
-        
-        image_base64 = base64.b64encode(webp_output.getvalue()).decode("utf-8")
-
-        return image_base64
 
 
 def process_entry(i, entry):
@@ -62,9 +38,16 @@ def process_entry(i, entry):
     s3_key = parsed_url.path.lstrip('/')
     signed_pdf_link = s3_client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": s3_key}, ExpiresIn=604800)
 
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_pdf:
+        pdf_path = tmp_pdf.name
+        bucket, key = entry["s3_path"].replace("s3://", "").split('/', 1)
+        s3_client.download_file(bucket, key, pdf_path)
+        
+        page_image_base64 = render_pdf_to_base64png(tmp_pdf.name, entry["page"], target_longest_image_dim=1024)
+
     return {
         "entry_id": i,
-        "page_image": render_pdf_to_base64png(entry["s3_path"], entry["page"]),
+        "page_image": page_image_base64,
         "s3_path": entry["s3_path"],
         "page": entry["page"],
         "signed_pdf_link": signed_pdf_link,

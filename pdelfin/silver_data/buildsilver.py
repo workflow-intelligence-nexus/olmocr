@@ -12,6 +12,7 @@ from typing import Generator
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from urllib.parse import urlparse
 
+from pdelfin.silver_data.renderpdf import render_pdf_to_base64png
 from pdelfin.prompts import build_openai_silver_data_prompt, openai_response_format_schema
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.filter import PdfFilter
@@ -22,30 +23,7 @@ TARGET_IMAGE_DIM = 2048
 pdf_filter = PdfFilter()
 
 def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> dict:
-    pdf = PdfReader(local_pdf_path)
-    pdf_page = pdf.pages[page - 1]
-    longest_dim = max(pdf_page.mediabox.width, pdf_page.mediabox.height)
-
-    # Convert PDF page to PNG using pdftoppm
-    pdftoppm_result = subprocess.run(
-        [
-            "pdftoppm",
-            "-png",
-            "-f",
-            str(page),
-            "-l",
-            str(page),
-            "-r",
-            str(TARGET_IMAGE_DIM * 72 / longest_dim),
-            local_pdf_path,
-        ],
-        timeout=120,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    assert pdftoppm_result.returncode == 0, pdftoppm_result.stderr
-    image_base64 = base64.b64encode(pdftoppm_result.stdout).decode("utf-8")
-
+    image_base64 = render_pdf_to_base64png(local_pdf_path, page, TARGET_IMAGE_DIM)
     anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
     # DEBUG crappy temporary code here that does the actual api call live so I can debug it a bit

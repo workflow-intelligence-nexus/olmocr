@@ -24,6 +24,10 @@ from dolma_refine.evaluate.aligners import HirschbergAligner
 
 from .evalhtml import create_review_html
 
+import logging
+
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+
 
 CACHE_DIR = os.path.join(Path.home(), ".cache", "pdf_gold_data_cache")
 
