@@ -117,8 +117,8 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         print(response_data[0])
 
     def testPyArrowDirectJson(self):
-        query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_train/*.jsonl"
-        response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_train/*.json"
+        query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl"
+        response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json"
         
         all_files = list_dataset_files(query_glob_path)
 
