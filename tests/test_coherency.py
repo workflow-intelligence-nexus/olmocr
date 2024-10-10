@@ -4,25 +4,25 @@ import os
 import time
 import unittest
 
-from pdelfin.extract_text import get_document_text, get_page_text
+
 from pdelfin.filter.coherency import get_document_coherency
 
 from pdelfin.prompts.anchor import get_anchor_text
 
 class TestCoherencyScores(unittest.TestCase):
     def testBadOcr1(self):
-        good_text = get_document_text(
-            os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "instructions_and_schematics.pdf")
+        good_text = get_anchor_text(
+            os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "instructions_and_schematics.pdf"), 1, pdf_engine="pdftotext"
         )
-        ocr1_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "handwriting_bad_ocr.pdf"))
-        ocr2_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "some_ocr1.pdf"))
+        ocr1_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "handwriting_bad_ocr.pdf"), 1, pdf_engine="pdftotext")
+        ocr2_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "some_ocr1.pdf"), 1, pdf_engine="pdftotext")
 
         print("Good", get_document_coherency(good_text))
         print("Bad1", get_document_coherency(ocr1_text))
         print("Bad2", get_document_coherency(ocr2_text))
 
     def testHugeBookCoherencySpeed(self):
-        base_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "ti89_guidebook.pdf"))
+        base_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "ti89_guidebook.pdf"), 1, pdf_engine="pdftotext")
         print(f"ti89 book length: {len(base_text):,}")
 
         warmup = get_document_coherency(base_text[:1000])
@@ -40,19 +40,19 @@ class TestCoherencyScores(unittest.TestCase):
         print(f"{char_per_sec:.2f} chars per second per core")
 
     def testTwoColumnMisparse(self):
-        pdftotext_text = get_page_text(
+        pdftotext_text = get_anchor_text(
             os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"),
-            page_num=2,
+            page=2,
             pdf_engine="pdftotext",
         )
-        pymupdf_text = get_page_text(
+        pymupdf_text = get_anchor_text(
             os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"),
-            page_num=2,
+            page=2,
             pdf_engine="pymupdf",
         )
-        pdfium_text = get_page_text(
+        pdfium_text = get_anchor_text(
             os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"),
-            page_num=2,
+            page=2,
             pdf_engine="pdfium",
         )
 

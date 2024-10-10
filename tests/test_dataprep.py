@@ -12,12 +12,37 @@ from pdelfin.train.dataprep import (
     prepare_data_for_qwen2_training, build_finetuning_prompt
 )
 
+from tqdm import tqdm
+from torch.utils.data import DataLoader
+from pdelfin.train.utils import make_dataset
+from pdelfin.train.core.config import TrainConfig, DataConfig, SourceConfig
 
 class TestDataprep(unittest.TestCase):
+    def testFullDataloader(self):
+        processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+        config = TrainConfig(
+            train_data=DataConfig(seed=42,
+                                  sources=[SourceConfig(name="eval_test",
+                                                       query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl",
+                                                        response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json")]),
+
+            valid_data=DataConfig(seed=42,
+                                  sources=[SourceConfig(name="eval_test",
+                                                       query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl",
+                                                        response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json")])
+        )
+        train_dataset, valid_dataset = make_dataset(config, processor)    
+
+        #train_dataloader = DataLoader(train_dataset, batch_size=1, num_workers=4, shuffle=False)
+        for entry in train_dataset:
+            print({x: y.shape for (x,y) in entry.items()})
+            
+
+
     def testTokenizationMatches(self):
         ds = build_batch_query_response_vision_dataset(
-            query_glob_path="s3://ai2-oe-data/jakep/openai_batch_data_v2_mini/*.jsonl",
-            response_glob_path="s3://ai2-oe-data/jakep/openai_batch_done_v2_mini/*.json",
+            query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl",
+            response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json",
         )
 
         example = ds[0]
