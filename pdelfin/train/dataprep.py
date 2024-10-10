@@ -59,13 +59,23 @@ def prepare_data_for_qwen2_training(example, processor, add_batch_dim=False):
         padding=True,
         return_tensors="np"
     )
+
+    print(labels["input_ids"].shape)
     
     # Append an <|im_end|>\n" to the labels, because this is what it would look like
     # if we passed the whole message stream in there
     im_end_tokens = processor.tokenizer("<|im_end|>\n", add_special_tokens=False)["input_ids"]
-    labels['input_ids'] = np.concatenate([labels['input_ids'][0], im_end_tokens])
-    labels['input_ids'] = np.expand_dims(labels['input_ids'], axis=0)
+    im_end_tokens = np.array(im_end_tokens, dtype=inputs.input_ids.dtype)  # Ensure correct dtype
 
+    # Handle the case where labels['input_ids'] is empty
+    if labels['input_ids'].shape[1] == 0:
+        labels_input_ids_0 = np.array([], dtype=inputs.input_ids.dtype)
+    else:
+        labels_input_ids_0 = labels['input_ids'][0].astype(inputs.input_ids.dtype)
+
+    labels['input_ids'] = np.concatenate([labels_input_ids_0, im_end_tokens])
+    labels['input_ids'] = np.expand_dims(labels['input_ids'], axis=0)
+    
     # Concatenate input_ids and labels
     input_ids = np.concatenate([inputs.input_ids[0], labels.input_ids[0]], axis=0)
 
