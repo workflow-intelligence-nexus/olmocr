@@ -151,7 +151,7 @@ def get_done_total(folder_path):
 
 # Main function to process all .jsonl files in a folder
 def process_folder(folder_path: str, max_gb: int):
-    output_folder = f"{folder_path}_done"
+    output_folder = f"{folder_path.rstrip('/')}_done"
     os.makedirs(output_folder, exist_ok=True)
     last_loop_time = datetime.datetime.now()
 
