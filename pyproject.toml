@@ -27,7 +27,8 @@ dependencies = [
   "lingua-language-detector",
   "Pillow",
   "ftfy",
-  "bleach"
+  "bleach",
+  "duckdb",
 ]
 license = {file = "LICENSE"}
 
