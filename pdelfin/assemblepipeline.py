@@ -10,9 +10,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 def build_index(s3_path):
     # Hash the s3_path to get a cache key
     cache_key = hashlib.sha256(s3_path.encode('utf-8')).hexdigest()
-    cache_dir = os.path.join('.cache', cache_key)
-    os.makedirs(cache_dir, exist_ok=True)
-    db_path = os.path.join(cache_dir, 'index.db')
+    home_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', cache_key)
+    os.makedirs(home_cache_dir, exist_ok=True)
+    db_path = os.path.join(home_cache_dir, 'index.db')
 
     # Connect to sqlite and create tables if not exist
     print("Building page index at", db_path)
@@ -137,4 +137,7 @@ if __name__ == '__main__':
     parser.add_argument('s3_path', help='The S3 path to process (e.g., s3://bucket/prefix/)')
     args = parser.parse_args()
 
+    # Step one, build an index of all the pages that were processed
     build_index(args.s3_path)
+
+    
