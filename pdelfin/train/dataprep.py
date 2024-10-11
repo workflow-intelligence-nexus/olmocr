@@ -59,8 +59,6 @@ def prepare_data_for_qwen2_training(example, processor, add_batch_dim=False):
         padding=True,
         return_tensors="np"
     )
-
-    print(labels["input_ids"].shape)
     
     # Append an <|im_end|>\n" to the labels, because this is what it would look like
     # if we passed the whole message stream in there
