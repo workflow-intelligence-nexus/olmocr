@@ -15,6 +15,10 @@ from typing import Optional, List, Tuple, Dict
 from urllib.parse import urlparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+from pdelfin.data.renderpdf import render_pdf_to_base64png
+from pdelfin.prompts import build_finetuning_prompt
+from pdelfin.prompts.anchor import get_anchor_text
+
 # Global s3 client for the whole script, feel free to adjust params if you need it
 s3 = boto3.client('s3')
 
@@ -118,6 +122,17 @@ class DatabaseManager:
     def close(self):
         self.conn.close()
 
+
+@dataclass(frozen=True)
+class BatchInferenceLine:
+    s3_path: str
+    page_num: int  # 1 indexed!
+    start_index: int
+    length: int
+    finish_reason: str
+    error: Optional[str]
+
+
 def parse_s3_path(s3_path):
     if not s3_path.startswith('s3://'):
         raise ValueError('s3_path must start with s3://')
@@ -143,14 +158,44 @@ def expand_s3_glob(s3_glob: str) -> Dict[str, str]:
 
     return matched_files
 
-@dataclass(frozen=True)
-class BatchInferenceLine:
-    s3_path: str
-    page_num: int  # 1 indexed!
-    start_index: int
-    length: int
-    finish_reason: str
-    error: Optional[str]
+def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> dict:
+    image_base64 = render_pdf_to_base64png(local_pdf_path, page, 1024)
+    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
+
+    return {
+        "custom_id": f"{pretty_pdf_path}-{page}",
+        "chat_messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": build_finetuning_prompt(anchor_text)},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+                ],
+            }
+        ],
+        "temperature": 0.8,
+        "max_tokens": 6000,
+    }
+
+
+def get_s3_bytes(s3_path: str, start_index: Optional[int] = None, end_index: Optional[int] = None) -> bytes:
+    bucket, key = parse_s3_path(s3_path)
+
+    # Build the range header if start_index and/or end_index are specified
+    range_header = None
+    if start_index is not None or end_index is not None:
+        range_value = f"bytes={start_index or 0}-"
+        if end_index is not None:
+            range_value += str(end_index)
+        range_header = {'Range': range_value}
+
+    if range_header:
+        obj = s3.get_object(Bucket=bucket, Key=key, Range=range_header['Range'])
+    else:
+        obj = s3.get_object(Bucket=bucket, Key=key)
+
+    return obj['Body'].read()
+
 
 def parse_custom_id(custom_id: str) -> Tuple[str, int]:
     s3_path = custom_id[:custom_id.rindex("-")]
@@ -189,24 +234,6 @@ def process_jsonl_content(s3_path) -> List[BatchInferenceLine]:
 
     return index_entries
 
-def get_s3_bytes(s3_path: str, start_index: Optional[int] = None, end_index: Optional[int] = None) -> bytes:
-    bucket, key = parse_s3_path(s3_path)
-
-    # Build the range header if start_index and/or end_index are specified
-    range_header = None
-    if start_index is not None or end_index is not None:
-        range_value = f"bytes={start_index or 0}-"
-        if end_index is not None:
-            range_value += str(end_index)
-        range_header = {'Range': range_value}
-
-    if range_header:
-        obj = s3.get_object(Bucket=bucket, Key=key, Range=range_header['Range'])
-    else:
-        obj = s3.get_object(Bucket=bucket, Key=key)
-
-    return obj['Body'].read()
-
 def get_pdf_num_pages(s3_path: str) -> Optional[int]:
     try:
         with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
@@ -219,6 +246,20 @@ def get_pdf_num_pages(s3_path: str) -> Optional[int]:
         print(f"Warning, could not add {s3_path} due to {ex}")
 
     return None
+
+def get_pdf_batch_inference_lines(s3_path: str, pages: list[int]) -> list[dict]:
+    results = []
+    try:
+        with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
+            tf.write(get_s3_bytes(s3_path))
+            tf.flush()
+
+            for page in pages:
+                results.append(build_page_query(tf.name, s3_path, page))
+    except Exception as ex:
+        print(f"Warning, could not get batch inferences lines for {s3_path} due to {ex}")
+
+    return results
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
@@ -256,14 +297,16 @@ if __name__ == '__main__':
         print("\n")
 
     # Now build an index of all the pages that were processed within the workspace so far
+    print("Indexing all batch inference sent to this workspace")
     inference_output_paths = expand_s3_glob(f"{args.workspace}/inference_outputs/*.jsonl")
 
     inference_output_paths = [
-        (key, etag) for key, etag in inference_output_paths.items()
-        if not db.is_file_processed(key, etag)
+        (s3_path, etag) for s3_path, etag in inference_output_paths.items()
+        if not db.is_file_processed(s3_path, etag)
     ]
 
-    # Adjust the future_to_path to include etag
+    print(f"Found {len(inference_output_paths)} new batch inference results to index")
+
     future_to_path = {executor.submit(process_jsonl_content, s3_path): (s3_path, etag) for s3_path, etag in inference_output_paths}
 
     for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
@@ -272,3 +315,6 @@ if __name__ == '__main__':
 
         db.add_index_entries(inference_lines)
         db.update_processed_file(s3_path, etag=etag)
+
+    # Now query each pdf, if you have all of the pages needed (all pages present, error is null and finish_reason is stop), then you assemble it into a dolma document and output it
+    # If you don't have every page, or if you have pages with errors, then you output a new batch of inference items to use
