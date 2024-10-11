@@ -302,11 +302,12 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
 
     if report.text_elements:
         text_elements = [e for e in report.text_elements if len(e.text.strip()) > 0]
-        min_x_text = min(text_elements, key=lambda e: e.x)
-        max_x_text = max(text_elements, key=lambda e: e.x)
-        min_y_text = min(text_elements, key=lambda e: e.y)
-        max_y_text = max(text_elements, key=lambda e: e.y)
-        edge_elements.update([min_x_text, max_x_text, min_y_text, max_y_text])
+        if text_elements:
+            min_x_text = min(text_elements, key=lambda e: e.x)
+            max_x_text = max(text_elements, key=lambda e: e.x)
+            min_y_text = min(text_elements, key=lambda e: e.y)
+            max_y_text = max(text_elements, key=lambda e: e.y)
+            edge_elements.update([min_x_text, max_x_text, min_y_text, max_y_text])
 
     # Keep track of element IDs to prevent duplication
     selected_element_ids = set()
