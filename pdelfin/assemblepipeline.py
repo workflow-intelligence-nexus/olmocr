@@ -8,8 +8,12 @@ from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 class DatabaseManager:
-    def __init__(self, db_path):
-        self.db_path = db_path
+    def __init__(self, s3_workspace: str):
+        cache_key = hashlib.sha256(s3_workspace.strip().lower().encode('utf-8')).hexdigest()
+        home_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', cache_key)
+        os.makedirs(home_cache_dir, exist_ok=True)
+        self.db_path = os.path.join(home_cache_dir, 'index.db')
+        
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
         self._initialize_tables()
@@ -24,12 +28,37 @@ class DatabaseManager:
             )
         """)
         self.cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_custom_id ON index_table(custom_id)
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pdfs (
+                s3_path TEXT PRIMARY KEY,
+                num_pages INTEGER,
+                status TEXT DEFAULT 'pending'
+            )
+        """)
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS processed_files (
                 s3_path TEXT PRIMARY KEY,
                 etag TEXT
             )
         """)
+        # Generic metadata such as current round
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+        self.cursor.execute("SELECT value FROM metadata WHERE key='round'")
+        if self.cursor.fetchone() is None:
+            self.cursor.execute("INSERT INTO metadata (key, value) VALUES ('round', '0')")
         self.conn.commit()
+
+    def get_current_round(self):
+        self.cursor.execute("SELECT value FROM metadata WHERE key='round'")
+        result = self.cursor.fetchone()
+        return int(result[0])
 
     def is_file_processed(self, s3_path, etag):
         self.cursor.execute("SELECT etag FROM processed_files WHERE s3_path = ?", (s3_path,))
@@ -56,15 +85,7 @@ class DatabaseManager:
         self.conn.close()
 
 def build_index(s3_path):
-    # Hash the s3_path to get a cache key
-    cache_key = hashlib.sha256(s3_path.encode('utf-8')).hexdigest()
-    home_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', cache_key)
-    os.makedirs(home_cache_dir, exist_ok=True)
-    db_path = os.path.join(home_cache_dir, 'index.db')
-
-    # Initialize the database manager
-    print("Building page index at", db_path)
-    db_manager = DatabaseManager(db_path)
+    db_manager = DatabaseManager(s3_path)
 
     s3 = boto3.client('s3')
     bucket, prefix = parse_s3_path(s3_path)
@@ -157,9 +178,20 @@ def process_jsonl_content(content, s3_path):
     return index_entries
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Build a local index of JSON files from S3.')
-    parser.add_argument('s3_path', help='The S3 path to process (e.g., s3://bucket/prefix/)')
+    parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
+    parser.add_argument('workspace', help='The S3 path where work will be done e.g., s3://bucket/prefix/)')
+    parser.add_argument('--pdf_glob_path', help='Glob path to PDFs (local or s3)', default=None)
+    parser.add_argument('--file_size_limit', type=int, default=250, help='Max file size in MB')
     args = parser.parse_args()
 
+    db = DatabaseManager(args.workspace)
+    print(f"Loaded db at {db.db_path}")
+    print(f"Current round is {db.get_current_round()}")
+
+    if args.pdf_glob_path:
+        # Add new pdfs to be processed if they don't exist in the database
+        # TODO
+        pass
+
     # Step one, build an index of all the pages that were processed
-    build_index(args.s3_path)
+    build_index(args.workspace)
