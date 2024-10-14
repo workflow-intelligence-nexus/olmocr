@@ -67,7 +67,7 @@ class DatabaseManager:
             )
         """)
         self.cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_path ON page_results(s3_path)
+            CREATE INDEX IF NOT EXISTS idx_path ON page_results(pdf_s3_path)
         """)
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS pdfs (
@@ -122,13 +122,13 @@ class DatabaseManager:
             """, [(entry.inference_s3_path, entry.pdf_s3_path, entry.page_num, entry.start_index, entry.length, entry.finish_reason, entry.error) for entry in index_entries])
             self.conn.commit()
 
-    def get_index_entries(self, s3_path: str) -> List[BatchInferenceRecord]:
+    def get_index_entries(self, pdf_s3_path: str) -> List[BatchInferenceRecord]:
         self.cursor.execute("""
             SELECT inference_s3_path, pdf_s3_path, page_num, start_index, length, finish_reason, error
             FROM page_results
-            WHERE s3_path = ?
-            ORDER BY inference_s3_path DESC start_index ASC page_num ASC
-        """, (s3_path,))
+            WHERE pdf_s3_path = ?
+            ORDER BY inference_s3_path DESC, start_index ASC, page_num ASC
+        """, (pdf_s3_path,))
         
         rows = self.cursor.fetchall()
         
