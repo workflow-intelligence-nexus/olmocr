@@ -23,6 +23,24 @@ from pdelfin.prompts.anchor import get_anchor_text
 s3 = boto3.client('s3')
 
 class DatabaseManager:
+    @dataclass(frozen=True)
+    class BatchInferenceRecord:
+        s3_path: str
+        page_num: int  # 1 indexed!
+        start_index: int
+        length: int
+        finish_reason: str
+        error: Optional[str]
+
+        def is_usable(self):
+            return self.error is None and self.finish_reason == "stop"
+
+    @dataclass(frozen=True)
+    class PDFRecord:
+        s3_path: str
+        num_pages: int
+        status: str
+
     def __init__(self, s3_workspace: str):
         cache_key = hashlib.sha256(s3_workspace.strip().lower().encode('utf-8')).hexdigest()
         home_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', cache_key)
@@ -84,13 +102,35 @@ class DatabaseManager:
         result = self.cursor.fetchone()
         return result is not None and result[0] == etag
 
-    def add_index_entries(self, index_entries: List['BatchInferenceLine']):
+    def add_index_entries(self, index_entries: List[BatchInferenceRecord]):
         if index_entries:
             self.cursor.executemany("""
                 INSERT INTO page_results (s3_path, page_num, start_index, length, finish_reason, error)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, [(entry.s3_path, entry.page_num, entry.start_index, entry.length, entry.finish_reason, entry.error) for entry in index_entries])
             self.conn.commit()
+
+    def get_index_entries(self, s3_path: str) -> List[BatchInferenceRecord]:
+        self.cursor.execute("""
+            SELECT s3_path, page_num, start_index, length, finish_reason, error
+            FROM page_results
+            WHERE s3_path = ?
+            ORDER BY page_num ASC
+        """, (s3_path,))
+        
+        rows = self.cursor.fetchall()
+        
+        return [
+            self.BatchInferenceRecord(
+                s3_path=row[0],
+                page_num=row[1],
+                start_index=row[2],
+                length=row[3],
+                finish_reason=row[4],
+                error=row[5]
+            )
+            for row in rows
+        ]
 
     def update_processed_file(self, s3_path, etag):
         self.cursor.execute("""
@@ -114,23 +154,46 @@ class DatabaseManager:
         except sqlite3.IntegrityError:
             print(f"PDF with s3_path '{s3_path}' already exists.")
 
-    def get_pdf_status(self, s3_path: str) -> Optional[str]:
-        self.cursor.execute("SELECT status FROM pdfs WHERE s3_path = ?", (s3_path,))
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+    def get_pdf(self, s3_path: str) -> Optional[PDFRecord]:
+        self.cursor.execute("""
+            SELECT s3_path, num_pages, status
+            FROM pdfs
+            WHERE s3_path = ?
+        """, (s3_path,))
+        
+        row = self.cursor.fetchone()
+        
+        if row:
+            return self.PDFRecord(
+                s3_path=row[0],
+                num_pages=row[1],
+                status=row[2]
+            )
+        return None
+    
+    def get_pdfs_by_status(self, status: str) -> List[PDFRecord]:
+        self.cursor.execute("""
+            SELECT s3_path, num_pages, status
+            FROM pdfs
+            WHERE status == ?
+        """, (status, ))
+        
+        rows = self.cursor.fetchall()
+        
+        return [
+            self.PDFRecord(
+                s3_path=row[0],
+                num_pages=row[1],
+                status=row[2]
+            )
+            for row in rows
+        ]
 
     def close(self):
         self.conn.close()
 
 
-@dataclass(frozen=True)
-class BatchInferenceLine:
-    s3_path: str
-    page_num: int  # 1 indexed!
-    start_index: int
-    length: int
-    finish_reason: str
-    error: Optional[str]
+
 
 
 def parse_s3_path(s3_path):
@@ -202,7 +265,7 @@ def parse_custom_id(custom_id: str) -> Tuple[str, int]:
     page_num = int(custom_id[custom_id.rindex("-") + 1:])
     return s3_path, page_num
 
-def process_jsonl_content(s3_path) -> List[BatchInferenceLine]:
+def process_jsonl_content(s3_path) -> List[DatabaseManager.BatchInferenceRecord]:
     content = get_s3_bytes(s3_path).decode("utf-8")
 
     start_index = 0
@@ -217,7 +280,7 @@ def process_jsonl_content(s3_path) -> List[BatchInferenceLine]:
 
             assert "outputs" in data and len(data["outputs"]) > 0, "No outputs from model detected"
 
-            index_entries.append(BatchInferenceLine(
+            index_entries.append(DatabaseManager.BatchInferenceRecord(
                 s3_path=s3_path,
                 page_num=page_num,
                 start_index=start_index,
@@ -247,19 +310,28 @@ def get_pdf_num_pages(s3_path: str) -> Optional[int]:
 
     return None
 
-def get_pdf_batch_inference_lines(s3_path: str, pages: list[int]) -> list[dict]:
-    results = []
+def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> list[dict]:
+    db = DatabaseManager(s3_workspace)
+
+    existing_pages = db.get_index_entries(pdf.s3_path)
+    new_queries = []
+    
     try:
         with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
-            tf.write(get_s3_bytes(s3_path))
+            tf.write(get_s3_bytes(pdf.s3_path))
             tf.flush()
 
-            for page in pages:
-                results.append(build_page_query(tf.name, s3_path, page))
-    except Exception as ex:
-        print(f"Warning, could not get batch inferences lines for {s3_path} due to {ex}")
+            for page in range(1, pdf.num_pages + 1):
+                # Is there an existing page that has no error
+                if any(page.is_usable() for page in existing_pages):
+                    continue
 
-    return results
+                # TODO: Later, you may want to retry with different sampling parameters or do something else
+                new_queries.append(build_page_query(tf.name, pdf.s3_path, page))
+    except Exception as ex:
+        print(f"Warning, could not get batch inferences lines for {pdf.s3_path} due to {ex}")
+
+    return new_queries
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
@@ -275,7 +347,7 @@ if __name__ == '__main__':
     # One shared executor to rule them all
     executor = ProcessPoolExecutor()
 
-    # If you have new PDFs, add them to the list
+    # If you have new PDFs, step one is to add them to the list
     if args.add_pdfs:
         assert args.add_pdfs.startswith("s3://"), "PDFs must live on s3"
         
@@ -318,3 +390,18 @@ if __name__ == '__main__':
 
     # Now query each pdf, if you have all of the pages needed (all pages present, error is null and finish_reason is stop), then you assemble it into a dolma document and output it
     # If you don't have every page, or if you have pages with errors, then you output a new batch of inference items to use
+    future_to_path = {executor.submit(build_pdf_queries, args.workspace, pdf): pdf for pdf in db.get_pdfs_by_status("pending")}
+
+    for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
+        pdf = future_to_path[future]
+        inference_lines = future.result()
+
+
+
+
+
+    # TODO
+    # 1. build a class that will manage taking in dicts and outputting them as jsonls of up to the max size to the bucket
+    # you'll need one for new batch inference lines, and one for finished dolma docs
+    # 2. Have a way to apply basic spam + language filter if you can during add pdfs step
+    # 3. For retrying, make it so you retry several times with different sampling parameters
