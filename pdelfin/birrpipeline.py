@@ -426,20 +426,34 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
             assert "outputs" in data and len(data["outputs"]) > 0, "No outputs from model detected"
 
             # Try to parse the actual model response JSON
-            model_response_json = json.loads(data["outputs"][0]["text"])
+            try:
+                model_response_json = json.loads(data["outputs"][0]["text"])
 
-            index_entries.append(DatabaseManager.BatchInferenceRecord(
-                inference_s3_path=inference_s3_path,
-                pdf_s3_path=pdf_s3_path,
-                page_num=page_num,
-                round=data["round"],
-                start_index=start_index,  # Byte offset in the original file
-                length=line_length,       # Length in bytes
-                finish_reason=data["outputs"][0]["finish_reason"],
-                error=data.get("completion_error", None)
-            ))
+                index_entries.append(DatabaseManager.BatchInferenceRecord(
+                    inference_s3_path=inference_s3_path,
+                    pdf_s3_path=pdf_s3_path,
+                    page_num=page_num,
+                    round=data["round"],
+                    start_index=start_index,  # Byte offset in the original file
+                    length=line_length,       # Length in bytes
+                    finish_reason=data["outputs"][0]["finish_reason"],
+                    error=data.get("completion_error", None)
+                ))
+            except json.JSONDecodeError:
+                index_entries.append(DatabaseManager.BatchInferenceRecord(
+                    inference_s3_path=inference_s3_path,
+                    pdf_s3_path=pdf_s3_path,
+                    page_num=page_num,
+                    round=data["round"],
+                    start_index=start_index,  # Byte offset in the original file
+                    length=line_length,       # Length in bytes
+                    finish_reason="error",
+                    error="Could not parse model JSON output",
+                ))
+
         except json.JSONDecodeError:
             print(f"Error with JSON Decoding of infrence in {inference_s3_path}")
+            # TODO Maybe this needs to add an index error that this json is bad
         except Exception as e:
             print(f"Error processing line: {e}")
 
@@ -645,7 +659,8 @@ if __name__ == '__main__':
 
     print("\nFinal statistics:")
     # Output the number of documents in each status "pending" and "completed"
-    
+    # For each round, outputs a report of how many pages were processed, how many had errors
+
 
     print("\nWork finished, waiting for all workers to finish cleaning up")
     executor.shutdown(wait=True)
