@@ -9,6 +9,7 @@ import tempfile
 import datetime
 import posixpath
 import smart_open
+import logging
 
 from dataclasses import dataclass
 from pypdf import PdfReader
@@ -24,12 +25,17 @@ from pdelfin.prompts.anchor import get_anchor_text
 # Global s3 client for the whole script, feel free to adjust params if you need it
 s3 = boto3.client('s3')
 
+# Quiet logs from pypdf and smart open
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+logging.getLogger("smart_open").setLevel(logging.ERROR)
+
 class DatabaseManager:
     @dataclass(frozen=True)
     class BatchInferenceRecord:
         inference_s3_path: str
         pdf_s3_path: str
         page_num: int  # 1 indexed!
+        round: int
         start_index: int
         length: int
         finish_reason: str
@@ -60,6 +66,7 @@ class DatabaseManager:
                 inference_s3_path TEXT,
                 pdf_s3_path TEXT,
                 page_num INTEGER,
+                round INTEGER,
                 start_index BIGINT,
                 length BIGINT,
                 finish_reason TEXT,
@@ -117,14 +124,14 @@ class DatabaseManager:
     def add_index_entries(self, index_entries: List[BatchInferenceRecord]):
         if index_entries:
             self.cursor.executemany("""
-                INSERT INTO page_results (inference_s3_path, pdf_s3_path, page_num, start_index, length, finish_reason, error)
+                INSERT INTO page_results (inference_s3_path, pdf_s3_path, page_num, round, start_index, length, finish_reason, error)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, [(entry.inference_s3_path, entry.pdf_s3_path, entry.page_num, entry.start_index, entry.length, entry.finish_reason, entry.error) for entry in index_entries])
+            """, [(entry.inference_s3_path, entry.pdf_s3_path, entry.page_num, entry.round, entry.start_index, entry.length, entry.finish_reason, entry.error) for entry in index_entries])
             self.conn.commit()
 
     def get_index_entries(self, pdf_s3_path: str) -> List[BatchInferenceRecord]:
         self.cursor.execute("""
-            SELECT inference_s3_path, pdf_s3_path, page_num, start_index, length, finish_reason, error
+            SELECT inference_s3_path, pdf_s3_path, page_num, round, start_index, length, finish_reason, error
             FROM page_results
             WHERE pdf_s3_path = ?
             ORDER BY inference_s3_path DESC, start_index ASC, page_num ASC
@@ -137,13 +144,23 @@ class DatabaseManager:
                 inference_s3_path=row[0],
                 pdf_s3_path=row[1],
                 page_num=row[2],
-                start_index=row[3],
-                length=row[4],
-                finish_reason=row[5],
-                error=row[6]
+                round=row[3],
+                start_index=row[4],
+                length=row[5],
+                finish_reason=row[6],
+                error=row[7]
             )
             for row in rows
         ]
+
+    def get_last_indexed_round(self) -> int:
+        self.cursor.execute("""
+            SELECT MAX(round)
+            FROM page_results
+        """)
+
+        result = self.cursor.fetchone()
+        return -1 if result[0] is None else result[0]
 
     def update_processed_file(self, s3_path, etag):
         self.cursor.execute("""
@@ -309,8 +326,6 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
                 ],
             }
         ],
-        "temperature": 0.8,
-        "max_tokens": 6000,
     }
 
 
@@ -338,7 +353,7 @@ def parse_custom_id(custom_id: str) -> Tuple[str, int]:
     page_num = int(custom_id[custom_id.rindex("-") + 1:])
     return s3_path, page_num
 
-def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchInferenceRecord]:
+def process_jsonl_content(inference_s3_path: str, cur_round: int) -> List[DatabaseManager.BatchInferenceRecord]:
     content = get_s3_bytes(inference_s3_path).decode("utf-8")
 
     start_index = 0
@@ -357,6 +372,7 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
                 inference_s3_path=inference_s3_path,
                 pdf_s3_path=pdf_s3_path,
                 page_num=page_num,
+                round=data["round"],
                 start_index=start_index,
                 length=line_length,
                 finish_reason=data["outputs"][0]["finish_reason"],
@@ -386,6 +402,7 @@ def get_pdf_num_pages(s3_path: str) -> Optional[int]:
 
 def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> list[dict]:
     db = DatabaseManager(s3_workspace)
+    cur_round = db.get_current_round()
 
     existing_pages = db.get_index_entries(pdf.s3_path)
     new_queries = []
@@ -393,7 +410,7 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> list
     # Shortcut out of downloading the actual PDF
     if set(page.page_num for page in existing_pages if page.is_usable()) == set(range(1, pdf.num_pages + 1)):
         return []
-    
+
     try:
         with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
             tf.write(get_s3_bytes(pdf.s3_path))
@@ -405,7 +422,7 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> list
                     continue
 
                 # TODO: Later, you may want to retry with different sampling parameters or do something else
-                new_queries.append(build_page_query(tf.name, pdf.s3_path, target_page_num))
+                new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
     except Exception as ex:
         print(f"Warning, could not get batch inferences lines for {pdf.s3_path} due to {ex}")
 
@@ -498,7 +515,6 @@ if __name__ == '__main__':
     ]
 
     print(f"Found {len(inference_output_paths)} new batch inference results to index")
-
     future_to_path = {executor.submit(process_jsonl_content, s3_path): (s3_path, etag) for s3_path, etag in inference_output_paths}
 
     for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
@@ -510,28 +526,34 @@ if __name__ == '__main__':
 
     # Now query each pdf, if you have all of the pages needed (all pages present, error is null and finish_reason is stop), then you assemble it into a dolma document and output it
     # If you don't have every page, or if you have pages with errors, then you output a new batch of inference items to use
-    future_to_path = {executor.submit(build_pdf_queries, args.workspace, pdf): pdf for pdf in db.get_pdfs_by_status("pending")}
-    potentially_done_pdfs = []
-    lines_written = 0
-    new_inference_writer = BatchWriter(f"{args.workspace}/inference/round_{db.get_current_round()}", args.max_size_mb)
+    if db.get_last_indexed_round() < db.get_current_round() - 1:
+        print(f"WARNING: No new batch inference results found, you need to run batch inference on {args.workspace}/inference/round_{db.get_current_round() - 1}")
+        potentially_done_pdfs = []
+    else:
+        print(f"\nCreating batch inference files for new PDFs")
+        future_to_path = {executor.submit(build_pdf_queries, args.workspace, pdf): pdf for pdf in db.get_pdfs_by_status("pending")}
+        potentially_done_pdfs = []
+        lines_written = 0
+        new_inference_writer = BatchWriter(f"{args.workspace}/inference/round_{db.get_current_round()}", args.max_size_mb)
 
-    for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
-        pdf = future_to_path[future]
-        inference_lines = future.result()
+        for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
+            pdf = future_to_path[future]
+            inference_lines = future.result()
 
-        if len(inference_lines) == 0:
-            potentially_done_pdfs.append(pdf)
+            if len(inference_lines) == 0:
+                potentially_done_pdfs.append(pdf)
 
-        for line in inference_lines:
-            lines_written += 1
-            new_inference_writer.write_line(json.dumps(line))
+            for line in inference_lines:
+                lines_written += 1
+                new_inference_writer.write_line(json.dumps(line))
 
-    new_inference_writer.close()
+        new_inference_writer.close()
 
-    if lines_written > 0:
-        db.set_metadata("round", str(db.get_current_round() + 1))
+        if lines_written > 0:
+            db.set_metadata("round", str(db.get_current_round() + 1))
 
     # Now, finally, assemble any potentially done docs into dolma documents
+    print(f"\nAssembling {len(potentially_done_pdfs)} potentially finished PDFs into Dolma documents at {args.workspace}/output")
     future_to_path = {executor.submit(build_dolma_doc, args.workspace, pdf): pdf for pdf in potentially_done_pdfs}
     new_output_writer = BatchWriter(f"{args.workspace}/output", args.max_size_mb)
 
@@ -542,6 +564,9 @@ if __name__ == '__main__':
         new_output_writer.write_line(json.dumps(dolma_doc))
 
     new_output_writer.close()
+
+    print("\nWork finished, waiting for all workers to finish cleaning up")
+    executor.shutdown(wait=True)
     
     # TODO
     # 2. Have a way to apply basic spam + language filter if you can during add pdfs step
