@@ -13,6 +13,7 @@ import re
 import ftfy
 from dataclasses import dataclass
 from typing import Literal, List
+from functools import lru_cache
 
 import pypdfium2 as pdfium
 import pymupdf
@@ -119,10 +120,14 @@ class PageReport:
     text_elements: List[TextElement]
     image_elements: List[ImageElement]
 
+@lru_cache(maxsize=5)
+def _get_cached_pdf_reader(local_pdf_path: str) -> PdfReader:
+    # Cached, because you are going to often iterate through a whole pdf, so this will make it a lot faster on subsequent iterations
+    return PdfReader(local_pdf_path)
 
-def _pdf_report(local_pdf_path: str, page: int) -> PageReport:
-    reader = PdfReader(local_pdf_path)
-    page = reader.pages[page - 1]
+def _pdf_report(local_pdf_path: str, page_num: int) -> PageReport:
+    reader = _get_cached_pdf_reader(local_pdf_path)
+    page = reader.pages[page_num - 1]
     resources = page.get("/Resources", {})
     xobjects = resources.get("/XObject", {})
     text_elements, image_elements = [], []

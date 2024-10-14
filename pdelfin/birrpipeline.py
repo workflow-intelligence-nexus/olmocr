@@ -496,8 +496,17 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> list
                 if any(page.is_usable() and page.page_num == target_page_num for page in existing_pages):
                     continue
 
-                # TODO: Later, you may want to retry with different sampling parameters or do something else
-                new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+                has_errored_previously = sum(page.page_num == target_page_num for page in existing_pages)
+
+                if has_errored_previously:
+                    # TODO For now this just retries the page 3 times, which is nothing special
+                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+
+                    # But you can try to do some fancier things, such as rotating the page, removing the pdf hints all together, etc
+                else:
+                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
     except Exception as ex:
         print(f"Warning, could not get batch inferences lines for {pdf.s3_path} due to {ex}")
 
@@ -670,8 +679,6 @@ if __name__ == '__main__':
     # For each round, outputs a report of how many pages were processed, how many had errors, and a breakdown by (error, finish_reason)
     total_rounds = db.get_last_indexed_round() + 1
     for round_num in range(total_rounds):
-        print(f"\nStatistics for round {round_num}:")
-        
         db.cursor.execute("""
             SELECT COUNT(*), error, finish_reason
             FROM page_results
@@ -682,12 +689,11 @@ if __name__ == '__main__':
         results = db.cursor.fetchall()
         
         total_pages = sum(count for count, _, _ in results)
-        print(f"Total pages processed: {total_pages:,}")
+        print(f"\nInference Round {round_num} - {total_pages:,} pages processed:")
 
         for count, error, finish_reason in results:
             error_str = error if error is not None else "None"
             print(f"  (error: {error_str}, finish_reason: {finish_reason}) -> {count:,} pages")
-
 
     print("\nWork finished, waiting for all workers to finish cleaning up")
     executor.shutdown(wait=True)
