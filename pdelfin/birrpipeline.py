@@ -125,7 +125,7 @@ class DatabaseManager:
         if index_entries:
             self.cursor.executemany("""
                 INSERT INTO page_results (inference_s3_path, pdf_s3_path, page_num, round, start_index, length, finish_reason, error)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, [(entry.inference_s3_path, entry.pdf_s3_path, entry.page_num, entry.round, entry.start_index, entry.length, entry.finish_reason, entry.error) for entry in index_entries])
             self.conn.commit()
 
@@ -258,7 +258,10 @@ class BatchWriter:
             filename = f"output_{hash_str}.jsonl"
             return os.path.join(self.output_prefix, filename)
 
-    def write_line(self, line: str):
+    def write_line(self, line: Optional[str]):
+        if line is None or len(line.strip()) == 0:
+            return
+        
         line_size = len(line.encode('utf-8')) + 1  # +1 for newline
 
         if self.batch_size + line_size > self.max_size:
@@ -334,10 +337,17 @@ def get_s3_bytes(s3_path: str, start_index: Optional[int] = None, end_index: Opt
 
     # Build the range header if start_index and/or end_index are specified
     range_header = None
-    if start_index is not None or end_index is not None:
-        range_value = f"bytes={start_index or 0}-"
-        if end_index is not None:
-            range_value += str(end_index)
+    if start_index is not None and end_index is not None:
+        # Range: bytes=start_index-end_index
+        range_value = f"bytes={start_index}-{end_index}"
+        range_header = {'Range': range_value}
+    elif start_index is not None and end_index is None:
+        # Range: bytes=start_index-
+        range_value = f"bytes={start_index}-"
+        range_header = {'Range': range_value}
+    elif start_index is None and end_index is not None:
+        # Range: bytes=-end_index (last end_index bytes)
+        range_value = f"bytes=-{end_index}"
         range_header = {'Range': range_value}
 
     if range_header:
@@ -353,39 +363,45 @@ def parse_custom_id(custom_id: str) -> Tuple[str, int]:
     page_num = int(custom_id[custom_id.rindex("-") + 1:])
     return s3_path, page_num
 
-def process_jsonl_content(inference_s3_path: str, cur_round: int) -> List[DatabaseManager.BatchInferenceRecord]:
-    content = get_s3_bytes(inference_s3_path).decode("utf-8")
+def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchInferenceRecord]:
+    content_bytes = get_s3_bytes(inference_s3_path)
 
     start_index = 0
     index_entries = []
-    lines = content.splitlines(keepends=True)
+    lines = content_bytes.splitlines(keepends=True)  # Split content into lines as bytes
     for line in lines:
-        line_length = len(line)
+        line_length = len(line)  # Length in bytes
 
         try:
-            data = json.loads(line)
+            # Decode the line for JSON processing
+            line_str = line.decode('utf-8')
+            data = json.loads(line_str)
             pdf_s3_path, page_num = parse_custom_id(data["custom_id"])
 
             assert "outputs" in data and len(data["outputs"]) > 0, "No outputs from model detected"
+
+            # Try to parse the actual model response JSON
+            model_response_json = json.loads(data["outputs"][0]["text"])
 
             index_entries.append(DatabaseManager.BatchInferenceRecord(
                 inference_s3_path=inference_s3_path,
                 pdf_s3_path=pdf_s3_path,
                 page_num=page_num,
                 round=data["round"],
-                start_index=start_index,
-                length=line_length,
+                start_index=start_index,  # Byte offset in the original file
+                length=line_length,       # Length in bytes
                 finish_reason=data["outputs"][0]["finish_reason"],
                 error=data.get("completion_error", None)
             ))
         except json.JSONDecodeError:
-            pass  # Handle JSON decode errors if necessary
+            print(f"Error with JSON Decoding of infrence in {inference_s3_path}")
         except Exception as e:
             print(f"Error processing line: {e}")
 
-        start_index += line_length
+        start_index += line_length  # Increment by the number of bytes
 
     return index_entries
+
 
 def get_pdf_num_pages(s3_path: str) -> Optional[int]:
     try:
@@ -428,7 +444,7 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> list
 
     return new_queries
 
-def build_dolma_doc(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> dict:
+def build_dolma_doc(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> Optional[dict]:
     db = DatabaseManager(s3_workspace)
     existing_pages = db.get_index_entries(pdf.s3_path)
     document_text = ""
@@ -436,15 +452,23 @@ def build_dolma_doc(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> dict:
     pdf_page_spans = []
 
     for target_page_num in range(1, pdf.num_pages + 1):
-        target_page = next(page for page in existing_pages if page.is_usable() and page.page_num == target_page_num)
+        target_pages = [page for page in existing_pages if page.is_usable() and page.page_num == target_page_num]
 
-        target_row = get_s3_bytes(target_page.pdf_s3_path,
-                                  start_index=target_page.start_index,
-                                  end_index=target_page.start_index+target_page.length)
+        if len(target_pages) == 0:
+            return None
+        
+        target_page = target_pages[0]
+
+        target_row = get_s3_bytes(target_page.inference_s3_path,
+                                    start_index=target_page.start_index,
+                                    end_index=target_page.start_index+target_page.length - 1)
         
         target_data = json.loads(target_row.decode("utf-8"))
 
-        document_text += target_data["natural_text"] + "\n"
+        target_output = json.loads(target_data["outputs"][0]["text"])
+
+        if target_output["natural_text"] is not None:
+            document_text += target_output["natural_text"] + "\n"
 
         pdf_page_spans.append([last_page_start_index, len(document_text), target_page_num])
         last_page_start_index = len(document_text)
@@ -482,7 +506,7 @@ if __name__ == '__main__':
     print(f"Current round is {db.get_current_round()}\n")
 
     # One shared executor to rule them all
-    executor = ProcessPoolExecutor()
+    executor = ProcessPoolExecutor(max_workers=1)
 
     # If you have new PDFs, step one is to add them to the list
     if args.add_pdfs:
@@ -491,10 +515,10 @@ if __name__ == '__main__':
         print(f"Querying all PDFs at {args.add_pdfs}")
         
         all_pdfs = expand_s3_glob(args.add_pdfs)
-        print(f"Found {len(all_pdfs)} total pdf paths")
+        print(f"Found {len(all_pdfs):,} total pdf paths")
 
         all_pdfs = [pdf for pdf in all_pdfs if not db.pdf_exists(pdf)]
-        print(f"Need to import {len(all_pdfs)} total new pdf paths")
+        print(f"Need to import {len(all_pdfs):,} total new pdf paths")
 
         future_to_path = {executor.submit(get_pdf_num_pages, s3_path): s3_path for s3_path in all_pdfs}
         for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
@@ -514,7 +538,7 @@ if __name__ == '__main__':
         if not db.is_file_processed(s3_path, etag)
     ]
 
-    print(f"Found {len(inference_output_paths)} new batch inference results to index")
+    print(f"Found {len(inference_output_paths):,} new batch inference results to index")
     future_to_path = {executor.submit(process_jsonl_content, s3_path): (s3_path, etag) for s3_path, etag in inference_output_paths}
 
     for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
@@ -527,14 +551,14 @@ if __name__ == '__main__':
     # Now query each pdf, if you have all of the pages needed (all pages present, error is null and finish_reason is stop), then you assemble it into a dolma document and output it
     # If you don't have every page, or if you have pages with errors, then you output a new batch of inference items to use
     if db.get_last_indexed_round() < db.get_current_round() - 1:
-        print(f"WARNING: No new batch inference results found, you need to run batch inference on {args.workspace}/inference/round_{db.get_current_round() - 1}")
-        potentially_done_pdfs = []
+        print(f"WARNING: No new batch inference results found, you need to run batch inference on {args.workspace}/inference_inputs/round_{db.get_current_round() - 1}")
+        potentially_done_pdfs = db.get_pdfs_by_status("pending")
     else:
         print(f"\nCreating batch inference files for new PDFs")
         future_to_path = {executor.submit(build_pdf_queries, args.workspace, pdf): pdf for pdf in db.get_pdfs_by_status("pending")}
         potentially_done_pdfs = []
         lines_written = 0
-        new_inference_writer = BatchWriter(f"{args.workspace}/inference/round_{db.get_current_round()}", args.max_size_mb)
+        new_inference_writer = BatchWriter(f"{args.workspace}/inference_inputs/round_{db.get_current_round()}", args.max_size_mb)
 
         for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
             pdf = future_to_path[future]
@@ -553,7 +577,7 @@ if __name__ == '__main__':
             db.set_metadata("round", str(db.get_current_round() + 1))
 
     # Now, finally, assemble any potentially done docs into dolma documents
-    print(f"\nAssembling {len(potentially_done_pdfs)} potentially finished PDFs into Dolma documents at {args.workspace}/output")
+    print(f"\nAssembling {len(potentially_done_pdfs):,} potentially finished PDFs into Dolma documents at {args.workspace}/output")
     future_to_path = {executor.submit(build_dolma_doc, args.workspace, pdf): pdf for pdf in potentially_done_pdfs}
     new_output_writer = BatchWriter(f"{args.workspace}/output", args.max_size_mb)
 
@@ -564,6 +588,8 @@ if __name__ == '__main__':
         new_output_writer.write_line(json.dumps(dolma_doc))
 
     new_output_writer.close()
+
+    
 
     print("\nWork finished, waiting for all workers to finish cleaning up")
     executor.shutdown(wait=True)
