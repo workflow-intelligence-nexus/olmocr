@@ -150,8 +150,8 @@ def prepare_data_for_qwen2_inference(example, processor):
     # Right now, we are going to downsample to 1024 on the longest dimension, because
     # 2048 as we passed to OpenAI is too large for training
     width, height = main_image.size
-    assert 1800 <= max(width, height) <= 2200
-    main_image = main_image.resize((width // 2, height // 2), Image.LANCZOS)
+    if 1800 <= max(width, height) <= 2200:
+        main_image = main_image.resize((width // 2, height // 2), Image.LANCZOS)
 
 
     # Process inputs using processor
