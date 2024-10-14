@@ -447,13 +447,13 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
                     round=data["round"],
                     start_index=start_index,  # Byte offset in the original file
                     length=line_length,       # Length in bytes
-                    finish_reason="error",
+                    finish_reason=data["outputs"][0]["finish_reason"],
                     error="Could not parse model JSON output",
                 ))
 
         except json.JSONDecodeError:
             print(f"Error with JSON Decoding of infrence in {inference_s3_path}")
-            # TODO Maybe this needs to add an index error that this json is bad
+            # TODO Maybe this needs to add an index error that this json is bad, but that would mean a birr error
         except Exception as e:
             print(f"Error processing line: {e}")
 
@@ -571,7 +571,7 @@ if __name__ == '__main__':
     print(f"Current round is {db.get_current_round()}\n")
 
     # One shared executor to rule them all
-    executor = ProcessPoolExecutor(max_workers=1)
+    executor = ProcessPoolExecutor()
 
     # If you have new PDFs, step one is to add them to the list
     if args.add_pdfs:
@@ -641,6 +641,7 @@ if __name__ == '__main__':
         new_inference_writer.close()
 
         if lines_written > 0:
+            print(f"Added {lines_written:,} new batch inference requests")
             db.set_metadata("round", str(db.get_current_round() + 1))
 
     # Now, finally, assemble any potentially done docs into dolma documents
@@ -658,8 +659,34 @@ if __name__ == '__main__':
     new_output_writer.close()
 
     print("\nFinal statistics:")
-    # Output the number of documents in each status "pending" and "completed"
-    # For each round, outputs a report of how many pages were processed, how many had errors
+
+    # Output the number of PDFs in each status "pending" and "completed"
+    pending_pdfs = db.get_pdfs_by_status("pending")
+    completed_pdfs = db.get_pdfs_by_status("completed")
+
+    print(f"Pending PDFs: {len(pending_pdfs):,}")
+    print(f"Completed PDFs: {len(completed_pdfs):,}")
+
+    # For each round, outputs a report of how many pages were processed, how many had errors, and a breakdown by (error, finish_reason)
+    total_rounds = db.get_last_indexed_round() + 1
+    for round_num in range(total_rounds):
+        print(f"\nStatistics for round {round_num}:")
+        
+        db.cursor.execute("""
+            SELECT COUNT(*), error, finish_reason
+            FROM page_results
+            WHERE round = ?
+            GROUP BY error, finish_reason
+        """, (round_num,))
+        
+        results = db.cursor.fetchall()
+        
+        total_pages = sum(count for count, _, _ in results)
+        print(f"Total pages processed: {total_pages:,}")
+
+        for count, error, finish_reason in results:
+            error_str = error if error is not None else "None"
+            print(f"  (error: {error_str}, finish_reason: {finish_reason}) -> {count:,} pages")
 
 
     print("\nWork finished, waiting for all workers to finish cleaning up")
