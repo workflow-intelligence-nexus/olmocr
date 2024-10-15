@@ -6,6 +6,11 @@ import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from jinja2 import Template
 import smart_open
+import cached_path
+
+from tqdm import tqdm
+
+from pdelfin.data.renderpdf import render_pdf_to_base64webp
 
 def read_jsonl(path):
     with smart_open.smart_open(path, 'r', encoding='utf-8') as f:
@@ -41,7 +46,7 @@ def main(jsonl_path, output_dir, template_path):
     workspace_session = boto3.Session(profile_name="s2")
     s3_client = workspace_session.client("s3")
 
-    for line in read_jsonl(jsonl_path):
+    for line in tqdm(read_jsonl(jsonl_path)):
         if not line:
             continue
         data = json.loads(line)
@@ -52,8 +57,11 @@ def main(jsonl_path, output_dir, template_path):
         metadata = data.get('metadata', {})
         source_file = metadata.get('Source-File')
 
-        # Escape HTML special characters
-        text = html.escape(text)
+        # Generate base64 PNG image of the corresponding PDF page
+        if source_file and source_file.startswith('s3://'):
+            local_pdf_path = cached_path.cached_path(source_file)
+        else:
+            local_pdf_path = source_file
 
         # Process the text and split it according to page spans
         pages = []
@@ -61,8 +69,11 @@ def main(jsonl_path, output_dir, template_path):
             start_index, end_index, page_num = span
             page_text = text[start_index:end_index]
             # Replace line breaks with <br> tags
-            page_text = page_text.replace('\n', '<br>\n')
-            pages.append({'page_num': page_num, 'text': page_text})
+            page_text = html.escape(page_text).replace('\n', '<br>\n')
+
+            base64_image = render_pdf_to_base64webp(local_pdf_path, page_num)
+
+            pages.append({'page_num': page_num, 'text': page_text, 'image': base64_image})
 
         # Generate pre-signed URL if source_file is an S3 path
         s3_link = None
