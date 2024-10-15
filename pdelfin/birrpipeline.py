@@ -600,11 +600,11 @@ if __name__ == '__main__':
 
     if args.workspace_profile:
         workspace_session = boto3.Session(profile_name=args.workspace_profile)
-        workspace_s3 = workspace_session.resource("s3")
+        workspace_s3 = workspace_session.client("s3")
 
     if args.pdf_profile:
         pdf_session = boto3.Session(profile_name=args.pdf_profile)
-        pdf_s3 = pdf_session.resource("s3")
+        pdf_s3 = pdf_session.client("s3")
 
     db = DatabaseManager(args.workspace)
     print(f"Loaded db at {db.db_path}")
@@ -624,7 +624,7 @@ if __name__ == '__main__':
             print(f"Found {len(all_pdfs):,} total pdf paths")
         elif os.path.exists(args.add_pdfs):
             with open(args.add_pdfs, "r") as f:
-                all_pdfs = [line for line in f.readlines() if len(line.strip()) > 0]
+                all_pdfs = [line.strip() for line in f.readlines() if len(line.strip()) > 0]
         else:
             raise ValueError("add_pdfs argument needs to be either an s3 glob search path, or a local file contains pdf paths (one per line)")
 
