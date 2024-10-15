@@ -695,7 +695,7 @@ if __name__ == '__main__':
             print(f"Added {lines_written:,} new batch inference requests")
 
     # Now, finally, assemble any potentially done docs into dolma documents
-    print(f"\nAssembling {len(potentially_done_pdfs):,} potentially finished PDFs into Dolma documents at {args.workspace}/output")
+    print(f"\nAssembling potentially finished PDFs into Dolma documents at {args.workspace}/output")
     future_to_path = {executor.submit(build_dolma_doc, args.workspace, pdf): pdf for pdf in potentially_done_pdfs}
     new_output_writer = BatchWriter(f"{args.workspace}/output", args.max_size_mb, after_flush=partial(mark_pdfs_done, args.workspace))
 
