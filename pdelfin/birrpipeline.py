@@ -422,12 +422,7 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
             data = json.loads(line_str)
             pdf_s3_path, page_num = parse_custom_id(data["custom_id"])
 
-            assert "outputs" in data and len(data["outputs"]) > 0, "No outputs from model detected"
-
-            # Try to parse the actual model response JSON
-            try:
-                model_response_json = json.loads(data["outputs"][0]["text"])
-
+            if data.get("completion_error", None) is not None:
                 index_entries.append(DatabaseManager.BatchInferenceRecord(
                     inference_s3_path=inference_s3_path,
                     pdf_s3_path=pdf_s3_path,
@@ -435,20 +430,37 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
                     round=data["round"],
                     start_index=start_index,  # Byte offset in the original file
                     length=line_length,       # Length in bytes
-                    finish_reason=data["outputs"][0]["finish_reason"],
+                    finish_reason="completion_error",
                     error=data.get("completion_error", None)
                 ))
-            except json.JSONDecodeError:
-                index_entries.append(DatabaseManager.BatchInferenceRecord(
-                    inference_s3_path=inference_s3_path,
-                    pdf_s3_path=pdf_s3_path,
-                    page_num=page_num,
-                    round=data["round"],
-                    start_index=start_index,  # Byte offset in the original file
-                    length=line_length,       # Length in bytes
-                    finish_reason=data["outputs"][0]["finish_reason"],
-                    error="Could not parse model JSON output",
-                ))
+            else:
+                # Try to parse the actual model response JSON
+                assert "outputs" in data and len(data["outputs"]) > 0, "No outputs from model detected"
+
+                try:
+                    model_response_json = json.loads(data["outputs"][0]["text"])
+
+                    index_entries.append(DatabaseManager.BatchInferenceRecord(
+                        inference_s3_path=inference_s3_path,
+                        pdf_s3_path=pdf_s3_path,
+                        page_num=page_num,
+                        round=data["round"],
+                        start_index=start_index,  # Byte offset in the original file
+                        length=line_length,       # Length in bytes
+                        finish_reason=data["outputs"][0]["finish_reason"],
+                        error=data.get("completion_error", None)
+                    ))
+                except json.JSONDecodeError:
+                    index_entries.append(DatabaseManager.BatchInferenceRecord(
+                        inference_s3_path=inference_s3_path,
+                        pdf_s3_path=pdf_s3_path,
+                        page_num=page_num,
+                        round=data["round"],
+                        start_index=start_index,  # Byte offset in the original file
+                        length=line_length,       # Length in bytes
+                        finish_reason=data["outputs"][0]["finish_reason"],
+                        error="Could not parse model JSON output",
+                    ))
 
         except json.JSONDecodeError:
             print(f"Error with JSON Decoding of inference in {inference_s3_path}")
