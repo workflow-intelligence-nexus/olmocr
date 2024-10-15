@@ -2,7 +2,7 @@
 wandb/
 *histogram.png
 *.json
-
+dolma_previews/*
 /*.html
 
 

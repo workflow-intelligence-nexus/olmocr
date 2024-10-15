@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ id }}</title>
+    <style>
+        /* CSS styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+        }
+        .document {
+            background-color: #fff;
+            padding: 40px;
+            margin: 20px;
+            width: 60%;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            line-height: 1.8;
+        }
+        .page-section {
+            display: block;
+            transition: background-color 0.3s ease;
+        }
+        .page-section:hover {
+            background-color: #f5f5f5;
+        }
+        .page-section p {
+            text-align: justify;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="document">
+        {% if s3_link %}
+        <div style="margin-bottom: 20px;">
+            <a href="{{ s3_link }}" target="_blank">Download Source File</a>
+        </div>
+        {% endif %}
+        {% for page in pages %}
+        <span class="page-section" id="page-{{ page.page_num }}">{{ page.text|safe }}</span>
+        {% endfor %}
+    </div>
+</body>
+</html>
