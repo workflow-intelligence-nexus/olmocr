@@ -714,8 +714,8 @@ if __name__ == '__main__':
     pending_pdfs = db.get_pdfs_by_status("pending")
     completed_pdfs = db.get_pdfs_by_status("completed")
 
-    print(f"Pending PDFs: {len(pending_pdfs):,}")
-    print(f"Completed PDFs: {len(completed_pdfs):,}")
+    print(f"Pending PDFs: {len(pending_pdfs):,} ({sum(doc.num_pages for doc in pending_pdfs):,} pages)")
+    print(f"Completed PDFs: {len(completed_pdfs):,} ({sum(doc.num_pages for doc in completed_pdfs):,} pages)")
 
     # For each round, outputs a report of how many pages were processed, how many had errors, and a breakdown by (error, finish_reason)
     total_rounds = db.get_last_indexed_round() + 1
