@@ -10,6 +10,7 @@ import datetime
 import posixpath
 import threading
 import logging
+import urllib3.exceptions
 
 from dataclasses import dataclass
 from pypdf import PdfReader
@@ -113,10 +114,6 @@ class DatabaseManager:
         """, (key, value))
         self.conn.commit()
 
-    def get_current_round(self):
-        round_value = self.get_metadata("round")
-        return int(round_value) if round_value else 0
-
     def is_file_processed(self, s3_path, etag):
         self.cursor.execute("SELECT etag FROM processed_files WHERE s3_path = ?", (s3_path,))
         result = self.cursor.fetchone()
@@ -215,7 +212,7 @@ class DatabaseManager:
             SELECT s3_path, num_pages, status
             FROM pdfs
             WHERE status == ?
-            ORDER BY s3_path DESC
+            ORDER BY s3_path DESC, num_pages DESC
         """, (status, ))
         
         rows = self.cursor.fetchall()
@@ -452,8 +449,8 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
                 ))
 
         except json.JSONDecodeError:
-            print(f"Error with JSON Decoding of infrence in {inference_s3_path}")
-            # TODO Maybe this needs to add an index error that this json is bad, but that would mean a birr error
+            print(f"Error with JSON Decoding of inference in {inference_s3_path}")
+            # TODO Maybe this needs to add an index error that this json is bad
         except Exception as e:
             print(f"Error processing line: {e}")
 
@@ -475,9 +472,8 @@ def get_pdf_num_pages(s3_path: str) -> Optional[int]:
 
     return None
 
-def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> list[dict]:
+def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord, cur_round: int) -> list[dict]:
     db = DatabaseManager(s3_workspace)
-    cur_round = db.get_current_round()
 
     existing_pages = db.get_index_entries(pdf.s3_path)
     new_queries = []
@@ -499,12 +495,11 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> list
                 has_errored_previously = sum(page.page_num == target_page_num for page in existing_pages)
 
                 if has_errored_previously:
-                    # TODO For now this just retries the page 3 times, which is nothing special
-                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
-                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
-                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+                    # Retry the page up to 3 times
+                    for _ in range(3):
+                        new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
 
-                    # But you can try to do some fancier things, such as rotating the page, removing the pdf hints all together, etc
+                    # Optionally, you can implement more complex retry logic here
                 else:
                     new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
     except Exception as ex:
@@ -567,6 +562,30 @@ def mark_pdfs_done(s3_workspace: str, dolma_doc_lines: list[str]):
     for line in dolma_doc_lines:
         db.update_pdf_status(json.loads(line)["metadata"]["Source-File"], "completed")
 
+def get_current_round(s3_workspace: str) -> int:
+    bucket, prefix = parse_s3_path(s3_workspace)
+    inference_inputs_prefix = posixpath.join(prefix, 'inference_inputs/')
+    paginator = s3.get_paginator('list_objects_v2')
+    page_iterator = paginator.paginate(Bucket=bucket, Prefix=inference_inputs_prefix, Delimiter='/')
+
+    round_numbers = []
+    for page in page_iterator:
+        for common_prefix in page.get('CommonPrefixes', []):
+            round_prefix = common_prefix.get('Prefix')
+            # Extract 'round_X' from the prefix
+            round_dir = posixpath.basename(posixpath.dirname(round_prefix))
+            if round_dir.startswith('round_'):
+                try:
+                    round_num = int(round_dir[len('round_'):])
+                    round_numbers.append(round_num)
+                except ValueError:
+                    pass
+    if round_numbers:
+        current_round = max(round_numbers) + 1
+    else:
+        current_round = 0
+    return current_round
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
@@ -577,7 +596,9 @@ if __name__ == '__main__':
 
     db = DatabaseManager(args.workspace)
     print(f"Loaded db at {db.db_path}")
-    print(f"Current round is {db.get_current_round()}\n")
+
+    current_round = get_current_round(args.workspace)
+    print(f"Current round is {current_round}\n")
 
     # One shared executor to rule them all
     executor = ProcessPoolExecutor()
@@ -617,22 +638,27 @@ if __name__ == '__main__':
 
     for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
         s3_path, etag = future_to_path[future]
-        inference_records = future.result()
 
-        db.add_index_entries(inference_records)
-        db.update_processed_file(s3_path, etag=etag)
+        try:
+            inference_records = future.result()
+    
+            db.add_index_entries(inference_records)
+            db.update_processed_file(s3_path, etag=etag)
+        except urllib3.exceptions.SSLError:
+            print(f"Cannot load inference file {s3_path} due to SSL error, will retry another time")
+
 
     # Now query each pdf, if you have all of the pages needed (all pages present, error is null and finish_reason is stop), then you assemble it into a dolma document and output it
     # If you don't have every page, or if you have pages with errors, then you output a new batch of inference items to use
-    if db.get_last_indexed_round() < db.get_current_round() - 1:
-        print(f"WARNING: No new batch inference results found, you need to run batch inference on {args.workspace}/inference_inputs/round_{db.get_current_round() - 1}")
+    if db.get_last_indexed_round() < current_round - 1:
+        print(f"WARNING: No new batch inference results found, you need to run batch inference on {args.workspace}/inference_inputs/round_{current_round - 1}")
         potentially_done_pdfs = db.get_pdfs_by_status("pending")
     else:
         print(f"\nCreating batch inference files for new PDFs")
-        future_to_path = {executor.submit(build_pdf_queries, args.workspace, pdf): pdf for pdf in db.get_pdfs_by_status("pending")}
+        future_to_path = {executor.submit(build_pdf_queries, args.workspace, pdf, current_round): pdf for pdf in db.get_pdfs_by_status("pending")}
         potentially_done_pdfs = []
         lines_written = 0
-        new_inference_writer = BatchWriter(f"{args.workspace}/inference_inputs/round_{db.get_current_round()}", args.max_size_mb)
+        new_inference_writer = BatchWriter(f"{args.workspace}/inference_inputs/round_{current_round}", args.max_size_mb)
 
         for future in tqdm(as_completed(future_to_path), total=len(future_to_path)):
             pdf = future_to_path[future]
@@ -651,7 +677,6 @@ if __name__ == '__main__':
 
         if lines_written > 0:
             print(f"Added {lines_written:,} new batch inference requests")
-            db.set_metadata("round", str(db.get_current_round() + 1))
 
     # Now, finally, assemble any potentially done docs into dolma documents
     print(f"\nAssembling {len(potentially_done_pdfs):,} potentially finished PDFs into Dolma documents at {args.workspace}/output")
@@ -698,7 +723,3 @@ if __name__ == '__main__':
     print("\nWork finished, waiting for all workers to finish cleaning up")
     executor.shutdown(wait=True)
     db.close()
-    
-    # TODO
-    # 2. Have a way to apply basic spam + language filter if you can during add pdfs step
-    # 3. For retrying, make it so you retry several times with different sampling parameters
