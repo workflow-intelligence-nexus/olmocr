@@ -3,12 +3,14 @@ import json
 import html
 import argparse
 import boto3
+import tempfile
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from jinja2 import Template
 import smart_open
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from pdelfin.s3_utils import get_s3_bytes
 from pdelfin.data.renderpdf import render_pdf_to_base64webp
 
 def read_jsonl(path):
@@ -42,9 +44,11 @@ def process_document(data, s3_client, template, output_dir):
 
     # Generate base64 image of the corresponding PDF page
     if source_file and source_file.startswith('s3://'):
-        local_pdf_path = cached_path.cached_path(source_file)
+        local_pdf = tempfile.NamedTemporaryFile("wb+", suffix=".pdf")
+        local_pdf.write(get_s3_bytes(s3_client, source_file))
+        local_pdf.flush()
     else:
-        local_pdf_path = source_file
+        raise ValueError("Expecting s3 files only")
 
     pages = []
     for span in pdf_page_numbers:
@@ -53,9 +57,11 @@ def process_document(data, s3_client, template, output_dir):
         # Replace line breaks with <br> tags
         page_text = html.escape(page_text).replace('\n', '<br>\n')
 
-        base64_image = render_pdf_to_base64webp(local_pdf_path, page_num)
+        base64_image = render_pdf_to_base64webp(local_pdf.name, page_num)
 
         pages.append({'page_num': page_num, 'text': page_text, 'image': base64_image})
+
+    local_pdf.close()
 
     # Generate pre-signed URL if source_file is an S3 path
     s3_link = None
