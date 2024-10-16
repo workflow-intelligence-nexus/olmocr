@@ -45,7 +45,6 @@ from .utils import (
     RunName,
     get_local_dir,
     log_trainable_parameters,
-    packing_collator,
     setup_environment,
     make_dataset,
     TruncatingCollator
@@ -169,7 +168,7 @@ def run_train(config: TrainConfig):
             label_names=["labels"],  # fix from https://github.com/huggingface/transformers/issues/22885
             max_grad_norm=config.hparams.clip_grad_norm,
             remove_unused_columns=False,
-            #eval_on_start=True,
+            eval_on_start=True,
             metric_for_best_model=config.valid_data.metric_for_best_model,
         )
 
