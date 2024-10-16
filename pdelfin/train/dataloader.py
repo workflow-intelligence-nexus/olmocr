@@ -101,7 +101,7 @@ def _cache_s3_file(s3_path: str, local_cache_dir: str):
     bucket, key = parse_s3_path(s3_path)
 
     # Define the local file path
-    local_file_path = os.path.join(local_cache_dir, key.replace("/", "_"))
+    local_file_path = os.path.join(local_cache_dir, bucket + "__" + key.replace("/", "_"))
     os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
     lock_file = f"{local_file_path}.lock"
 
