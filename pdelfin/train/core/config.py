@@ -23,28 +23,6 @@ class ModelConfig:
 
 
 @dataclass
-class FormatConfig:
-    """Configuration for formatting the text that is input to the model."""
-
-    new_line_symbol: str = field(
-        help="The symbol to use for new lines in the text; default is '\\n'.",
-        default="\n",
-    )
-    system_message: Optional[str] = field(
-        help="The system message to use for formatting the text; default is no system message.",
-        default=None,
-    )
-    instruction_template: str = field(
-        help="The template to use for formatting the input text", default="Original:"
-    )
-    response_template: str = field(help="The template to use for formatting the output text", default="Rewrite:")
-    chat_template: Optional[str] = field(
-        help="The template to use for formatting the chat text. If None, the default chat template will be used.",
-        default=None,
-    )
-
-
-@dataclass
 class GenerateConfig:
     max_length: int = field(help="The maximum length of the generated text", default=4096)
     temperature: float = field(default=0.2, help="The temperature to use for generation")
@@ -75,9 +53,9 @@ class AwsConfig:
 @dataclass
 class SourceConfig:
     name: str = field(help="The name of the source")
-    parquet_path: Optional[str] = field(help="The s3/glob path to a bunch of parquet files for a preprocessed dataset.", default=None)
-    query_glob_path: Optional[str] = field(help="The s3 bucket pointing to the inputs sent to OpenAI to generate the silver data", default=None)
-    response_glob_path: Optional[str] = field(help="The s3 bucket pointing to the batch api response json's sent back from open ai", default=None)
+    response_glob_path: str = field(help="The s3 bucket pointing to the batch api response json's sent back from open ai")
+    target_longest_image_dim: int = field(help="Dimensions to render the pdf page image to")
+    target_anchor_text_len: int = field(help="Maximum amount of anchor text (aka prompt hint)")
 
 
 @dataclass
@@ -141,7 +119,6 @@ class TrainConfig:
     lora: Optional[LoraConfig] = field(default=None, help="The LoRA configuration")
     aws: AwsConfig = field(default=AwsConfig(), help="Configuration for AWS S3")
     wandb: WandbConfig = field(default=WandbConfig(), help="Configuration for Weights and Biases")
-    format: FormatConfig = field(default=FormatConfig(), help="Configuration for formatting the input/output text")
     train_data: DataConfig = field(default=DataConfig(), help="Configuration for the training data")
     valid_data: DataConfig = field(default=DataConfig(), help="Configuration for the validation data")
     generate: GenerateConfig = field(default=GenerateConfig(), help="Configuration for text generation")
@@ -158,5 +135,4 @@ class DemoConfig:
     share: bool = field(default=False, help="Share the demo publicly.")
 
     model: ModelConfig = field(default=ModelConfig())
-    format: FormatConfig = field(default=FormatConfig())
     generate: GenerateConfig = field(default=GenerateConfig())
