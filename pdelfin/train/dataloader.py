@@ -116,7 +116,8 @@ def _cache_s3_file(s3_path: str, local_cache_dir: str):
             )
             s3_client.download_file(bucket, key, local_file_path)
         else:
-            logger.info(f"File {local_file_path} already exists, skipping download.")
+            pass
+            #logger.info(f"File {local_file_path} already exists, skipping download.")
 
     return local_file_path
 
