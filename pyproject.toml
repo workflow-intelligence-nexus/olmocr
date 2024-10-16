@@ -29,6 +29,7 @@ dependencies = [
   "ftfy",
   "bleach",
   "markdown2",
+  "filelock",
 ]
 license = {file = "LICENSE"}
 

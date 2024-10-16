@@ -26,7 +26,7 @@ from pypdf.generic import RectangleObject
 from pdelfin.prompts._adv_anchor import mult
 
 
-def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"]) -> str:
+def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"], target_length: int=4000) -> str:
     assert page > 0, "Pages are 1-indexed in pdf-land"
 
     if pdf_engine == "pdftotext":
@@ -54,7 +54,7 @@ def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftote
 
         return best_option
     elif pdf_engine == "pdfreport":
-        return _linearize_pdf_report(_pdf_report(local_pdf_path, page))
+        return _linearize_pdf_report(_pdf_report(local_pdf_path, page), max_length=target_length)
     else:
         raise NotImplementedError("Unknown engine")
 

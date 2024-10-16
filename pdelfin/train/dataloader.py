@@ -23,6 +23,9 @@ from pdelfin.s3_utils import parse_custom_id, get_s3_bytes, parse_s3_path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Quiet logs from pypdf and smart open
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+logging.getLogger("smart_open").setLevel(logging.ERROR)
 
 def list_dataset_files(s3_glob_path: str):
     """
