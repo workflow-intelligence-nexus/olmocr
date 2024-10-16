@@ -10,9 +10,11 @@
 # coherency score best of these three
 import subprocess
 import re
+import random
 import ftfy
 from dataclasses import dataclass
 from typing import Literal, List
+from functools import lru_cache
 
 import pypdfium2 as pdfium
 import pymupdf
@@ -24,7 +26,7 @@ from pypdf.generic import RectangleObject
 from pdelfin.prompts._adv_anchor import mult
 
 
-def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"]) -> str:
+def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"], target_length: int=4000) -> str:
     assert page > 0, "Pages are 1-indexed in pdf-land"
 
     if pdf_engine == "pdftotext":
@@ -52,7 +54,7 @@ def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftote
 
         return best_option
     elif pdf_engine == "pdfreport":
-        return _linearize_pdf_report(_pdf_report(local_pdf_path, page))
+        return _linearize_pdf_report(_pdf_report(local_pdf_path, page), max_length=target_length)
     else:
         raise NotImplementedError("Unknown engine")
 
@@ -119,10 +121,14 @@ class PageReport:
     text_elements: List[TextElement]
     image_elements: List[ImageElement]
 
+@lru_cache(maxsize=5)
+def _get_cached_pdf_reader(local_pdf_path: str) -> PdfReader:
+    # Cached, because you are going to often iterate through a whole pdf, so this will make it a lot faster on subsequent iterations
+    return PdfReader(local_pdf_path)
 
-def _pdf_report(local_pdf_path: str, page: int) -> PageReport:
-    reader = PdfReader(local_pdf_path)
-    page = reader.pages[page - 1]
+def _pdf_report(local_pdf_path: str, page_num: int) -> PageReport:
+    reader = _get_cached_pdf_reader(local_pdf_path)
+    page = reader.pages[page_num - 1]
     resources = page.get("/Resources", {})
     xobjects = resources.get("/XObject", {})
     text_elements, image_elements = [], []
@@ -330,7 +336,10 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     ]
 
     # Sort remaining elements by their positions (e.g., x-coordinate and then y-coordinate)
-    remaining_elements.sort(key=lambda x: (x[3][0], x[3][1]))
+    # remaining_elements.sort(key=lambda x: (x[3][0], x[3][1]))
+
+    # Shuffle remaining elements randomly
+    random.shuffle(remaining_elements)
 
     # Add elements until reaching max_length
     for elem_type, elem, s, position in remaining_elements:

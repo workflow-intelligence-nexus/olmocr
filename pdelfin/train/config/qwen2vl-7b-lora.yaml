@@ -7,43 +7,33 @@ wandb:
   project: pdelfin
   entity: ai2-llm
 
-# TODO This is not used
-format:
-  instruction_template: "Original:"
-  response_template: "Rewritten:"
-  # Template from here: https://github.com/QwenLM/Qwen2/blob/main/examples/sft/finetune.py#L30
-  chat_template: |
-    {% for message in messages %}
-      {{'<|im_start|>' + message['role'] + '\n' + message['content']}}
-      {% if loop.last %}
-        {{ '<|im_end|>'}}
-      {% else %}
-        {{ '<|im_end|>\n' }}
-      {% endif %}
-    {% endfor %}
-
 generate:
-  max_length: 4096
+  max_length: 8192
 
 train_data:
   seed: 1337
   sources:
-    # These tend to be really big, so it's only practical to host them as parquets on weka, otherwise you may OOM or just never finish dataloading
     - name: openai_batch_data_v5_1_train
-      parquet_path: /data/jakep/pdfdata/openai_batch_data_v5_1_parquet/*.parquet
-    - name: openai_batch_data_v5_1_train
-      parquet_path: /data/jakep/pdfdata/openai_batch_data_v5_1_iabooks_parquet/*.parquet
+      response_glob_path: /data/jakep/pdfdata/openai_batch_data_v5_1_train_done/*.json
+      target_longest_image_dim: 1024
+      target_anchor_text_len: 6000
+    - name: openai_batch_data_v5_1_iabooks_train
+      response_glob_path: /data/jakep/pdfdata/openai_batch_data_v5_1_iabooks_train_done/*.json
+      target_longest_image_dim: 1024
+      target_anchor_text_len: 6000
 
 valid_data:
   metric_for_best_model: openai_batch_data_v5_1_eval_loss
   sources:
     # These tend to be small, so you can load from s3 it's no big deal
     - name: openai_batch_data_v5_1_eval
-      query_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl
       response_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json
+      target_longest_image_dim: 1024
+      target_anchor_text_len: 6000
     - name: openai_batch_data_v5_1_iabooks_eval
-      query_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_iabooks_eval/*.jsonl
       response_glob_path: s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_iabooks_eval/*.json
+      target_longest_image_dim: 1024
+      target_anchor_text_len: 6000
 
 
 

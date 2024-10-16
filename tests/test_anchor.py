@@ -2,11 +2,12 @@ import unittest
 import os
 import json
 import io
+import glob
 
 from pypdf import PdfReader
 
 from pdelfin.prompts.anchor import _pdf_report, _linearize_pdf_report, get_anchor_text
-
+from pdelfin.data.renderpdf import get_pdf_media_box_width_height
 
 class AnchorTest(unittest.TestCase):
     def testExtractText(self):
@@ -102,7 +103,14 @@ class AnchorTest(unittest.TestCase):
         print(len(anchor_text))
         self.assertLess(len(anchor_text), 4000)
 
+    def testTobaccoPaperMissingParagraphs(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
 
+        anchor_text = get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport")
+
+        print(anchor_text)
+        print(len(anchor_text))
+        self.assertLess(len(anchor_text), 4000)
 
 
 class BuildSilverTest(unittest.TestCase):
@@ -125,3 +133,16 @@ class BuildSilverTest(unittest.TestCase):
         print(width, height)
 
         assert max(width, height) == 2048
+
+class TestRenderPdf(unittest.TestCase):
+    def testFastMediaBoxMatchesPyPdf(self):
+        for file in glob.glob(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "*.pdf")):
+            reader = PdfReader(file)
+            print("checking", file)
+            
+            for page_num in range(1, len(reader.pages) + 1):
+                w1, h1 = get_pdf_media_box_width_height(file, page_num)
+                pypdfpage = reader.pages[page_num - 1]
+
+                self.assertEqual(w1, pypdfpage.mediabox.width)
+                self.assertEqual(h1, pypdfpage.mediabox.height)
