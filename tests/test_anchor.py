@@ -103,6 +103,15 @@ class AnchorTest(unittest.TestCase):
         print(len(anchor_text))
         self.assertLess(len(anchor_text), 4000)
 
+    def testTobaccoPaperMissingParagraphs(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport")
+
+        print(anchor_text)
+        print(len(anchor_text))
+        self.assertLess(len(anchor_text), 4000)
+
 
 class BuildSilverTest(unittest.TestCase):
     def testSmallPage(self):
