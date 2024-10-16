@@ -48,19 +48,35 @@ def get_rawdataset_from_source(data_config: DataConfig, source: SourceConfig) ->
 def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset, Dataset]:
     random.seed(config.train_data.seed)
 
-    # Training sets get all concatenated and shuffled
+    # Retrieve the two target lengths from the first source for comparison
+    first_source = config.train_data.sources[0]
+    target_longest_image_dim = first_source.target_longest_image_dim
+    target_anchor_text_len = first_source.target_anchor_text_len
+
+    # Verify that all sources have the same target lengths
+    for source in config.train_data.sources:
+        if source.target_longest_image_dim != target_longest_image_dim:
+            raise ValueError(f"Inconsistent target_longest_image_dim found in source {source}")
+        if source.target_anchor_text_len != target_anchor_text_len:
+            raise ValueError(f"Inconsistent target_anchor_text_len found in source {source}")
+
+
+    # Concatenate datasets first, unfortunately you can't apply the transform before concatenation due to the library
     train_dataset = concatenate_datasets(
         [
-            get_rawdataset_from_source(config.train_data, source).with_transform(
-                partial(
-                    batch_prepare_data_for_qwen2_training,
-                    processor=processor,
-                    target_longest_image_dim=source.target_longest_image_dim,
-                    target_anchor_text_len=source.target_anchor_text_len,
-                )
-            )
+            get_rawdataset_from_source(config.train_data, source)
             for source in config.train_data.sources
         ]
+    )
+
+    # Apply the transform to the concatenated dataset
+    train_dataset = train_dataset.with_transform(
+        partial(
+            batch_prepare_data_for_qwen2_training,
+            processor=processor,
+            target_longest_image_dim=target_longest_image_dim,
+            target_anchor_text_len=target_anchor_text_len,
+        )
     )
 
     # Validation sets get put into a datasetdict so each can report a loss separately

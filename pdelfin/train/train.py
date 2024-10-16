@@ -26,7 +26,8 @@ from transformers import (
     TrainerCallback,
     TrainingArguments,
     Qwen2VLForConditionalGeneration,
-    AutoProcessor
+    AutoProcessor,
+    DataCollatorForSeq2Seq
 )
 from transformers.integrations import WandbCallback
 from transformers.trainer_callback import TrainerControl, TrainerState
@@ -168,12 +169,16 @@ def run_train(config: TrainConfig):
             label_names=["labels"],  # fix from https://github.com/huggingface/transformers/issues/22885
             max_grad_norm=config.hparams.clip_grad_norm,
             remove_unused_columns=False,
-            eval_on_start=True,
+            #eval_on_start=True,
             metric_for_best_model=config.valid_data.metric_for_best_model,
         )
 
-        # Set the collator
-        collator = partial(packing_collator, pad_multiple_of=config.hparams.pad_multiple_of, do_shrink=False)
+        data_collator = DataCollatorForSeq2Seq(
+            tokenizer=processor.tokenizer,  # use the processor's tokenizer
+            max_length=config.generate.max_length,
+            padding=False,
+        )
+
         checkpoint_callback = CheckpointUploadCallback(save_path=save_path, logger=logger)
 
         # Initialize Trainer
@@ -183,15 +188,9 @@ def run_train(config: TrainConfig):
             train_dataset=train_dataset,
             eval_dataset=valid_dataset, 
             tokenizer=processor.tokenizer,
-            #Collator is not needed as we are doing batch size 1 for now...
-            #data_collator=collator,
+            data_collator=data_collator,
             callbacks=[checkpoint_callback],
         )
-
-        # Could not get this to work
-        # if get_rank() == 0:
-        #     # this is a hack to add script and peft config to wandb config
-        #     update_wandb_config(config, trainer, model)
 
         # Train the model
         trainer.train()  # pyright: ignore

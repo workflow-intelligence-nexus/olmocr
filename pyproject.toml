@@ -24,6 +24,7 @@ dependencies = [
   "pypdf",
   "pymupdf",
   "pypdfium2",
+  "cryptography",
   "lingua-language-detector",
   "Pillow",
   "ftfy",
