@@ -28,7 +28,7 @@ dependencies = [
   "Pillow",
   "ftfy",
   "bleach",
-  "duckdb",
+  "markdown2",
 ]
 license = {file = "LICENSE"}
 
