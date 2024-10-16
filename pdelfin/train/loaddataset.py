@@ -7,7 +7,7 @@ from pdelfin.train.core.cli import make_cli
 from pdelfin.train.core.config import TrainConfig
 from tqdm import tqdm
 from .utils import (
-    make_dataset
+    make_dataset, TruncatingCollator
 )
 
 from torch.utils.data import DataLoader
@@ -30,19 +30,20 @@ def main():
 
     print("Datasets loaded into hugging face cache directory")
 
-    data_collator = DataCollatorForSeq2Seq(
-            tokenizer=processor.tokenizer,  # use the processor's tokenizer
-            max_length=4096,
-            padding=False,
-        )
+    # data_collator = TruncatingCollator(
+    #     max_length=4096
+    # )
 
-    train_dataloader = DataLoader(train_dataset, batch_size=1, num_workers=4, shuffle=False, collate_fn=data_collator)
-    max_seen_len = 0
-    for entry in tqdm(train_dataloader):
-       num_input_tokens = entry["input_ids"].shape[1]
-       max_seen_len = max(max_seen_len, num_input_tokens)
+    # train_dataloader = DataLoader(train_dataset, batch_size=1, num_workers=4, shuffle=False, collate_fn=data_collator)
+    # max_seen_len = 0
+    # for index, entry in tqdm(enumerate(train_dataloader)):
+    #     if index == 0:
+    #         print(entry)
+        
+    #     num_input_tokens = entry["input_ids"].shape[1]
+    #     max_seen_len = max(max_seen_len, num_input_tokens)
 
-       print(max_seen_len)
+    #     print(max_seen_len)
 
 if __name__ == "__main__":
     main()

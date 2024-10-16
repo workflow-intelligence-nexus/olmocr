@@ -26,8 +26,7 @@ from transformers import (
     TrainerCallback,
     TrainingArguments,
     Qwen2VLForConditionalGeneration,
-    AutoProcessor,
-    DataCollatorForSeq2Seq
+    AutoProcessor
 )
 from transformers.integrations import WandbCallback
 from transformers.trainer_callback import TrainerControl, TrainerState
@@ -48,7 +47,8 @@ from .utils import (
     log_trainable_parameters,
     packing_collator,
     setup_environment,
-    make_dataset
+    make_dataset,
+    TruncatingCollator
 )
 
 class CheckpointUploadCallback(TrainerCallback):
@@ -173,11 +173,7 @@ def run_train(config: TrainConfig):
             metric_for_best_model=config.valid_data.metric_for_best_model,
         )
 
-        data_collator = DataCollatorForSeq2Seq(
-            tokenizer=processor.tokenizer,  # use the processor's tokenizer
-            max_length=config.generate.max_length,
-            padding=False,
-        )
+        data_collator = TruncatingCollator(max_length=config.generate.max_length)
 
         checkpoint_callback = CheckpointUploadCallback(save_path=save_path, logger=logger)
 

@@ -181,27 +181,26 @@ def log_trainable_parameters(model: torch.nn.Module, logger: Optional[Logger] = 
     )
 
 
-def packing_collator(batch, pad_multiple_of: int, do_shrink: bool = True):
-    with override_torch_threads(1):
-        # start by stacking
-        stacked_batch = {k: torch.tensor([s[k] for s in batch]) for k in batch[0].keys()}
+class TruncatingCollator:
+    def __init__(self, max_length: int):
+        self.max_length = max_length
 
-        if not do_shrink:
-            return stacked_batch
+    def __call__(self, batch: List[Dict]) -> Dict:
+        # Assert that we are only handling batch size 1 for now
+        assert len(batch) == 1, "Only batch size 1 is supported for now"
 
-        # find first position where attention mask is 0 for all samples
-        max_pos = int(stacked_batch["attention_mask"].sum(0).argmin())
-        max_pos_multiple_of = max_pos + (pad_multiple_of - max_pos % pad_multiple_of)
+        truncated_input_ids = torch.tensor(batch[0]["input_ids"][:self.max_length]).unsqueeze(0)
+        truncated_attention_mask = torch.tensor(batch[0]["attention_mask"][:self.max_length]).unsqueeze(0)
+        truncated_labels = torch.tensor(batch[0]["labels"][:self.max_length]).unsqueeze(0)
 
-        if max_pos_multiple_of >= len(batch[0]["attention_mask"]):
-            # no need to crop
-            return stacked_batch
-
-        # crop the tensors
-        cropped_batch = {k: v[:, :max_pos_multiple_of] for k, v in stacked_batch.items()}
-
-    return cropped_batch
-
+        return {
+            "input_ids": truncated_input_ids,
+            "attention_mask": truncated_attention_mask,
+            "labels": truncated_labels,
+            "pixel_values": torch.tensor(batch[0]["pixel_values"]).unsqueeze(0),
+            "image_grid_thw": torch.tensor(batch[0]["image_grid_thw"]).unsqueeze(0),
+        }
+        
 
 @contextmanager
 def get_local_dir(output_dir: str):
