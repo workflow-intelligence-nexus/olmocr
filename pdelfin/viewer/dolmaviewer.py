@@ -9,6 +9,7 @@ from jinja2 import Template
 import smart_open
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import markdown2
 
 from pdelfin.s3_utils import get_s3_bytes
 from pdelfin.data.renderpdf import render_pdf_to_base64webp
@@ -54,8 +55,10 @@ def process_document(data, s3_client, template, output_dir):
     for span in pdf_page_numbers:
         start_index, end_index, page_num = span
         page_text = text[start_index:end_index]
-        # Replace line breaks with <br> tags
-        page_text = html.escape(page_text).replace('\n', '<br>\n')
+        
+        # Detect and convert Markdown to HTML
+        page_text = html.escape(page_text, quote=True).replace('&lt;br&gt;', '<br>')
+        page_text = markdown2.markdown(page_text, extras=["tables"])
 
         base64_image = render_pdf_to_base64webp(local_pdf.name, page_num)
 
