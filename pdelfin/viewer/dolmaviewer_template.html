@@ -48,17 +48,14 @@
 </head>
 <body>
     <div class="document">
-        {% if s3_link %}
-        <div style="margin-bottom: 20px;">
-            <a href="{{ s3_link }}" target="_blank">Download Source File</a>
-        </div>
-        {% endif %}
         {% for page in pages %}
         <div class="page-section" id="page-{{ page.page_num }}">
             <div class="text">{{ page.text|safe }}</div>
             {% if page.image %}
             <div class="image">
+                <a href="{{ s3_link }}?page={{ page.pagenum  }}" target="_blank">
                 <img src="data:image/webp;base64,{{ page.image }}" alt="Page {{ page.page_num }} Image">
+                </a>
             </div>
             {% endif %}
         </div>

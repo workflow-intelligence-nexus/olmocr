@@ -66,6 +66,7 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         initial_len = len(ds)
 
         from pdelfin.train.dataprep import filter_by_max_seq_len
+        print("Filtering on max sequence length")
         ds = ds.filter(partial(filter_by_max_seq_len, processor=processor, max_prompt_len=2200, max_response_len=2200))
 
         formatted_dataset = ds.with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))

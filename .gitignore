@@ -3,6 +3,7 @@ wandb/
 *histogram.png
 *.json
 dolma_previews/*
+s2_previews/*
 /*.html
 
 

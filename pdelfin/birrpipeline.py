@@ -24,6 +24,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pdelfin.data.renderpdf import render_pdf_to_base64png
 from pdelfin.prompts import build_finetuning_prompt
 from pdelfin.prompts.anchor import get_anchor_text
+from pdelfin.s3_utils import parse_s3_path, expand_s3_glob, get_s3_bytes, put_s3_bytes
+
 
 # Global s3 client for the whole script, feel free to adjust params if you need it
 workspace_s3 = boto3.client('s3')
@@ -303,7 +305,7 @@ class BatchWriter:
 
     def _write_batch_to_file(self, batch_content: str, output_path: str, batch_lines: List[str]):
         if self.is_s3:
-            self._write_to_s3(batch_content, output_path)
+            put_s3_bytes(workspace_s3, output_path, batch_content.encode("utf-8"))
         else:
             with open(output_path, 'w', encoding='utf-8') as f_out:
                 f_out.write(batch_content)
@@ -312,51 +314,12 @@ class BatchWriter:
         if self.after_flush:
             self.after_flush(batch_lines)
 
-    def _write_to_s3(self, content: str, s3_path: str):
-        # Parse the s3_path to get bucket and key
-        parsed = urlparse(s3_path)
-        bucket = parsed.netloc
-        key = parsed.path.lstrip('/')
-
-        s3 = boto3.client('s3')
-        s3.put_object(
-            Bucket=bucket,
-            Key=key,
-            Body=content.encode('utf-8'),
-            ContentType='text/plain; charset=utf-8'
-        )
-
     def close(self):
         self._write_batch()
         # Wait for all threads to finish
         for thread in self.threads:
             thread.join()
 
-
-def parse_s3_path(s3_path):
-    if not s3_path.startswith('s3://'):
-        raise ValueError('s3_path must start with s3://')
-    path = s3_path[5:]
-    bucket, _, prefix = path.partition('/')
-    return bucket, prefix
-
-def expand_s3_glob(s3_client, s3_glob: str) -> Dict[str, str]:
-    parsed = urlparse(s3_glob)
-    bucket_name = parsed.netloc
-    prefix = os.path.dirname(parsed.path.lstrip('/')).rstrip('/') + "/"
-    pattern = os.path.basename(parsed.path)
-
-    paginator = s3_client.get_paginator('list_objects_v2')
-    page_iterator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
-
-    matched_files = {}
-    for page in page_iterator:
-        for obj in page.get('Contents', []):
-            key = obj['Key']
-            if glob.fnmatch.fnmatch(key, posixpath.join(prefix, pattern)):
-                matched_files[f"s3://{bucket_name}/{key}"] = obj['ETag'].strip('"')
-
-    return matched_files
 
 def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> dict:
     image_base64 = render_pdf_to_base64png(local_pdf_path, page, 1024)
@@ -374,32 +337,6 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
             }
         ],
     }
-
-
-def get_s3_bytes(s3_client, s3_path: str, start_index: Optional[int] = None, end_index: Optional[int] = None) -> bytes:
-    bucket, key = parse_s3_path(s3_path)
-
-    # Build the range header if start_index and/or end_index are specified
-    range_header = None
-    if start_index is not None and end_index is not None:
-        # Range: bytes=start_index-end_index
-        range_value = f"bytes={start_index}-{end_index}"
-        range_header = {'Range': range_value}
-    elif start_index is not None and end_index is None:
-        # Range: bytes=start_index-
-        range_value = f"bytes={start_index}-"
-        range_header = {'Range': range_value}
-    elif start_index is None and end_index is not None:
-        # Range: bytes=-end_index (last end_index bytes)
-        range_value = f"bytes=-{end_index}"
-        range_header = {'Range': range_value}
-
-    if range_header:
-        obj = s3_client.get_object(Bucket=bucket, Key=key, Range=range_header['Range'])
-    else:
-        obj = s3_client.get_object(Bucket=bucket, Key=key)
-
-    return obj['Body'].read()
 
 
 def parse_custom_id(custom_id: str) -> Tuple[str, int]:
@@ -577,7 +514,9 @@ def mark_pdfs_done(s3_workspace: str, dolma_doc_lines: list[str]):
         db.update_pdf_status(json.loads(line)["metadata"]["Source-File"], "completed")
 
 def get_current_round(s3_workspace: str) -> int:
-    bucket, prefix = parse_s3_path(s3_workspace)
+    path = s3_workspace[5:]
+    bucket, _, prefix = path.partition('/')
+
     inference_inputs_prefix = posixpath.join(prefix, 'inference_inputs/')
     paginator = workspace_s3.get_paginator('list_objects_v2')
     page_iterator = paginator.paginate(Bucket=bucket, Prefix=inference_inputs_prefix, Delimiter='/')

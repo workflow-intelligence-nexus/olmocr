@@ -6,7 +6,6 @@ import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 from jinja2 import Template
 import smart_open
-import cached_path
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -106,7 +105,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate HTML pages from a JSONL file with pre-signed S3 links.')
     parser.add_argument('jsonl_path', help='Path to the JSONL file (local or s3://)')
     parser.add_argument('--output_dir', default='dolma_previews', help='Directory to save HTML files')
-    parser.add_argument('--template_path', default='template.html', help='Path to the Jinja2 template file')
+    parser.add_argument('--template_path', default='dolmaviewer_template.html', help='Path to the Jinja2 template file')
     args = parser.parse_args()
 
     main(args.jsonl_path, args.output_dir, args.template_path)
