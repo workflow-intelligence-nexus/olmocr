@@ -20,7 +20,7 @@ from accelerate.utils import PrecisionType
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
 from .core.cli import to_native_types
-from .core.config import AwsConfig, TrainConfig, WandbConfig
+from .core.config import AwsConfig, TrainConfig, WandbConfig, DataConfig, SourceConfig
 from .core.loggers import get_logger
 from .core.paths import copy_dir, is_local
 from .core.state import BeakerState
@@ -28,8 +28,8 @@ from .core.state import BeakerState
 
 T = TypeVar("T")
 
-from pdelfin.train.dataloader import build_batch_query_response_vision_dataset, list_dataset_files
-from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, filter_by_max_seq_len
+from pdelfin.train.dataloader import build_finetuning_dataset, list_dataset_files
+from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
 
 
 def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
@@ -42,11 +42,8 @@ def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
         return torch.float8_e4m3fn
     return torch.float32
 
-def get_rawdataset_from_source(source) -> Dataset:
-    if source.parquet_path is not None:
-        return load_dataset("parquet", data_files=list_dataset_files(source.parquet_path))["train"]
-    else:
-        return build_batch_query_response_vision_dataset(source.query_glob_path, source.response_glob_path)
+def get_rawdataset_from_source(data_config: DataConfig, source: SourceConfig) -> Dataset:
+    return build_finetuning_dataset(source.response_glob_path, pdf_cache_location=data_config.cache_location)
 
 def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset, Dataset]:
     random.seed(config.train_data.seed)
@@ -55,19 +52,17 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
     train_dataset = (
         concatenate_datasets(
             [
-                get_rawdataset_from_source(source)
+                get_rawdataset_from_source(config.train_data, source)
                 for source in config.train_data.sources
             ]
         )
-        .filter(partial(filter_by_max_seq_len, processor=processor), num_proc=multiprocessing.cpu_count())
         .with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
     )
 
     # Validation sets get put into a datasetdict so each can report a loss separately
     valid_dataset = DatasetDict(
         **{
-            source.name: get_rawdataset_from_source(source)
-            .filter(partial(filter_by_max_seq_len, processor=processor))
+            source.name: get_rawdataset_from_source(config.valid_data, source)
             .with_transform(partial(batch_prepare_data_for_qwen2_training, processor=processor))
             for source in config.valid_data.sources
         }
