@@ -27,7 +27,7 @@ gantry run \
     --allow-dirty \
     --host-networking \
     --workspace ai2/oe-data-pdf \
-    --beaker-image 'jakep/jakep-pdf-finetunev1.1' \
+    --beaker-image 'jakep/jakep-pdf-finetunev1.2' \
     --venv 'base' \
     --pip gantry-requirements.txt \
     --priority normal \
