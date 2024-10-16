@@ -18,3 +18,9 @@ RUN apt-get install -y cuda-nvcc-12-1
 
 # Get flash attention setup
 RUN pip install flash-attn --no-build-isolation
+
+# Install PDF utilities
+RUN apt-get install -y poppler-utils
+RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections
+RUN apt-get install -y ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
+
