@@ -10,6 +10,7 @@
 # coherency score best of these three
 import subprocess
 import re
+import random
 import ftfy
 from dataclasses import dataclass
 from typing import Literal, List
@@ -335,7 +336,10 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     ]
 
     # Sort remaining elements by their positions (e.g., x-coordinate and then y-coordinate)
-    remaining_elements.sort(key=lambda x: (x[3][0], x[3][1]))
+    # remaining_elements.sort(key=lambda x: (x[3][0], x[3][1]))
+
+    # Shuffle remaining elements randomly
+    random.shuffle(remaining_elements)
 
     # Add elements until reaching max_length
     for elem_type, elem, s, position in remaining_elements:
