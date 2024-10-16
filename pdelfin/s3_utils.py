@@ -68,3 +68,8 @@ def put_s3_bytes(s3_client, s3_path: str, data: bytes):
         Body=data,
         ContentType='text/plain; charset=utf-8'
     )
+
+def parse_custom_id(custom_id: str) -> tuple[str, int]:
+    s3_path = custom_id[:custom_id.rindex("-")]
+    page_num = int(custom_id[custom_id.rindex("-") + 1:])
+    return s3_path, page_num

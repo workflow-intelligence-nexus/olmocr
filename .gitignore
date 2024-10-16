@@ -4,6 +4,7 @@ wandb/
 *.json
 dolma_previews/*
 s2_previews/*
+gnarly_previews/*
 /*.html
 
 

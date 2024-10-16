@@ -24,7 +24,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pdelfin.data.renderpdf import render_pdf_to_base64png
 from pdelfin.prompts import build_finetuning_prompt
 from pdelfin.prompts.anchor import get_anchor_text
-from pdelfin.s3_utils import parse_s3_path, expand_s3_glob, get_s3_bytes, put_s3_bytes
+from pdelfin.s3_utils import parse_custom_id, expand_s3_glob, get_s3_bytes, put_s3_bytes
 
 
 # Global s3 client for the whole script, feel free to adjust params if you need it
@@ -338,11 +338,6 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
         ],
     }
 
-
-def parse_custom_id(custom_id: str) -> Tuple[str, int]:
-    s3_path = custom_id[:custom_id.rindex("-")]
-    page_num = int(custom_id[custom_id.rindex("-") + 1:])
-    return s3_path, page_num
 
 def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchInferenceRecord]:
     content_bytes = get_s3_bytes(workspace_s3, inference_s3_path)

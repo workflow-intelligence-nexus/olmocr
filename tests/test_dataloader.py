@@ -6,8 +6,7 @@ from functools import partial
 from transformers import AutoProcessor
 
 from pdelfin.train.dataloader import (
-    build_batch_query_response_vision_dataset,
-    extract_openai_batch_query,
+    build_finetuning_dataset,
     extract_openai_batch_response,
     load_jsonl_into_ds,
     list_dataset_files
@@ -24,29 +23,12 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         print(ds)
         print(ds["train"])
 
-    def testCombinedQueryResponse(self):
-        ds = build_batch_query_response_vision_dataset(
-            query_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_data_v5_1_eval/*.jsonl",
+    def testFinetuningDS(self):
+        ds = build_finetuning_dataset(
             response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json",
         )
 
         print(ds)
-
-        processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
-        from pdelfin.train.dataprep import filter_by_max_seq_len
-        ds = ds.filter(partial(filter_by_max_seq_len, processor=processor, max_prompt_len=1000))
-
-        print(ds[0])
-
-    def testLocalDS(self):
-        ds = build_batch_query_response_vision_dataset(
-            query_glob_path="/root/openai_batch_data_v5_1_train/*.jsonl",
-            response_glob_path="/root/openai_batch_data_v5_1_train_done/*.json",
-        )
-
-        print(ds)
-
-        ds.to_parquet("/root/trainds_parquet/bigds.parquet")
 
         processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-2B-Instruct")
         from pdelfin.train.dataprep import filter_by_max_seq_len
