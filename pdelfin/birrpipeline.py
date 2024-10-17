@@ -374,6 +374,9 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
 
                     last_error = data.get("completion_error", None)
 
+                    if not model_response_json["is_rotation_valid"]:
+                        last_error = "rotation_invalid"
+
                     index_entries.append(DatabaseManager.BatchInferenceRecord(
                         inference_s3_path=inference_s3_path,
                         pdf_s3_path=pdf_s3_path,
@@ -547,6 +550,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
     parser.add_argument('workspace', help='The S3 path where work will be done e.g., s3://bucket/prefix/)')
     parser.add_argument('--add_pdfs', help='Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths', default=None)
+    parser.add_argument('--prefilter_lang', help='If set, tries to detect the language of the pdf and only accepts it if it matches (ex. ENGLISH)')
+    parser.add_argument('--prefilter_spam', help='If set, tries to detect spammy pdfs and not include them')
+    
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--max_size_mb', type=int, default=250, help='Max file size in MB')
