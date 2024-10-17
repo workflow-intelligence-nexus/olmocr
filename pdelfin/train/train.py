@@ -132,6 +132,10 @@ def run_train(config: TrainConfig):
 
     save_path = join_path("", config.save.path, run_name.run)
 
+    # Make sure directory exists if local
+    if not save_path.startswith("s3://"):
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
     save_config(config, join_path("", save_path, "config.yaml"))  # pyright: ignore
 
     with TemporaryDirectory() as output_dir:
