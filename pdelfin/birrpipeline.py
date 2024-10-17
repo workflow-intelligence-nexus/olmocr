@@ -372,6 +372,8 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
                 try:
                     model_response_json = json.loads(data["outputs"][0]["text"])
 
+                    last_error = data.get("completion_error", None)
+
                     index_entries.append(DatabaseManager.BatchInferenceRecord(
                         inference_s3_path=inference_s3_path,
                         pdf_s3_path=pdf_s3_path,
@@ -380,7 +382,7 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
                         start_index=start_index,  # Byte offset in the original file
                         length=line_length,       # Length in bytes
                         finish_reason=data["outputs"][0]["finish_reason"],
-                        error=data.get("completion_error", None)
+                        error=last_error,
                     ))
                 except json.JSONDecodeError:
                     index_entries.append(DatabaseManager.BatchInferenceRecord(
@@ -441,11 +443,12 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord, cur_rou
                 has_errored_previously = sum(page.page_num == target_page_num for page in existing_pages)
 
                 if has_errored_previously:
-                    # Retry the page up to 3 times
-                    for _ in range(3):
-                        new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+                    # Retry the page at least one more time regularly
+                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+                    
+                    # TODO: If the rotation was previously invalid, then apply a rotation  
 
-                    # Optionally, you can implement more complex retry logic here
+                    # TODO: Try to provide a smaller prompt hint
                 else:
                     new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
     except Exception as ex:
@@ -461,23 +464,28 @@ def build_dolma_doc(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> Option
     pdf_page_spans = []
 
     for target_page_num in range(1, pdf.num_pages + 1):
-        target_pages = [page for page in existing_pages if page.is_usable() and page.page_num == target_page_num]
+        usable_pages = [page for page in existing_pages if page.is_usable() and page.page_num == target_page_num]
 
-        if len(target_pages) == 0:
+        if len(usable_pages) == 0:
             return None
         
-        target_page = target_pages[0]
+        usable_page_data = [get_s3_bytes(workspace_s3, page.inference_s3_path,
+                                         start_index=page.start_index,
+                                         end_index=page.start_index + page.length - 1) for page in usable_pages]
 
-        target_row = get_s3_bytes(workspace_s3, target_page.inference_s3_path,
-                                  start_index=target_page.start_index,
-                                  end_index=target_page.start_index+target_page.length - 1)
-        
-        target_data = json.loads(target_row.decode("utf-8"))
+        usable_page_final_results = [json.loads(json.loads(page_data.decode("utf-8"))["outputs"][0]["text"]) for page_data in usable_page_data]
 
-        target_output = json.loads(target_data["outputs"][0]["text"])
+        # Sort the pages:
+        # 1. Prefer pages with `is_rotation_valid` set to True.
+        # 2. Within those, sort by the length of the `natural_text` in descending order.
+        usable_page_final_results.sort(
+            key=lambda page: (not page["is_rotation_valid"], -len(page["natural_text"] if page["natural_text"] else ""))
+        )
 
-        if target_output["natural_text"] is not None:
-            document_text += target_output["natural_text"] + "\n"
+        target_page_final_result = usable_page_final_results[0]
+    
+        if target_page_final_result["natural_text"] is not None:
+            document_text += target_page_final_result["natural_text"] + "\n"
 
         pdf_page_spans.append([last_page_start_index, len(document_text), target_page_num])
         last_page_start_index = len(document_text)
