@@ -29,7 +29,7 @@ def generate_presigned_url(s3_client, bucket_name, key_name):
     try:
         response = s3_client.generate_presigned_url('get_object',
                                                     Params={'Bucket': bucket_name, 'Key': key_name},
-                                                    ExpiresIn=3600)  # Link expires in 1 hour
+                                                    ExpiresIn=3600 * 24 * 7 - 100)  # Link expires in 1 week
         return response
     except (NoCredentialsError, PartialCredentialsError):
         print("Error: AWS credentials not found or incomplete.")
