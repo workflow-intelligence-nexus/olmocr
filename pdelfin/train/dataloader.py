@@ -18,6 +18,7 @@ from .core.config import DataConfig, SourceConfig
 
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.s3_utils import parse_custom_id, get_s3_bytes, parse_s3_path
+from pdelfin.data.renderpdf import get_pdf_media_box_width_height
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -161,6 +162,7 @@ def build_finetuning_dataset(response_glob_path: str, pdf_cache_location: Option
     def _can_create_anchor_text(example):
         try:
             anchor_text = get_anchor_text(example["local_pdf_path"], example["page_num"], pdf_engine="pdfreport", target_length=4000)
+            _ = get_pdf_media_box_width_height(example["local_pdf_path"], example["page_num"])
             return anchor_text is not None
         except:
             return False

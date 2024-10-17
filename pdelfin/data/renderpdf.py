@@ -14,7 +14,7 @@ def get_pdf_media_box_width_height(local_pdf_path: str, page_num: int) -> tuple[
     :return: A dictionary containing MediaBox dimensions or None if not found
     """
     # Construct the pdfinfo command to extract info for the specific page
-    command = ['pdfinfo', '-f', str(page_num), '-l', str(page_num), '-box', local_pdf_path]
+    command = ['pdfinfo', '-f', str(page_num), '-l', str(page_num), '-box', '-enc', 'UTF-8', local_pdf_path]
     
     # Run the command using subprocess
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
