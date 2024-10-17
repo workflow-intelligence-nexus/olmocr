@@ -7,7 +7,8 @@ from itertools import chain
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
-
+from concurrent.futures import ThreadPoolExecutor
+from shutil import copyfileobj
 import platformdirs
 import smart_open
 from fsspec import AbstractFileSystem, get_filesystem_class
@@ -127,29 +128,35 @@ def is_local(path: str) -> bool:
 
 
 def copy_file(src: str, dest: str) -> None:
-    """Copy a file."""
+    """Copy a file using shutil.copyfileobj for efficient chunked copying."""
     with smart_open.open(src, "rb") as src_file, smart_open.open(dest, "wb") as dest_file:
-        dest_file.write(src_file.read())
-
+        copyfileobj(src_file, dest_file)
 
 def copy_dir(
-    src: str, dst: str, src_fs: Optional[AbstractFileSystem] = None, dst_fs: Optional[AbstractFileSystem] = None
-):
-    """Copy a directory."""
+    src: str, dst: str, src_fs: Optional[AbstractFileSystem] = None, dst_fs: Optional[AbstractFileSystem] = None):
+    """Copy a directory using a ThreadPoolExecutor for parallel file copying."""
     src_fs = src_fs or get_fs(src)
     dst_fs = dst_fs or get_fs(dst)
     logger = get_logger(__name__)
 
-    for src_path in glob_path(src, yield_dirs=True, fs=src_fs):
-        rel_path = sub_prefix(src_path, src)
-        dest_path = join_path("", dst, rel_path)
-        if is_dir(src_path, fs=src_fs):
-            # recursively copy directories
-            copy_dir(src=src_path, dst=dest_path, src_fs=src_fs, dst_fs=dst_fs)
-        else:
-            # file; copy over
-            logger.info(f"Copying {src_path} to {dest_path}")
-            copy_file(src_path, dest_path)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = []
+
+        for src_path in glob_path(src, yield_dirs=True, fs=src_fs):
+            rel_path = sub_prefix(src_path, src)
+            dest_path = join_path("", dst, rel_path)
+
+            if is_dir(src_path, fs=src_fs):
+                # Recursively copy directories
+                copy_dir(src=src_path, dst=dest_path, src_fs=src_fs, dst_fs=dst_fs)
+            else:
+                # File; copy over using the executor for parallelism
+                logger.info(f"Copying {src_path} to {dest_path}")
+                futures.append(executor.submit(copy_file, src_path, dest_path))
+
+        # Wait for all futures to complete
+        for future in futures:
+            future.result()  # This will raise an exception if any of the threads failed
 
 
 def delete_file(path: str, ignore_missing: bool = False, fs: Optional[AbstractFileSystem] = None) -> bool:
