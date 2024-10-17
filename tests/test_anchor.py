@@ -112,6 +112,14 @@ class AnchorTest(unittest.TestCase):
         print(len(anchor_text))
         self.assertLess(len(anchor_text), 4000)
 
+    def testFailingAnchor(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "failing_anchor_pg4.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 4, pdf_engine="pdfreport")
+
+        print(anchor_text)
+        print(len(anchor_text))
+        self.assertLess(len(anchor_text), 4000)
 
 class BuildSilverTest(unittest.TestCase):
     def testSmallPage(self):
@@ -121,7 +129,7 @@ class BuildSilverTest(unittest.TestCase):
 
         result = build_page_query(local_pdf_path, "s3://test.pdf", 1)
 
-        from pdelfin.train.dataloader import get_png_dimensions_from_base64
+        from pdelfin.data.renderpdf import get_png_dimensions_from_base64
 
         base64data = result["body"]["messages"][0]["content"][1]["image_url"]["url"]
 
