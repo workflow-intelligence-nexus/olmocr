@@ -23,10 +23,14 @@ class TestDataprep(unittest.TestCase):
         config = TrainConfig(
             train_data=DataConfig(seed=42,
                                   sources=[SourceConfig(name="eval_test",
+                                                        target_longest_image_dim=1024,
+                                                        target_anchor_text_len=6000,
                                                         response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json")]),
 
             valid_data=DataConfig(seed=42,
                                   sources=[SourceConfig(name="eval_test",
+                                                        target_longest_image_dim=1024,
+                                                        target_anchor_text_len=6000,
                                                         response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json")])
         )
         train_dataset, valid_dataset = make_dataset(config, processor)    
