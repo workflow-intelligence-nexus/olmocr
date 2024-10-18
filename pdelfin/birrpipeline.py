@@ -321,9 +321,9 @@ class BatchWriter:
             thread.join()
 
 
-def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> dict:
-    image_base64 = render_pdf_to_base64png(local_pdf_path, page, 1024)
-    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
+def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int, target_longest_image_dim: int, target_anchor_text_len: int) -> dict:
+    image_base64 = render_pdf_to_base64png(local_pdf_path, page, target_longest_image_dim=target_longest_image_dim)
+    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport", target_length=target_anchor_text_len)
 
     return {
         "custom_id": f"{pretty_pdf_path}-{page}",
@@ -423,7 +423,7 @@ def get_pdf_num_pages(s3_path: str) -> Optional[int]:
 
     return None
 
-def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord, cur_round: int) -> list[dict]:
+def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord, cur_round: int, target_longest_image_dim: int, target_anchor_text_len: int) -> list[dict]:
     db = DatabaseManager(s3_workspace)
 
     existing_pages = db.get_index_entries(pdf.s3_path)
@@ -447,13 +447,13 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord, cur_rou
 
                 if has_errored_previously:
                     # Retry the page at least one more time regularly
-                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num, target_longest_image_dim, target_anchor_text_len), "round": cur_round})
                     
                     # TODO: If the rotation was previously invalid, then apply a rotation  
 
                     # TODO: Try to provide a smaller prompt hint
                 else:
-                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num), "round": cur_round})
+                    new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num, target_longest_image_dim, target_anchor_text_len), "round": cur_round})
     except Exception as ex:
         print(f"Warning, could not get batch inferences lines for {pdf.s3_path} due to {ex}")
 
@@ -550,9 +550,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
     parser.add_argument('workspace', help='The S3 path where work will be done e.g., s3://bucket/prefix/)')
     parser.add_argument('--add_pdfs', help='Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths', default=None)
-    parser.add_argument('--prefilter_lang', help='If set, tries to detect the language of the pdf and only accepts it if it matches (ex. ENGLISH)')
-    parser.add_argument('--prefilter_spam', help='If set, tries to detect spammy pdfs and not include them')
-    
+    parser.add_argument('--target_longest_image_dim', type=int, help='Dimension to use for rendering image', default=1024)
+    parser.add_argument('--target_anchor_text_len', type=int, help='Maximum amount of anchor text to use', default=6000)
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--max_size_mb', type=int, default=250, help='Max file size in MB')
@@ -631,7 +630,7 @@ if __name__ == '__main__':
         potentially_done_pdfs = db.get_pdfs_by_status("pending")
     else:
         print(f"\nCreating batch inference files for new PDFs")
-        future_to_path = {executor.submit(build_pdf_queries, args.workspace, pdf, current_round): pdf for pdf in db.get_pdfs_by_status("pending")}
+        future_to_path = {executor.submit(build_pdf_queries, args.workspace, pdf, current_round, args.target_longest_image_dim, args.target_anchor_text_len): pdf for pdf in db.get_pdfs_by_status("pending")}
         potentially_done_pdfs = []
         lines_written = 0
         new_inference_writer = BatchWriter(f"{args.workspace}/inference_inputs/round_{current_round}", args.max_size_mb)
