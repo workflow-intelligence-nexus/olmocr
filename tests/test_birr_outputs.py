@@ -140,19 +140,21 @@ class TestBirrTokenization(unittest.TestCase):
 
         from pdelfin.birrpipeline import build_page_query
 
-        TEST_INSTANCES = [json.dumps(build_page_query(os.path.join(
+        original_query = build_page_query(os.path.join(
             os.path.dirname(__file__),
             "gnarly_pdfs",
             "edgar.pdf"
-        ), "test.pdf", 1, 1024, 4096)),
-        ]
+        ), "test.pdf", 1, 1024, 4096)
+
+
+        TEST_INSTANCES = [json.dumps(original_query)]
 
         TEST_INSTANCES = [
             RawInputItem.from_message_dicts(i, json.loads(json_string)["chat_messages"]).messages
             for i, json_string in enumerate(TEST_INSTANCES)
         ]
 
-        MODEL_NAME = "Qwen/Qwen2-0.5B"
+        MODEL_NAME = "Qwen/Qwen2-VL-7B-Instruct"
 
         CONFIG_FILE = "/home/ubuntu/mise/birr/configs/inference/qwen2-vl-test.yaml"
 
@@ -168,7 +170,28 @@ class TestBirrTokenization(unittest.TestCase):
 
         formatted = tokenizer.batch_format(TEST_INSTANCES)
 
-        print(formatted)
-
         for formatted_instance in formatted:
             print(f"========================================\n{formatted_instance}\n========================================")
+
+        # Now compare to what's being generated in training
+        processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+
+        text = processor.apply_chat_template(
+            original_query["chat_messages"], tokenize=False, add_generation_prompt=True
+        )
+
+        # Decode image from base64
+        raw_b64 = original_query["chat_messages"][0]["content"][1]["image_url"]["url"]
+        main_image = Image.open(BytesIO(base64.b64decode(raw_b64[raw_b64.find(",") + 1:])))
+
+        # Process inputs using processor
+        inputs = processor(
+            text=[text],
+            #images=[main_image], # Don't pad out the image tokens yet, since that happens later inside of birr
+            padding=True,
+            return_tensors="np",
+        )
+
+        print(processor.tokenizer.batch_decode(inputs["input_ids"]))
+
+        self.assertEqual(formatted[0], processor.tokenizer.batch_decode(inputs["input_ids"])[0])
