@@ -18,3 +18,12 @@ You will probably need to install some fonts on your computer so that any pdfs y
 sudo apt-get install ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 
 ```
+
+
+### TODOs for future versions
+ - Equations could be specified to be in a more specific format (they are "LaTeX" now)
+ - Ask model to predict footnotes in a structured format separately
+ - Add training data for complex tables
+ - More training augmentations to improve performance
+ - Fix pages which are all-references sometimes rendering as empty-text
+ 

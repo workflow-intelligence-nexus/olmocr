@@ -101,7 +101,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                         # Save the pdf to a temporary cache folder
                         local_pdf_path = cached_path(s3_path, quiet=True)
 
-                        raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
+                        raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport", target_length=6000)
                         transformed["chat_messages"][0]["content"][0]["text"] = build_finetuning_prompt(raw_page_text)
 
 
