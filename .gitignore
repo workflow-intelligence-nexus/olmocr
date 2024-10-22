@@ -5,6 +5,7 @@ wandb/
 dolma_previews/*
 s2_previews/*
 gnarly_previews/*
+s2orc_previews/*
 /*.html
 
 
