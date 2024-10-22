@@ -162,6 +162,10 @@ class DatabaseManager:
             )
             for row in rows
         ]
+    
+    def delete_index_entries_by_inference_s3_path(self, inference_s3_path: str):
+        self.cursor.execute("DELETE FROM page_results WHERE inference_s3_path = ?", (inference_s3_path,))
+        self.conn.commit()
 
     def get_last_indexed_round(self) -> int:
         self.cursor.execute("""
@@ -617,6 +621,7 @@ if __name__ == '__main__':
         try:
             inference_records = future.result()
     
+            db.delete_index_entries_by_inference_s3_path(s3_path)
             db.add_index_entries(inference_records)
             db.update_processed_file(s3_path, etag=etag)
         except urllib3.exceptions.SSLError:
