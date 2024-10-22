@@ -83,6 +83,9 @@ class DatabaseManager:
             CREATE INDEX IF NOT EXISTS idx_path ON page_results(pdf_s3_path)
         """)
         self.cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_inf_path ON page_results(inference_s3_path)
+        """)
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS pdfs (
                 s3_path TEXT PRIMARY KEY,
                 num_pages INTEGER,
