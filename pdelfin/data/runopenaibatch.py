@@ -120,8 +120,19 @@ def update_state(folder_path: str, filename: str, **kwargs):
     all_state[filename]["last_checked"] = datetime.datetime.now()
 
     state_file = os.path.join(folder_path, UPLOAD_STATE_FILENAME)
-    with open(state_file, "w") as f:
-        return json.dump(all_state, f, default=_json_datetime_encoder)
+    temp_file = state_file + '.tmp'
+    
+    # Write to temporary file first
+    with open(temp_file, "w") as f:
+        json.dump(all_state, f, default=_json_datetime_encoder)
+        f.flush()
+        os.fsync(f.fileno())
+        
+    # Atomic rename of temporary file to target file
+    os.replace(temp_file, state_file)
+    
+    return all_state
+
         
 def get_total_space_usage():
     return sum(file.bytes for file in client.files.list())
