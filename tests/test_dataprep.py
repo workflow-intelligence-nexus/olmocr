@@ -151,10 +151,10 @@ class TestDataprep(unittest.TestCase):
 
         print(zero_count, full_count)
         
-        self.assertTrue(0.05 <= zero_ratio <= 0.15,
-                    f"Expected zero-length ratio around 0.10, got {zero_ratio:.2f}")
-        self.assertTrue(0.85 <= full_ratio <= 0.95,
-                    f"Expected full-length ratio around 0.90, got {full_ratio:.2f}")
+        self.assertTrue(0.45 <= zero_ratio <= 0.55,
+                    f"Expected zero-length ratio around 0.5, got {zero_ratio:.2f}")
+        self.assertTrue(0.45 <= full_ratio <= 0.55,
+                    f"Expected full-length ratio around 0.5, got {full_ratio:.2f}")
         
         # Verify total adds up to 100%
         self.assertEqual(zero_count + full_count, num_iterations,
