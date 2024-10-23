@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from peft import TaskType  # pyright: ignore
 
@@ -54,8 +54,8 @@ class AwsConfig:
 class SourceConfig:
     name: str = field(help="The name of the source")
     response_glob_path: str = field(help="The s3 bucket pointing to the batch api response json's sent back from open ai")
-    target_longest_image_dim: Union[int, list[int]] = field(help="Dimensions to render the pdf page image to")
-    target_anchor_text_len: Union[int, list[int]] = field(help="Maximum amount of anchor text (aka prompt hint)")
+    target_longest_image_dim: list[int]= field(help="Dimensions to render the pdf page image to")
+    target_anchor_text_len: list[int] = field(help="Maximum amount of anchor text (aka prompt hint)")
 
 
 @dataclass

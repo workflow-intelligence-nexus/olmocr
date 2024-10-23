@@ -2,6 +2,7 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 import base64
+import random
 import torch  # Make sure to import torch as it's used in the DataCollator
 
 from pdelfin.prompts.anchor import get_anchor_text
@@ -9,7 +10,13 @@ from pdelfin.prompts import build_finetuning_prompt
 from pdelfin.data.renderpdf import render_pdf_to_base64png
 
 
-def prepare_data_for_qwen2_training(example, processor, target_longest_image_dim: int, target_anchor_text_len: int):
+def prepare_data_for_qwen2_training(example, processor, target_longest_image_dim: list[int], target_anchor_text_len: list[int]):
+    if isinstance(target_longest_image_dim, list): 
+        target_longest_image_dim = random.choice(target_longest_image_dim)
+
+    if isinstance(target_anchor_text_len, list): 
+        target_anchor_text_len = random.choice(target_anchor_text_len)
+
     anchor_text = get_anchor_text(example["local_pdf_path"], example["page_num"], pdf_engine="pdfreport", target_length=target_anchor_text_len)
     base64_page_image = render_pdf_to_base64png(example["local_pdf_path"], example["page_num"], target_longest_image_dim=target_longest_image_dim)
 
