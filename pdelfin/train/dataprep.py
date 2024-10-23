@@ -1,6 +1,7 @@
 import numpy as np
 from io import BytesIO
 from PIL import Image
+from typing import Union
 import base64
 import random
 import torch  # Make sure to import torch as it's used in the DataCollator
@@ -10,7 +11,7 @@ from pdelfin.prompts import build_finetuning_prompt
 from pdelfin.data.renderpdf import render_pdf_to_base64png
 
 
-def prepare_data_for_qwen2_training(example, processor, target_longest_image_dim: list[int], target_anchor_text_len: list[int]):
+def prepare_data_for_qwen2_training(example, processor, target_longest_image_dim: Union[int, list[int]], target_anchor_text_len: Union[int, list[int]]):
     if isinstance(target_longest_image_dim, list): 
         target_longest_image_dim = random.choice(target_longest_image_dim)
 
