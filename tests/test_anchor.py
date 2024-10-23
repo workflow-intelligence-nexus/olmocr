@@ -112,6 +112,21 @@ class AnchorTest(unittest.TestCase):
         print(len(anchor_text))
         self.assertLess(len(anchor_text), 4000)
 
+    def testAnchorOtherLengths(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport", target_length=2000)
+
+        print(anchor_text)
+        print(len(anchor_text))
+        self.assertLess(len(anchor_text), 2000)
+
+        anchor_text = get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport", target_length=6000)
+
+        print(anchor_text)
+        print(len(anchor_text))
+        self.assertLess(len(anchor_text), 6000)
+
     def testFailingAnchor(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "failing_anchor_pg4.pdf")
 
@@ -120,6 +135,13 @@ class AnchorTest(unittest.TestCase):
         print(anchor_text)
         print(len(anchor_text))
         self.assertLess(len(anchor_text), 4000)
+
+    def testEmptyAnchor(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
+
+        anchor_text = get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport", target_length=0)
+
+        self.assertEqual(anchor_text.strip(), "Page dimensions: 612.0x792.0")
 
 class BuildSilverTest(unittest.TestCase):
     def testSmallPage(self):

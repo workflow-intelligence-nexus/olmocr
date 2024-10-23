@@ -259,6 +259,9 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     result = ""
     result += f"Page dimensions: {report.mediabox.x1:.1f}x{report.mediabox.y1:.1f}\n"
 
+    if max_length < 20:
+        return result
+
     images = _merge_image_elements(report.image_elements)
 
     # Process image elements
