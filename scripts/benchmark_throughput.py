@@ -99,13 +99,16 @@ def sample_mm_requests_qwen2vl(
             return_tensors="np",
         )
 
+       # print(inputs)
+
         tokens = inputs["input_ids"][0]
         prompt_len = len(tokens)
 
         result.append((TokensPrompt(
             dict(
                 prompt_token_ids=tokens,
-                multi_modal_data=dict(image=main_image),
+                multi_modal_data=dict(image=dict(image_embeds=torch.randn(1036, 3584), image_grid_thw=torch.tensor([[1, 74, 56]]))),
+               # multi_modal_data=dict(image=main_image)
             )
         ), prompt_len, fixed_output_len))
 
@@ -467,7 +470,7 @@ def main(args: argparse.Namespace):
     else:
         # requests = sample_requests(args.dataset, args.num_prompts, tokenizer,
         #                            args.output_len)
-        requests = sample_mm_requests_molmo(args.dataset, args.num_prompts, tokenizer,
+        requests = sample_mm_requests_qwen2vl(args.dataset, args.num_prompts, tokenizer,
                                       args.output_len)
 
     if args.backend == "vllm":
