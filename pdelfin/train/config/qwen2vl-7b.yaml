@@ -17,11 +17,11 @@ train_data:
     - name: openai_batch_data_v5_1_train
       response_glob_path: /data/jakep/pdfdata/openai_batch_data_v5_1_train_done/*.json
       target_longest_image_dim: 1024
-      target_anchor_text_len: 6000
+      target_anchor_text_len: [0, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000]
     - name: openai_batch_data_v5_1_iabooks_train
       response_glob_path: /data/jakep/pdfdata/openai_batch_data_v5_1_iabooks_train_done/*.json
       target_longest_image_dim: 1024
-      target_anchor_text_len: 6000
+      target_anchor_text_len: [0, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000]
 
 valid_data:
   cache_location: /data/jakep/pdfdata/pdelfin_cache
