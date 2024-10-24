@@ -74,8 +74,8 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
         partial(
             batch_prepare_data_for_qwen2_training,
             processor=processor,
-            target_longest_image_dim=target_longest_image_dim,
-            target_anchor_text_len=target_anchor_text_len,
+            target_longest_image_dim=list(target_longest_image_dim),
+            target_anchor_text_len=list(target_anchor_text_len),
         )
     )
 
@@ -86,8 +86,8 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
                 partial(
                     batch_prepare_data_for_qwen2_training,
                     processor=processor,
-                    target_longest_image_dim=source.target_longest_image_dim,
-                    target_anchor_text_len=source.target_anchor_text_len,
+                    target_longest_image_dim=list(source.target_longest_image_dim),
+                    target_anchor_text_len=list(source.target_anchor_text_len),
                 )
             )
             for source in config.valid_data.sources

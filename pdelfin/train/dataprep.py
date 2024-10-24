@@ -93,7 +93,7 @@ def prepare_data_for_qwen2_training(example, processor, target_longest_image_dim
     }
 
 
-def batch_prepare_data_for_qwen2_training(batch, processor, target_longest_image_dim: int, target_anchor_text_len: int):
+def batch_prepare_data_for_qwen2_training(batch, processor, target_longest_image_dim: list[int], target_anchor_text_len: list[int]):
     # Process each example in the batch using the helper function
     processed_examples = []
     for i in range(len(batch["response"])):
