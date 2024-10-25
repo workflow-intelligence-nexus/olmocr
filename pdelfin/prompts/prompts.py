@@ -1,4 +1,6 @@
 import re
+from dataclasses import dataclass
+from typing import Optional
 
 # This is the prompt we use for getting chat gpt 4o to convert documents into our silver training data
 def build_openai_silver_data_prompt(base_text: str) -> str:
@@ -13,6 +15,19 @@ def build_openai_silver_data_prompt(base_text: str) -> str:
         f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
     )
 
+@dataclass
+class PageResponse:
+    primary_language: Optional[str]
+    is_rotation_valid: bool
+    rotation_correction: int
+    is_table: bool
+    is_diagram: bool
+    natural_text: Optional[str]
+
+    def __post_init__(self):
+        # Validate that rotation_correction is one of the allowed values
+        if self.rotation_correction not in {0, 90, 180, 270}:
+            raise ValueError("rotation_correction must be one of [0, 90, 180, 270].")
 
 def openai_response_format_schema() -> dict:
     return {

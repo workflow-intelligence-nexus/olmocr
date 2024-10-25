@@ -135,6 +135,12 @@ class DatabaseManager:
         """, (s3_path, etag))
         self.conn.commit()
 
+    def clear_index(self):
+        self.cursor.execute("""
+            DELETE FROM processed_files; DELETE FROM page_results;
+        """, (s3_path, etag))
+        self.conn.commit() 
+
     def add_index_entries(self, index_entries: List[BatchInferenceRecord]):
         if index_entries:
             self.cursor.executemany("""
@@ -593,6 +599,7 @@ if __name__ == '__main__':
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--max_size_mb', type=int, default=250, help='Max file size in MB')
+    parser.add_argument('--reindex', action='set_true', default=False, help='Reindex all of the page_results')
     args = parser.parse_args()
 
     if args.workspace_profile:
@@ -605,6 +612,9 @@ if __name__ == '__main__':
 
     db = DatabaseManager(args.workspace)
     print(f"Loaded db at {db.db_path}")
+
+    if args.reindex:
+        db.clear_index()
 
     current_round = get_current_round(args.workspace)
     print(f"Current round is {current_round}\n")
@@ -723,7 +733,6 @@ if __name__ == '__main__':
 
         if lines_written > 0:
             print(f"Added {lines_written:,} new batch inference requests")
-
 
     # Now, finally, assemble any potentially done docs into dolma documents
     print(f"\nAssembling potentially finished PDFs into Dolma documents at {args.workspace}/output")
