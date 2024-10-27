@@ -610,6 +610,7 @@ if __name__ == '__main__':
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--max_size_mb', type=int, default=250, help='Max file size in MB')
     parser.add_argument('--reindex', action='store_true', default=False, help='Reindex all of the page_results')
+    parser.add_argument('--skip_build_queries', action='store_true', default=False, help='Skip generation of new pdf page queries for batch inferencing')
     args = parser.parse_args()
 
     if args.workspace_profile:
@@ -687,6 +688,9 @@ if __name__ == '__main__':
     if db.get_last_indexed_round() < current_round - 1:
         print(f"WARNING: No new batch inference results found, you need to run batch inference on {args.workspace}/inference_inputs/round_{current_round - 1}")
         potentially_done_pdfs = db.get_pdfs_by_status("pending")
+    elif args.skip_build_queries:
+        print(f"Skipping generating new batch inference files")
+        potentially_done_pdfs = db.get_pdfs_by_status("pending")
     else:
         print(f"\nCreating batch inference files for new PDFs")
         pdf_list = list(db.get_pdfs_by_status("pending"))
@@ -696,7 +700,7 @@ if __name__ == '__main__':
         lines_written = 0
         new_inference_writer = BatchWriter(f"{args.workspace}/inference_inputs/round_{current_round}", args.max_size_mb)
         total_pdfs = len(pdf_list)
-        max_pending = 5000
+        max_pending = 300
 
         with tqdm(total=total_pdfs) as pbar:
             # Submit initial batch of futures
