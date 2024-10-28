@@ -4,7 +4,7 @@ import boto3
 import sqlite3
 import orjson
 import argparse
-import uuid
+import base64
 import tempfile
 import datetime
 import posixpath
@@ -15,6 +15,8 @@ import urllib3.exceptions
 
 from dataclasses import dataclass
 from pypdf import PdfReader
+from io import BytesIO
+from PIL import Image
 from tqdm import tqdm
 from functools import partial
 from typing import Optional, List, Tuple, Dict, Callable, Any
@@ -383,8 +385,23 @@ class BatchWriter:
             thread.join()
 
 
-def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int, target_longest_image_dim: int, target_anchor_text_len: int) -> dict:
+def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int, target_longest_image_dim: int, target_anchor_text_len: int, image_rotation: int=0) -> dict:
+    assert image_rotation in [0, 90, 180, 270], "Invalid image rotation provided in build_page_query"
     image_base64 = render_pdf_to_base64png(local_pdf_path, page, target_longest_image_dim=target_longest_image_dim)
+
+    if image_rotation != 0:
+        image_bytes = base64.b64decode(image_base64)
+        with Image.open(BytesIO(image_bytes)) as img:
+            rotated_img = img.rotate(-image_rotation, expand=True)
+
+            # Save the rotated image to a bytes buffer
+            buffered = BytesIO()
+            rotated_img.save(buffered, format="PNG")
+
+        # Encode the rotated image back to base64
+        image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+
     anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport", target_length=target_anchor_text_len)
 
     return {
@@ -511,6 +528,7 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord, cur_rou
                     new_queries.append({**build_page_query(tf.name, pdf.s3_path, target_page_num, target_longest_image_dim, target_anchor_text_len), "round": cur_round})
                     
                     # TODO: If the rotation was previously invalid, then apply a rotation  
+                    
 
                     # TODO: Try to provide a smaller prompt hint
                 else:
