@@ -206,12 +206,18 @@ class DatabaseManager:
         except sqlite3.IntegrityError:
             print(f"PDF with s3_path '{s3_path}' already exists.")
 
-    def update_pdf_status(self, s3_path: str, new_status: str) -> None:
-        self.cursor.execute("""
+    def update_pdf_statuses(self, status_updates: dict[str, str]) -> None:
+        """
+        Update the status of multiple PDFs in the database.
+
+        :param status_updates: A dictionary where each key is an s3_path (str) and
+                               each value is the new status (str) for that PDF.
+        """
+        self.cursor.executemany("""
             UPDATE pdfs
             SET status = ?
             WHERE s3_path = ?
-        """, (new_status, s3_path))
+        """, [(new_status, s3_path) for s3_path, new_status in status_updates.items()])
         self.conn.commit()
 
     def get_pdf(self, s3_path: str) -> Optional[PDFRecord]:
@@ -569,9 +575,7 @@ def build_dolma_doc(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> Option
 
 def mark_pdfs_done(s3_workspace: str, dolma_docs: list[dict]):
     db = DatabaseManager(s3_workspace, skip_init=True)
-
-    for doc in dolma_docs:
-        db.update_pdf_status(doc["metadata"]["Source-File"], "completed")
+    db.update_pdf_statuses({doc["metadata"]["Source-File"]: "completed" for doc in dolma_docs})
 
 def get_current_round(s3_workspace: str) -> int:
     path = s3_workspace[5:]
