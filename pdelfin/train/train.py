@@ -110,13 +110,21 @@ def run_train(config: TrainConfig):
 
     setup_environment(aws_config=config.aws, wandb_config=config.wandb, WANDB_RUN_GROUP=run_name.group)
 
-    processor = AutoProcessor.from_pretrained(config.model.name_or_path)
+    processor = AutoProcessor.from_pretrained(config.model.name_or_path, trust_remote_code=True)
     train_dataset, valid_dataset = make_dataset(config, processor)    
 
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
-        config.model.name_or_path, torch_dtype=torch.bfloat16,
-        _attn_implementation="flash_attention_2" if config.model.use_flash_attn else None
-    )
+    if "qwen" in config.model.name_or_path.lower():
+        model = Qwen2VLForConditionalGeneration.from_pretrained(
+            config.model.name_or_path, torch_dtype=torch.bfloat16,
+            _attn_implementation="flash_attention_2" if config.model.use_flash_attn else None
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            config.model.name_or_path, torch_dtype=torch.bfloat16,
+            trust_remote_code=True
+        )
+
+        print(model)
  
     if config.lora is not None:
         peft_config = LoraConfig(
