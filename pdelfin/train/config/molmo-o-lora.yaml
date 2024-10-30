@@ -67,19 +67,22 @@ lora:
   dropout: 0.05
   task_type: causal_lm
   target_modules:
-      - model.transformer.blocks.*.att_proj
-      - model.transformer.blocks.*.ff_proj
-      - model.transformer.blocks.*.attn_out
-      - model.transformer.blocks.*.ff_out
-      - model.vision_backbone.image_vit.transformer.resblocks.*.attention.wq
-      - model.vision_backbone.image_vit.transformer.resblocks.*.attention.wk
-      - model.vision_backbone.image_vit.transformer.resblocks.*.attention.wv
-      - model.vision_backbone.image_vit.transformer.resblocks.*.attention.wo
-      - model.vision_backbone.image_vit.transformer.resblocks.*.feed_forward.w1
-      - model.vision_backbone.image_vit.transformer.resblocks.*.feed_forward.w2
-      - model.vision_backbone.image_projector.w1
-      - model.vision_backbone.image_projector.w2
-      - model.vision_backbone.image_projector.w3
+      # attention layers in main transformer
+      - att_proj 
+      - ff_proj
+      - attn_out
+      - ff_out
+      # vision transformer attention and FF
+      - attention.wq
+      - attention.wk
+      - attention.wv
+      - attention.wo
+      - feed_forward.w1
+      - feed_forward.w2
+      # vision image projector
+      - vision_backbone.image_projector.w1
+      - vision_backbone.image_projector.w2
+      - vision_backbone.image_projector.w3
 
 save:
   path: s3://ai2-oe-data/jakep/experiments/molmo-o-0924/v1/models/

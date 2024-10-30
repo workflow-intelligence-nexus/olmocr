@@ -168,9 +168,10 @@ def log_trainable_parameters(model: torch.nn.Module, logger: Optional[Logger] = 
     """
     trainable_params = 0
     all_param = 0
-    for _, param in model.named_parameters():
+    for name, param in model.named_parameters():
         all_param += param.numel()
         if param.requires_grad:
+            (logger or get_logger(__name__)).info(f"training with {name}")
             trainable_params += param.numel()
 
     (logger or get_logger(__name__)).info(
