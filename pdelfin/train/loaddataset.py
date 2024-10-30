@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 def main():
     train_config = make_cli(TrainConfig)  # pyright: ignore
     
-    processor = AutoProcessor.from_pretrained(train_config.model.name_or_path)
+    processor = AutoProcessor.from_pretrained(train_config.model.name_or_path, trust_remote_code=True)
     train_dataset, valid_dataset = make_dataset(train_config, processor)    
 
     print("Training dataset........")
