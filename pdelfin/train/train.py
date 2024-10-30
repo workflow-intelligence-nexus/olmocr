@@ -128,6 +128,9 @@ def run_train(config: TrainConfig):
             logger.warning(f"ALERT, force adjusting model config max_position_embeddings upwards from {model_config.max_position_embeddings} to {config.generate.max_length}")
             model_config.max_position_embeddings = config.generate.max_length
 
+        if config.model.use_flash_attn:
+            model_config.attention_type = "flash"
+
         model = AutoModelForCausalLM.from_pretrained(
             config.model.name_or_path, torch_dtype=torch.bfloat16,
             config=model_config,
