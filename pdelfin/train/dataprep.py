@@ -115,3 +115,67 @@ def batch_prepare_data_for_qwen2_training(batch, processor, target_longest_image
         "image_grid_thw": [x["image_grid_thw"] for x in processed_examples],
     }
 
+def prepare_data_for_molmo_training(example, processor, target_longest_image_dim: Union[int, list[int]], target_anchor_text_len: Union[int, list[int]]):
+    if isinstance(target_longest_image_dim, list): 
+        target_longest_image_dim = random.choice(target_longest_image_dim)
+
+    if isinstance(target_anchor_text_len, list): 
+        target_anchor_text_len = random.choice(target_anchor_text_len)
+
+    anchor_text = get_anchor_text(example["local_pdf_path"], example["page_num"], pdf_engine="pdfreport", target_length=target_anchor_text_len)
+    base64_page_image = render_pdf_to_base64png(example["local_pdf_path"], example["page_num"], target_longest_image_dim=target_longest_image_dim)
+
+    # Decode image from base64
+    main_image = Image.open(BytesIO(base64.b64decode(base64_page_image)))
+
+    # Process the input text and image
+    inputs = processor.process(
+        images=[main_image],
+        text=build_finetuning_prompt(anchor_text),
+    )
+
+    # Get labels by tokenizing the output text
+    labels = processor.tokenizer(example["response"], return_tensors="np")['input_ids'][0]
+     # Concatenate input_ids and labels
+    full_input_ids = torch.cat([inputs['input_ids'], torch.from_numpy(labels)], dim=0)
+
+    labels_full = torch.cat([torch.ones_like(inputs['input_ids']) * -100, torch.from_numpy(labels)], dim=0)
+
+    # Create a full attention mask
+    attention_mask = torch.ones_like(full_input_ids)
+
+    # image_input_idx does not need adjustment as images are inserted before labels
+    image_input_idx = inputs['image_input_idx']
+
+    return {
+        'input_ids': full_input_ids,
+        'labels': labels_full,
+        'images': inputs['images'],
+        'image_input_idx': image_input_idx,
+        'image_masks': inputs['image_masks'],
+        'attention_mask': attention_mask,
+    }
+
+def batch_prepare_data_for_molmo_training(batch, processor, target_longest_image_dim: list[int], target_anchor_text_len: list[int]):
+    # Assume batch size 1 and process the single example
+    example = {
+        "local_pdf_path": batch["local_pdf_path"][0],
+        "page_num": batch["page_num"][0],
+        "response": batch["response"][0]
+    }
+    processed_example = prepare_data_for_molmo_training(
+        example,
+        processor,
+        target_longest_image_dim=target_longest_image_dim,
+        target_anchor_text_len=target_anchor_text_len
+    )
+
+    # Return in the same format as the qwen2 function
+    return {
+        "input_ids": [processed_example["input_ids"]],
+        "attention_mask": [processed_example["attention_mask"]],
+        "labels": [processed_example["labels"]],
+        "images": [processed_example["images"]],
+        "image_input_idx": [processed_example["image_input_idx"]],
+        "image_masks": [processed_example["image_masks"]],
+    }

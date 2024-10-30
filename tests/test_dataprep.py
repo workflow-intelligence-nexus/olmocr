@@ -1,16 +1,21 @@
 import unittest
 import random
+import requests
+import base64
+import os
 import re
 from io import BytesIO
 from PIL import Image
 from transformers import AutoProcessor
+from unittest.mock import patch
 
 from pdelfin.train.dataloader import (
     build_finetuning_dataset,
 )
 
 from pdelfin.train.dataprep import (
-    prepare_data_for_qwen2_training, build_finetuning_prompt
+    prepare_data_for_qwen2_training, build_finetuning_prompt,
+    prepare_data_for_molmo_training, batch_prepare_data_for_molmo_training
 )
 import numpy as np
 from tqdm import tqdm
@@ -159,3 +164,74 @@ class TestDataprep(unittest.TestCase):
         # Verify total adds up to 100%
         self.assertEqual(zero_count + full_count, num_iterations,
                         "Total count should equal number of iterations")
+
+
+class TestMolmoDataPrep(unittest.TestCase):
+    def testMolmoDefaultSetup(self):
+        processor = AutoProcessor.from_pretrained(
+            'allenai/Molmo-7B-O-0924',
+            trust_remote_code=True,
+            torch_dtype='auto',
+            device_map='auto'
+        )
+
+        # process the image and text
+        inputs = processor.process(
+            images=[Image.open(requests.get("https://picsum.photos/id/237/536/354", stream=True).raw)],
+            text="Describe this image."
+        )
+
+        print(inputs.keys())
+        print(inputs["input_ids"])
+        print(processor.tokenizer.batch_decode(inputs["input_ids"]))
+
+        labels = processor.tokenizer("This is a page of the pdf that's the text", return_tensors="np")
+
+        print(labels)
+        print(processor.tokenizer.batch_decode(labels["input_ids"]))
+
+    def testMolmoDataPrep(self):
+        # Initialize the processor for Molmo
+        processor = AutoProcessor.from_pretrained(
+            'allenai/Molmo-7B-O-0924',
+            trust_remote_code=True,
+            torch_dtype='auto',
+            device_map='auto'
+        )
+
+        # Create a mock example
+        example = {
+            "local_pdf_path": os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "edgar.pdf"), 
+            "page_num": 1,
+            "response": "This is the response text."
+        }
+
+        # Define target dimensions and anchor text lengths
+        target_longest_image_dim = [1024]
+        target_anchor_text_len = [0, 6000]
+
+        # Set a fixed seed for reproducibility
+        random.seed(42)
+
+        # Mock the functions that require actual PDF files
+        with patch('pdelfin.prompts.anchor.get_anchor_text') as mock_get_anchor_text, \
+             patch('pdelfin.data.renderpdf.render_pdf_to_base64png') as mock_render_pdf_to_base64png:
+
+            # Set return values for the mocked functions
+            mock_get_anchor_text.return_value = "This is the anchor text."
+            # Create a red square image and encode it in base64
+            img = Image.new('RGB', (100, 100), color='red')
+            buffered = BytesIO()
+            img.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+            mock_render_pdf_to_base64png.return_value = img_str
+
+            # Process the example using the prepare_data_for_molmo_training function
+            processed_example = prepare_data_for_molmo_training(
+                example,
+                processor,
+                target_longest_image_dim=target_longest_image_dim,
+                target_anchor_text_len=target_anchor_text_len
+            )
+
+ 

@@ -31,6 +31,7 @@ dependencies = [
   "bleach",
   "markdown2",
   "filelock",
+  "orjson",
 ]
 license = {file = "LICENSE"}
 
@@ -61,6 +62,7 @@ dev = [
     "sphinx-autodoc-typehints==1.23.3",
     "packaging",
     "necessary",
+    "requests",
 ]
 
 train = [
