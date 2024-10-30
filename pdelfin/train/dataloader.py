@@ -165,6 +165,7 @@ def build_finetuning_dataset(response_glob_path: str, pdf_cache_location: Option
             _ = get_pdf_media_box_width_height(example["local_pdf_path"], example["page_num"])
             return anchor_text is not None
         except:
+            logger.exception("Could not generate anchor text for file, be sure you have all dependencies installed")
             return False
         
     final_dataset = final_dataset.filter(_can_create_anchor_text, num_proc=num_proc)

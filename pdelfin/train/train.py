@@ -112,6 +112,8 @@ def run_train(config: TrainConfig):
 
     processor = AutoProcessor.from_pretrained(config.model.name_or_path, trust_remote_code=True)
     train_dataset, valid_dataset = make_dataset(config, processor)    
+    logger.info(train_dataset)
+    logger.info(valid_dataset)
 
     if "qwen" in config.model.name_or_path.lower():
         model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -124,7 +126,7 @@ def run_train(config: TrainConfig):
             trust_remote_code=True
         )
 
-        print(model)
+    logger.info(model)
  
     if config.lora is not None:
         peft_config = LoraConfig(
