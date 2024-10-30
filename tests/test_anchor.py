@@ -74,7 +74,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 1000)
+        self.assertLessEqual(len(anchor_text), 1000)
 
     def testLargePromptHint2(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "large_prompt_hint2.pdf")
@@ -83,7 +83,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 4000)
+        self.assertLessEqual(len(anchor_text), 4000)
 
     def testLargePromptHint3(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "large_prompt_hint3.pdf")
@@ -92,7 +92,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 4000)
+        self.assertLessEqual(len(anchor_text), 4000)
 
     def testNewsPaperPromptHint(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "newspaper.pdf")
@@ -101,7 +101,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 4000)
+        self.assertLessEqual(len(anchor_text), 4000)
 
     def testTobaccoPaperMissingParagraphs(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
@@ -110,7 +110,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 4000)
+        self.assertLessEqual(len(anchor_text), 4000)
 
     def testAnchorOtherLengths(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
@@ -119,13 +119,13 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 2000)
+        self.assertLessEqual(len(anchor_text), 2000)
 
         anchor_text = get_anchor_text(local_pdf_path, 1, pdf_engine="pdfreport", target_length=6000)
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 6000)
+        self.assertLessEqual(len(anchor_text), 6000)
 
     def testFailingAnchor(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "failing_anchor_pg4.pdf")

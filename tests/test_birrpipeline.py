@@ -126,6 +126,42 @@ class TestBuildDolmaDoc(unittest.TestCase):
 
 
 class TestBuildPageQuery(unittest.TestCase):
+    def testNotParsing(self):
+        file = os.path.join(
+            os.path.dirname(__file__),
+            "gnarly_pdfs",
+            "not_parsing.pdf"
+        )
+
+        for page in range(1,9):
+            query = build_page_query(file, "not_parsing.pdf", page, 1024, 6000)
+            print(query)
+
+    def testNotParsing2(self):
+        file = os.path.join(
+            os.path.dirname(__file__),
+            "gnarly_pdfs",
+            "not_parsing2.pdf"
+        )
+
+        for page in range(1,10):
+            query = build_page_query(file, "not_parsing2.pdf", page, 1024, 6000)
+            print(query)
+
+    def testNotParsingHugeMemoryUsage(self):
+        file = os.path.join(
+            os.path.dirname(__file__),
+            "gnarly_pdfs",
+            "failing_pdf_pg9.pdf"
+        )
+
+        print("Starting to parse bad pdf")
+
+        query = build_page_query(file, "failing_pdf_pg9.pdf", 9, 1024, 6000)
+
+        print(query)
+   
+
     def testRotation(self):
         # First, generate and save the non-rotated image
         query = build_page_query(os.path.join(
