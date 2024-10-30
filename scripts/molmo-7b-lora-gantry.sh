@@ -10,7 +10,7 @@ then
 fi
 
 
-EXTRA_ARGS="-c pdelfin/train/config/molmo-7b-lora.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/molmo-pdf/v1/models/\${BEAKER_USER_ID}\""
+EXTRA_ARGS="-c pdelfin/train/config/molmo-o-lora.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/molmo-pdf/v1/models/\${BEAKER_USER_ID}\""
 
 run_name=$(basename "$0" .sh)
 
