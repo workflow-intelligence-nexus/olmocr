@@ -26,7 +26,8 @@ from transformers import (
     TrainerCallback,
     TrainingArguments,
     Qwen2VLForConditionalGeneration,
-    AutoProcessor
+    AutoProcessor,
+    AutoConfig,
 )
 from transformers.integrations import WandbCallback
 from transformers.trainer_callback import TrainerControl, TrainerState
@@ -121,8 +122,15 @@ def run_train(config: TrainConfig):
             _attn_implementation="flash_attention_2" if config.model.use_flash_attn else None
         )
     else:
+        model_config = AutoConfig.from_pretrained(config.model.name_or_path, trust_remote_code=True)
+
+        if model_config.max_position_embeddings < config.generate.max_length:
+            logger.warning(f"ALERT, force adjusting model config max_position_embeddings upwards from {model_config.max_position_embeddings} to {config.generate.max_length}")
+            model_config.max_position_embeddings = config.generate.max_length
+
         model = AutoModelForCausalLM.from_pretrained(
             config.model.name_or_path, torch_dtype=torch.bfloat16,
+            config=model_config,
             trust_remote_code=True
         )
 

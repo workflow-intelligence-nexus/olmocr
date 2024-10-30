@@ -29,7 +29,7 @@ from .core.state import BeakerState
 T = TypeVar("T")
 
 from pdelfin.train.dataloader import build_finetuning_dataset, list_dataset_files
-from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
+from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, batch_prepare_data_for_molmo_training
 
 
 def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
@@ -47,6 +47,13 @@ def get_rawdataset_from_source(data_config: DataConfig, source: SourceConfig) ->
 
 def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset, Dataset]:
     random.seed(config.train_data.seed)
+
+    if "qwen" in config.model.name_or_path.lower():
+        batch_fn = batch_prepare_data_for_qwen2_training
+    elif "molmo" in config.model.name_or_path.lower():
+        batch_fn = batch_prepare_data_for_molmo_training
+    else:
+        raise NotImplementedError("Model format not supported")
 
     # Retrieve the two target lengths from the first source for comparison
     first_source = config.train_data.sources[0]
@@ -72,7 +79,7 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
     # Apply the transform to the concatenated dataset
     train_dataset = train_dataset.with_transform(
         partial(
-            batch_prepare_data_for_qwen2_training,
+            batch_fn,
             processor=processor,
             target_longest_image_dim=list(target_longest_image_dim),
             target_anchor_text_len=list(target_anchor_text_len),
@@ -84,7 +91,7 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
         **{
             source.name: get_rawdataset_from_source(config.valid_data, source).with_transform(
                 partial(
-                    batch_prepare_data_for_qwen2_training,
+                    batch_fn,
                     processor=processor,
                     target_longest_image_dim=list(source.target_longest_image_dim),
                     target_anchor_text_len=list(source.target_anchor_text_len),
@@ -190,17 +197,37 @@ class TruncatingCollator:
         # Assert that we are only handling batch size 1 for now
         assert len(batch) == 1, "Only batch size 1 is supported for now"
 
-        truncated_input_ids = torch.tensor(batch[0]["input_ids"][:self.max_length]).unsqueeze(0)
-        truncated_attention_mask = torch.tensor(batch[0]["attention_mask"][:self.max_length]).unsqueeze(0)
-        truncated_labels = torch.tensor(batch[0]["labels"][:self.max_length]).unsqueeze(0)
+        if "pixel_values" in batch[0]:
+            # Qwen2 case
+            truncated_input_ids = torch.tensor(batch[0]["input_ids"][:self.max_length]).unsqueeze(0)
+            truncated_attention_mask = torch.tensor(batch[0]["attention_mask"][:self.max_length]).unsqueeze(0)
+            truncated_labels = torch.tensor(batch[0]["labels"][:self.max_length]).unsqueeze(0)
 
-        return {
-            "input_ids": truncated_input_ids,
-            "attention_mask": truncated_attention_mask,
-            "labels": truncated_labels,
-            "pixel_values": torch.tensor(batch[0]["pixel_values"]).unsqueeze(0),
-            "image_grid_thw": torch.tensor(batch[0]["image_grid_thw"]).unsqueeze(0),
-        }
+            return {
+                "input_ids": truncated_input_ids,
+                "attention_mask": truncated_attention_mask,
+                "labels": truncated_labels,
+
+                "pixel_values": torch.tensor(batch[0]["pixel_values"]).unsqueeze(0),
+                "image_grid_thw": torch.tensor(batch[0]["image_grid_thw"]).unsqueeze(0),
+            }
+        elif "image_input_idx" in batch[0]:
+            # molmo case
+            truncated_input_ids = batch[0]["input_ids"][:self.max_length].unsqueeze(0)
+            truncated_attention_mask = batch[0]["attention_mask"][:self.max_length].unsqueeze(0)
+            truncated_labels = batch[0]["labels"][:self.max_length].unsqueeze(0)
+
+            return {
+                "input_ids": truncated_input_ids,
+                "attention_mask": truncated_attention_mask,
+                "labels": truncated_labels,
+
+                "images": batch[0]["images"].unsqueeze(0),
+                "image_input_idx": batch[0]["image_input_idx"].unsqueeze(0),
+                "image_masks": batch[0]["image_masks"].unsqueeze(0),
+            } 
+        else:
+            raise NotImplementedError()
         
 
 @contextmanager

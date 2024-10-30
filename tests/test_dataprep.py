@@ -2,6 +2,7 @@ import unittest
 import random
 import requests
 import base64
+import torch
 import os
 import re
 from io import BytesIO
@@ -215,7 +216,7 @@ class TestMolmoDataPrep(unittest.TestCase):
 
         # Mock the functions that require actual PDF files
         with patch('pdelfin.prompts.anchor.get_anchor_text') as mock_get_anchor_text, \
-             patch('pdelfin.data.renderpdf.render_pdf_to_base64png') as mock_render_pdf_to_base64png:
+            patch('pdelfin.data.renderpdf.render_pdf_to_base64png') as mock_render_pdf_to_base64png:
 
             # Set return values for the mocked functions
             mock_get_anchor_text.return_value = "This is the anchor text."
@@ -234,4 +235,129 @@ class TestMolmoDataPrep(unittest.TestCase):
                 target_anchor_text_len=target_anchor_text_len
             )
 
- 
+            # Basic type checks
+            self.assertIsInstance(processed_example["input_ids"], torch.Tensor,
+                                "input_ids should be a torch.Tensor")
+            self.assertIsInstance(processed_example["attention_mask"], torch.Tensor,
+                                "attention_mask should be a torch.Tensor")
+            self.assertIsInstance(processed_example["labels"], torch.Tensor,
+                                "labels should be a torch.Tensor")
+            self.assertIsInstance(processed_example["images"], torch.Tensor,
+                                "images should be a torch.Tensor")
+            self.assertIsInstance(processed_example["image_input_idx"], torch.Tensor,
+                                "image_input_idx should be a torch.Tensor")
+            self.assertIsInstance(processed_example["image_masks"], torch.Tensor,
+                                "image_masks should be a torch.Tensor")
+
+            # Check tensor dimensions
+            self.assertEqual(len(processed_example["input_ids"].shape), 1,
+                            "input_ids should be a 1D tensor")
+            self.assertEqual(processed_example["input_ids"].shape,
+                            processed_example["attention_mask"].shape,
+                            "input_ids and attention_mask should have the same shape")
+            self.assertEqual(processed_example["input_ids"].shape,
+                            processed_example["labels"].shape,
+                            "input_ids and labels should have the same shape")
+
+
+            # Verify label masking
+            # Find where labels start being non-masked (-100 is the mask value)
+            label_indices = torch.where(processed_example["labels"] != -100)[0]
+            
+            # There should be at least one label that is not masked
+            self.assertTrue(len(label_indices) > 0, 
+                        "No unmasked labels found in labels array.")
+            
+            first_label_index = label_indices[0]
+            
+            # Ensure the masked portion is reasonable (at least a few tokens long)
+            self.assertTrue(first_label_index >= 5,
+                        "Masked portion of labels is too short")
+            
+            # Check that all values before first_label_index are -100
+            self.assertTrue(
+                torch.all(processed_example["labels"][:first_label_index] == -100),
+                "Labels before the first unmasked token are not all -100."
+            )
+
+            # Verify attention mask
+            self.assertTrue(
+                torch.all(processed_example["attention_mask"] == 1),
+                "All attention mask values should be 1"
+            )
+
+            # Verify image input indices
+            self.assertTrue(
+                torch.all(processed_example["image_input_idx"] < len(processed_example["input_ids"])),
+                "Image input indices should be within the range of input_ids length"
+            )
+
+            # Decode and verify content structure
+            decoded_input = processor.tokenizer.decode(processed_example["input_ids"])
+            self.assertIn("This is the anchor text", decoded_input,
+                        "Anchor text should be present in the decoded input")
+            
+            # Verify that unmasked labels decode to the response text
+            unmasked_labels = processed_example["labels"][processed_example["labels"] != -100]
+            decoded_labels = processor.tokenizer.decode(unmasked_labels)
+            self.assertIn("This is the response text", decoded_labels,
+                        "Response text should be present in the decoded labels")
+
+    def testBatchMolmoDataPrep(self):
+        """Test the batch preparation function for Molmo"""
+        processor = AutoProcessor.from_pretrained(
+            'allenai/Molmo-7B-O-0924',
+            trust_remote_code=True,
+            torch_dtype='auto',
+            device_map='auto'
+        )
+
+        # Create a mock batch
+        batch = {
+            "local_pdf_path": [os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "edgar.pdf")],
+            "page_num": [1],
+            "response": ["This is the response text."]
+        }
+
+        target_longest_image_dim = [1024]
+        target_anchor_text_len = [0, 6000]
+
+        # Mock the necessary functions
+        with patch('pdelfin.prompts.anchor.get_anchor_text') as mock_get_anchor_text, \
+            patch('pdelfin.data.renderpdf.render_pdf_to_base64png') as mock_render_pdf_to_base64png:
+
+            mock_get_anchor_text.return_value = "This is the anchor text."
+            img = Image.new('RGB', (100, 100), color='red')
+            buffered = BytesIO()
+            img.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+            mock_render_pdf_to_base64png.return_value = img_str
+
+            # Process the batch
+            processed_batch = batch_prepare_data_for_molmo_training(
+                batch,
+                processor,
+                target_longest_image_dim=target_longest_image_dim,
+                target_anchor_text_len=target_anchor_text_len
+            )
+
+            # Verify batch structure
+            self.assertEqual(len(processed_batch["input_ids"]), 1,
+                            "Batch size should be 1")
+            self.assertEqual(len(processed_batch["attention_mask"]), 1,
+                            "Batch size should be 1")
+            self.assertEqual(len(processed_batch["labels"]), 1,
+                            "Batch size should be 1")
+            self.assertEqual(len(processed_batch["images"]), 1,
+                            "Batch size should be 1")
+            self.assertEqual(len(processed_batch["image_input_idx"]), 1,
+                            "Batch size should be 1")
+            self.assertEqual(len(processed_batch["image_masks"]), 1,
+                            "Batch size should be 1")
+
+            # Verify the first item in the batch
+            first_item = {k: v[0] for k, v in processed_batch.items()}
+            self.assertIsInstance(first_item["input_ids"], torch.Tensor,
+                                "Batch item should contain torch.Tensor")
+            self.assertTrue(torch.all(first_item["attention_mask"] == 1),
+                        "All attention mask values should be 1")
