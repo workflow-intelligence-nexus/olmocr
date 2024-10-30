@@ -21,7 +21,7 @@ requires-python = ">=3.8"
 dependencies = [
   "cached-path",
   "smart_open",
-  "pypdf",
+  "pypdf>=5.1.0",
   "pymupdf",
   "pypdfium2",
   "cryptography",
