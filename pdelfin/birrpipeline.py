@@ -29,7 +29,7 @@ from pdelfin.data.renderpdf import render_pdf_to_base64png
 from pdelfin.prompts import build_finetuning_prompt, PageResponse
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.s3_utils import parse_custom_id, expand_s3_glob, get_s3_bytes, parse_s3_path
-
+from pdelfin.check import check_poppler_version
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -698,6 +698,8 @@ if __name__ == '__main__':
 
     current_round = get_current_round(args.workspace)
     logger.info(f"Current round is {current_round}")
+
+    check_poppler_version()
 
     # One shared executor to rule them all
     executor = ProcessPoolExecutor(max_workers=args.workers)
