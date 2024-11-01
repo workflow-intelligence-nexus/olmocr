@@ -10,12 +10,12 @@ Things supported:
  - Basic filtering by language and SEO spam removal
  - Finetuning code for Qwen2-VL (and soon other VLMs)
 
-### Note: Font installation
+### Note: Poppler and Font installation
 
-You will probably need to install some fonts on your computer so that any pdfs you render come out looking nice.
+You will probably need to install poppler-utils and some fonts on your computer so that any pdfs you render come out looking nice.
 
 ```
-sudo apt-get install ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
+sudo apt-get install poppler-utils ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 
 ```
 
