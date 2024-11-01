@@ -553,8 +553,6 @@ def build_pdf_queries(s3_workspace: str, pdf: DatabaseManager.PDFRecord, cur_rou
             tf.write(get_s3_bytes(pdf_s3, pdf.s3_path))
             tf.flush()
 
-            logger.debug(f"build_pdf_queries for {pdf.s3_path} with {pdf.num_pages} pages")
-
             for target_page_num in range(1, pdf.num_pages + 1):
                 # Is there an existing page that has no error
                 if any(page.is_usable() and page.page_num == target_page_num for page in existing_pages):
@@ -788,19 +786,6 @@ if __name__ == '__main__':
                     pending_futures.keys(),
                     return_when=concurrent.futures.FIRST_COMPLETED,
                 )
-
-               
-
-                # Get current Python process memory usage
-                # process = psutil.Process()
-                # memory_usage_python = process.memory_info().rss  # Resident Set Size (RSS) in bytes
-                # logger.debug(f"Current Python memory usage: {memory_usage_python / (1024 ** 2):.2f} MB")
-
-                # # Get total memory usage on the host
-                # total_memory = psutil.virtual_memory().total
-                # used_memory = psutil.virtual_memory().used
-                # logger.debug(f"Total memory on host: {total_memory / (1024 ** 3):.2f} GB")
-                # logger.debug(f"Used memory on host: {used_memory / (1024 ** 3):.2f} GB")
 
 
                 for future in done:
