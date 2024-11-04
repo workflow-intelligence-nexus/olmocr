@@ -55,6 +55,14 @@ After this runs the first time, you should have a whole bunch of json files gene
 
 Now you need to run them using birr.
 
+You can use the [qwen2-vl-7b-pdf-weka.yaml](https://github.com/allenai/pdelfin/blob/main/scripts/birr/config/qwen2-vl-7b-pdf-weka.yaml) file here as a template for your birr config.
+
+Once the batch inference job completes, you will want to run the birrpipeline again (witthout the --add_pdfs argument). This will index all of the 
+batch inference files, and assemble dolma docs, which you can preview with [dolmaviewer.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/viewer/dolmaviewer.py)
+
+Because of the nature of vlms, you will need to run multiple rounds of inference in order to convert the majority of your files. This is because
+sometimes generation will fail due to repetition errors, (or if the pdf page was rotated incorrect, the system will attempt to classify that and rotate it properly on
+the next round). Usually 2 to 3 complete rounds is enough to get most of your files.
 
 
 ### TODOs for future versions
