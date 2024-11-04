@@ -1,14 +1,17 @@
 # pdelfin
 
-Toolkit for truly understanding PDF documents in the wild.
+Toolkit for training language models to work with PDF documents in the wild.
 
 <img src="https://github.com/user-attachments/assets/984a645c-096d-4b9a-9c5b-44063004cd8c" alt="image" width="300"/>
 
-Things supported:
- - A prompting strategy to get really good natural text parsing using ChatGPT 4o (silver_data)
- - An eval toolkit for comparing different pipeline versions
- - Basic filtering by language and SEO spam removal
- - Finetuning code for Qwen2-VL (and soon other VLMs)
+
+What is included:
+ - A prompting strategy to get really good natural text parsing using ChatGPT 4o [buildsilver.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/data/buildsilver.py)
+ - An eval toolkit for comparing different pipeline versions [runeval.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/eval/runeval.py)
+ - Basic filtering by language and SEO spam removal [filter.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/filter/filter.py)
+ - Finetuning code for Qwen2-VL (and soon other VLMs) [train.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/train/train.py)
+ - Processing millions of PDFs through a finetuned model using VLLM (requires [birr](https://github.com/allenai/mise/tree/main/birr)) [birrpipeline.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/birrpipeline.py)
+ - Viewing Dolma Docs created from PDFs [dolmaviewer.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/viewer/dolmaviewer.py)
 
 ### Note: Poppler and Font installation
 
