@@ -83,9 +83,17 @@ After this runs the first time, you should have a whole bunch of json files gene
 
 `s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/round_0/`
 
-Now you need to run them using birr.
-
+Now you need to run them using birr. 
 You can use the [qwen2-vl-7b-pdf-weka.yaml](https://github.com/allenai/pdelfin/blob/main/scripts/birr/config/qwen2-vl-7b-pdf-weka.yaml) file here as a template for your birr config.
+You will need to edit your queue name, priority level, etc.
+
+```bash
+mise birr create-queue -n [your_queue] --owner [your username] --project ai2-oe-data 
+
+mise birr populate-queue -n [your_queue] "s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/inference_inputs/round_0/*.jsonl"
+
+mise birr submit-job -c pdelfin/scripts/birr/config/qwen2-vl-7b-pdf-weka-customized.yaml
+```
 
 Once the batch inference job completes, you will want to run the birrpipeline again (witthout the --add_pdfs argument). This will index all of the 
 batch inference files, and assemble dolma docs, which you can preview with [dolmaviewer.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/viewer/dolmaviewer.py)
