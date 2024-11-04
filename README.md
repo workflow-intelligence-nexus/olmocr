@@ -46,6 +46,15 @@ You should expect somewhere between 1,400 to 1,800 tokens per second per H100 GP
 python -m pdelfin.birrpipeline [s3_workspace_path] --add_pdfs [s3_glob_path or path to file with s3 paths (one per line)]
 ```
 
+For example:
+```bash
+python -m pdelfin.birrpipeline s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename] --pdf_profile s2 --add_pdfs s3://ai2-oe-data/jakep/gnarly_pdfs/*.pdf
+```
+
+After this runs the first time, you should have a whole bunch of json files generated in `s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/round_0/`
+
+Now you need to run them using birr.
+
 
 
 ### TODOs for future versions
