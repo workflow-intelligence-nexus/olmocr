@@ -33,11 +33,7 @@ from pdelfin.check import check_poppler_version
 
 # Initialize logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for the file handler to capture everything
-
-# Console handler for INFO level and above
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
+logger.setLevel(logging.INFO)
 
 # File handler for DEBUG level and above with line-by-line flushing
 class FlushFileHandler(logging.FileHandler):
@@ -50,17 +46,14 @@ file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 
 # Add handlers to the logger
-logger.handlers.clear()
-logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
 # Global s3 client for the whole script, feel free to adjust params if you need it
 workspace_s3 = boto3.client('s3')
 pdf_s3 = boto3.client('s3')
 
-# Quiet logs from pypdf and smart open
+# Quiet logs from pypdf
 logging.getLogger("pypdf").setLevel(logging.ERROR)
-logging.getLogger("smart_open").setLevel(logging.ERROR)
 
 
 class DatabaseManager:
@@ -710,7 +703,7 @@ if __name__ == '__main__':
             logger.info(f"Querying all PDFs at {args.add_pdfs}")
             
             all_pdfs = expand_s3_glob(pdf_s3, args.add_pdfs)
-            print(f"Found {len(all_pdfs):,} total pdf paths")
+            logger.info(f"Found {len(all_pdfs):,} total pdf paths")
         elif os.path.exists(args.add_pdfs):
             with open(args.add_pdfs, "r") as f:
                 all_pdfs = [line.strip() for line in f.readlines() if len(line.strip()) > 0]
