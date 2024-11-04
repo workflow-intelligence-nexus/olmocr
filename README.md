@@ -79,7 +79,8 @@ For example:
 python -m pdelfin.birrpipeline s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename] --pdf_profile s2 --add_pdfs s3://ai2-oe-data/jakep/gnarly_pdfs/*.pdf
 ```
 
-After this runs the first time, you should have a whole bunch of json files generated in `s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/round_0/`
+After this runs the first time, you should have a whole bunch of json files generated in 
+`s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/round_0/`
 
 Now you need to run them using birr.
 
