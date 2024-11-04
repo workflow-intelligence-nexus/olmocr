@@ -42,6 +42,34 @@ After that, you will use [birr](https://github.com/allenai/mise/tree/main/birr) 
 
 You should expect somewhere between 1,400 to 1,800 tokens per second per H100 GPU.
 
+```
+usage: birrpipeline.py [-h] [--add_pdfs ADD_PDFS] [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM] [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--workspace_profile WORKSPACE_PROFILE]
+                       [--pdf_profile PDF_PROFILE] [--max_size_mb MAX_SIZE_MB] [--workers WORKERS] [--reindex] [--skip_build_queries]
+                       workspace
+
+Manager for running millions of PDFs through a batch inference pipeline
+
+positional arguments:
+  workspace             The S3 path where work will be done e.g., s3://bucket/prefix/)
+
+options:
+  -h, --help            show this help message and exit
+  --add_pdfs ADD_PDFS   Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths
+  --target_longest_image_dim TARGET_LONGEST_IMAGE_DIM
+                        Dimension on longest side to use for rendering the pdf pages
+  --target_anchor_text_len TARGET_ANCHOR_TEXT_LEN
+                        Maximum amount of anchor text to use (characters)
+  --workspace_profile WORKSPACE_PROFILE
+                        S3 configuration profile for accessing the workspace
+  --pdf_profile PDF_PROFILE
+                        S3 configuration profile for accessing the raw pdf documents
+  --max_size_mb MAX_SIZE_MB
+                        Max file size in MB
+  --workers WORKERS     Number of workers to run in the processpool
+  --reindex             Reindex all of the page_results
+  --skip_build_queries  Skip generation of new pdf page queries for batch inferencing
+```
+
 ```bash
 python -m pdelfin.birrpipeline [s3_workspace_path] --add_pdfs [s3_glob_path or path to file with s3 paths (one per line)]
 ```
