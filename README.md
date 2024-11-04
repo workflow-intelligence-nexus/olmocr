@@ -91,7 +91,7 @@ Once the batch inference job completes, you will want to run the birrpipeline ag
 batch inference files, and assemble dolma docs, which you can preview with [dolmaviewer.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/viewer/dolmaviewer.py)
 
 Because of the nature of vlms, you will need to run multiple rounds of inference in order to convert the majority of your files. This is because
-sometimes generation will fail due to repetition errors, (or if the pdf page was rotated incorrect, the system will attempt to classify that and rotate it properly on
+sometimes generation will fail due to repetition errors, (or if the pdf page was rotated incorrectly, the system will attempt to classify that and rotate it properly on
 the next round). Usually 2 to 3 complete rounds is enough to get most of your files.
 
 
