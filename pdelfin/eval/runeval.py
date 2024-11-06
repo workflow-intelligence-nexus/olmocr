@@ -103,7 +103,7 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
         )
     elif all(field in data for field in ["s3_path", "pagenum", "text", "error", "finish_reason"]):
         return NormalizedEntry(**data)
-    else:
+    elif "response" in data and "body" in data["response"] and "choices" in data["response"]["body"]:
         # OpenAI case
         try:
             # Attempt to parse the JSON content from OpenAI's response
@@ -119,6 +119,23 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
                 goldkey=data["custom_id"],
                 text=data["response"]["body"]["choices"][0]["message"]["content"],
                 finish_reason=data["response"]["body"]["choices"][0]["finish_reason"]
+            )
+    else:
+        # SGLang case
+        try:
+            # Attempt to parse the JSON content from OpenAI's response
+            parsed_content = json.loads(data["response"]["choices"][0]["message"]["content"])
+            return NormalizedEntry.from_goldkey(
+                goldkey=data["custom_id"],
+                text=parsed_content["natural_text"],
+                finish_reason=data["response"]["choices"][0]["finish_reason"]
+            )
+        except json.JSONDecodeError:
+            # Fallback if content is not valid JSON
+            return NormalizedEntry.from_goldkey(
+                goldkey=data["custom_id"],
+                text=data["response"]["choices"][0]["message"]["content"],
+                finish_reason=data["response"]["choices"][0]["finish_reason"]
             )
 
 # Load every .json file from GOLD_DATA_S3_PATH (and saves it to some temp folder for quick loading next time)
