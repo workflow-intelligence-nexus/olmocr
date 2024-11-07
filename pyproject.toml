@@ -32,6 +32,8 @@ dependencies = [
   "markdown2",
   "filelock",
   "orjson",
+  "requests",
+  "zstandard",
 ]
 license = {file = "LICENSE"}
 
