@@ -7,6 +7,7 @@ import sys
 import time
 import subprocess
 import atexit
+import hashlib
 
 from tqdm import tqdm
 
@@ -24,6 +25,13 @@ logging.getLogger("pypdf").setLevel(logging.ERROR)
 workspace_s3 = boto3.client('s3')
 pdf_s3 = boto3.client('s3')
 
+
+def compute_workgroup_sha1(work_group: list[str]) -> str:
+    sha1 = hashlib.sha1()
+    # Ensure consistent ordering by sorting the list
+    for pdf in sorted(work_group):
+        sha1.update(pdf.encode('utf-8'))
+    return sha1.hexdigest()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
@@ -52,6 +60,8 @@ if __name__ == '__main__':
         pdf_session = boto3.Session(profile_name=args.pdf_profile)
         pdf_s3 = pdf_session.client("s3")
 
+    index_file_s3_path = os.path.join(args.workspace, "pdf_index_list.csv.zstd")
+
     # Check list of pdfs and that it matches what's in the workspace
     if args.pdfs:
         if args.pdfs.startswith("s3://"):
@@ -67,7 +77,6 @@ if __name__ == '__main__':
         all_pdfs = set(all_pdfs)
         logger.info(f"Found {len(all_pdfs):,} total pdf paths")
         
-        index_file_s3_path = os.path.join(args.workspace, "pdf_index_list.csv.zstd")
         existing_lines = download_zstd_csv(workspace_s3, index_file_s3_path)
 
         # Parse existing work items into groups
@@ -143,9 +152,12 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # TODO
     # Read in the work queue from s3
+    work_queue = download_zstd_csv(workspace_s3, index_file_s3_path)
+    work_queue = {compute_workgroup_sha1(pdfs): pdfs for pdfs in work_queue}
+
     # Read in the done items from the s3 workspace
+    done_work_items = expand_s3_glob(workspace_s3, f"{args.workspace}/dolma_documents/*.jsonl")
 
     # TODO
     # Spawn up to N workers to do:
