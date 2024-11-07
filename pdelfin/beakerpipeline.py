@@ -4,11 +4,8 @@ import boto3
 import os
 
 from tqdm import tqdm
-from urllib.parse import urlparse
-import zstandard as zstd
-from io import BytesIO, TextIOWrapper
 
-from pdelfin.s3_utils import expand_s3_glob, get_s3_bytes, parse_s3_path, put_s3_bytes
+from pdelfin.s3_utils import expand_s3_glob, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
 
 # Basic logging setup for now
 logger = logging.getLogger(__name__)
@@ -23,30 +20,6 @@ workspace_s3 = boto3.client('s3')
 pdf_s3 = boto3.client('s3')
 
 
-def download_zstd_csv(s3_client, s3_path):
-    """Download and decompress a .zstd CSV file from S3."""
-    try:
-        compressed_data = get_s3_bytes(s3_client, s3_path)
-        dctx = zstd.ZstdDecompressor()
-        decompressed = dctx.decompress(compressed_data)
-        text_stream = TextIOWrapper(BytesIO(decompressed), encoding='utf-8')
-        lines = text_stream.readlines()
-        logger.info(f"Downloaded and decompressed {s3_path}")
-        return lines
-    except s3_client.exceptions.NoSuchKey:
-        logger.info(f"No existing {s3_path} found in s3, starting fresh.")
-        return []
-
-
-def upload_zstd_csv(s3_client, s3_path, lines):
-    """Compress and upload a list of lines as a .zstd CSV file to S3."""
-    joined_text = "\n".join(lines)
-    compressor = zstd.ZstdCompressor()
-    compressed = compressor.compress(joined_text.encode('utf-8'))
-    put_s3_bytes(s3_client, s3_path, compressed)
-    logger.info(f"Uploaded compressed {s3_path}")
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
     parser.add_argument('workspace', help='The S3 path where work will be done e.g., s3://bucket/prefix/')
@@ -58,6 +31,12 @@ if __name__ == '__main__':
     parser.add_argument('--group_size', type=int, default=20, help='Number of pdfs that will be part of each work item in the work queue.')
     parser.add_argument('--workers', type=int, default=10, help='Number of workers to run at a time')
 
+    parser.add_argument('--model', help='List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access',
+                         default=["weka://oe-data-default/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/best_bf16/",
+                                  "gs://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/",
+                                  "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"])
+    parser.add_argument('--model_max_context', type=int, default="8192", help="Maximum context length that the model was fine tuned under")
+    parser.add_argument('--model_chat_template', type=str, default="qwen2-vl", help="Chat template to pass to sglang server")
     args = parser.parse_args()
 
     if args.workspace_profile:
@@ -116,13 +95,18 @@ if __name__ == '__main__':
         combined_lines = [",".join(group) for group in combined_groups]
 
         # Upload the combined work items back to S3
-        upload_zstd_csv(workspace_s3, index_file_s3_path, combined_lines)
+        if new_groups:
+            upload_zstd_csv(workspace_s3, index_file_s3_path, combined_lines)
 
         logger.info("Completed adding new PDFs.")
 
-
+    # TODO
     # If there is a beaker flag, then your job is to trigger this script with N replicas on beaker
     # If not, then your job is to do the actual work
+
+    # Donwload the model from the best place available
+    model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
+    download_directory(args.model, model_cache_dir)
 
     # Start up the sglang server
 
