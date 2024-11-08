@@ -16,6 +16,7 @@ import tempfile
 from tqdm import tqdm
 from io import BytesIO
 from PIL import Image
+from pypdf import PdfReader
 
 from pdelfin.s3_utils import expand_s3_glob, get_s3_bytes, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
 from pdelfin.data.renderpdf import render_pdf_to_base64png
@@ -34,6 +35,8 @@ logging.getLogger("pypdf").setLevel(logging.ERROR)
 # Global s3 client for the whole script, feel free to adjust params if you need it
 workspace_s3 = boto3.client('s3')
 pdf_s3 = boto3.client('s3')
+
+MAX_TOKENS = 3000
 
 
 async def build_page_query(local_pdf_path: str, page: int, target_longest_image_dim: int, target_anchor_text_len: int, image_rotation: int=0) -> dict:
@@ -57,7 +60,8 @@ async def build_page_query(local_pdf_path: str, page: int, target_longest_image_
         image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
     return {
-        "chat_messages": [
+        "model": "Qwen/Qwen2-VL-7B-Instruct",
+        "messages": [
             {
                 "role": "user",
                 "content": [
@@ -66,6 +70,7 @@ async def build_page_query(local_pdf_path: str, page: int, target_longest_image_
                 ],
             }
         ],
+        "max_tokens": MAX_TOKENS,
         "temperature": 0.8
     }
 
@@ -191,8 +196,13 @@ async def process_page(session, pdf_path, page_num, args):
     )
     URL = "http://localhost:30000/v1/chat/completions"
 
+    logger.info(f"Got page query for {pdf_path}-{page_num}")
+
     try:
         async with session.post(URL, json=query) as response:
+            
+            logger.info(f"Got response for {pdf_path}-{page_num}")
+
             if response.status == 200:
                 result = await response.json()
                 return (page_num, result)
@@ -346,7 +356,7 @@ async def main():
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--group_size', type=int, default=20, help='Number of pdfs that will be part of each work item in the work queue.')
-    parser.add_argument('--workers', type=int, default=10, help='Number of workers to run at a time')
+    parser.add_argument('--workers', type=int, default=1, help='Number of workers to run at a time')
 
     parser.add_argument('--model', help='List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access',
                          default=["weka://oe-data-default/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/best_bf16/",
@@ -357,10 +367,12 @@ async def main():
     args = parser.parse_args()
 
     if args.workspace_profile:
+        global workspace_s3
         workspace_session = boto3.Session(profile_name=args.workspace_profile)
         workspace_s3 = workspace_session.client("s3")
 
     if args.pdf_profile:
+        global pdf_s3
         pdf_session = boto3.Session(profile_name=args.pdf_profile)
         pdf_s3 = pdf_session.client("s3")
 
