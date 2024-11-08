@@ -6,15 +6,19 @@ import os
 import sys
 import time
 import subprocess
-import atexit
 import hashlib
 import base64
+import atexit
+import asyncio
+import aiohttp
+import tempfile
 
 from tqdm import tqdm
 from io import BytesIO
 from PIL import Image
+from pypdf import PdfReader
 
-from pdelfin.s3_utils import expand_s3_glob, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
+from pdelfin.s3_utils import expand_s3_glob, get_s3_bytes, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
 from pdelfin.data.renderpdf import render_pdf_to_base64png
 from pdelfin.prompts import build_finetuning_prompt, PageResponse
 from pdelfin.prompts.anchor import get_anchor_text
@@ -32,11 +36,17 @@ logging.getLogger("pypdf").setLevel(logging.ERROR)
 workspace_s3 = boto3.client('s3')
 pdf_s3 = boto3.client('s3')
 
+MAX_TOKENS = 3000
 
-def build_page_query(local_pdf_path: str, page: int, target_longest_image_dim: int, target_anchor_text_len: int, image_rotation: int=0) -> dict:
+
+async def build_page_query(local_pdf_path: str, page: int, target_longest_image_dim: int, target_anchor_text_len: int, image_rotation: int=0) -> dict:
     assert image_rotation in [0, 90, 180, 270], "Invalid image rotation provided in build_page_query"
-    image_base64 = render_pdf_to_base64png(local_pdf_path, page, target_longest_image_dim=target_longest_image_dim)
 
+    # Allow the page rendering to process in the background while we get the anchor text (which blocks the main thread)
+    image_base64 = asyncio.to_thread(render_pdf_to_base64png, local_pdf_path, page, target_longest_image_dim=target_longest_image_dim)
+    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport", target_length=target_anchor_text_len)
+
+    image_base64 = await image_base64
     if image_rotation != 0:
         image_bytes = base64.b64decode(image_base64)
         with Image.open(BytesIO(image_bytes)) as img:
@@ -49,11 +59,9 @@ def build_page_query(local_pdf_path: str, page: int, target_longest_image_dim: i
         # Encode the rotated image back to base64
         image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-
-    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport", target_length=target_anchor_text_len)
-
     return {
-        "chat_messages": [
+        "model": "Qwen/Qwen2-VL-7B-Instruct",
+        "messages": [
             {
                 "role": "user",
                 "content": [
@@ -62,6 +70,7 @@ def build_page_query(local_pdf_path: str, page: int, target_longest_image_dim: i
                 ],
             }
         ],
+        "max_tokens": MAX_TOKENS,
         "temperature": 0.8
     }
 
@@ -74,7 +83,266 @@ def compute_workgroup_sha1(work_group: list[str]) -> str:
     return sha1.hexdigest()
 
 
-if __name__ == '__main__':
+async def populate_pdf_work_queue(args):
+    index_file_s3_path = os.path.join(args.workspace, "pdf_index_list.csv.zstd")
+
+    if args.pdfs.startswith("s3://"):
+        logger.info(f"Expanding s3 glob at {args.pdfs}")
+        all_pdfs = expand_s3_glob(pdf_s3, args.pdfs)
+    elif os.path.exists(args.pdfs):
+        logger.info(f"Loading file at {args.pdfs}")
+        with open(args.pdfs, "r") as f:
+            all_pdfs = list(filter(None, (line.strip() for line in tqdm(f, desc="Processing PDFs"))))
+    else:
+        raise ValueError("pdfs argument needs to be either an s3 glob search path, or a local file contains pdf paths (one per line)")
+
+    all_pdfs = set(all_pdfs)
+    logger.info(f"Found {len(all_pdfs):,} total pdf paths")
+
+    existing_lines = download_zstd_csv(workspace_s3, index_file_s3_path)
+
+    # Parse existing work items into groups
+    existing_groups = {}
+    for line in existing_lines:
+        if line.strip():
+            parts = line.strip().split(",")
+            group_hash = parts[0]
+            group_pdfs = parts[1:]
+            existing_groups[group_hash] = group_pdfs
+    existing_pdf_set = set(pdf for group_pdfs in existing_groups.values() for pdf in group_pdfs)
+
+    logger.info(f"Loaded {len(existing_pdf_set):,} existing pdf paths from the workspace")
+
+    # Remove existing PDFs from all_pdfs
+    new_pdfs = all_pdfs - existing_pdf_set
+    logger.info(f"{len(new_pdfs):,} new pdf paths to add to the workspace")
+
+    # Group the new PDFs into chunks of group_size
+    # TODO: Figure out the group size automatically by sampling a few pdfs, and taking the mean/median number of pages, etc.
+    new_groups = []
+    current_group = []
+    for pdf in sorted(new_pdfs):  # Sort for consistency
+        current_group.append(pdf)
+        if len(current_group) == args.group_size:
+            group_hash = compute_workgroup_sha1(current_group)
+            new_groups.append((group_hash, current_group))
+            current_group = []
+    if current_group:
+        group_hash = compute_workgroup_sha1(current_group)
+        new_groups.append((group_hash, current_group))
+
+    logger.info(f"Created {len(new_groups):,} new work groups")
+
+    # Combine existing groups with new groups
+    combined_groups = existing_groups.copy()
+    for group_hash, group_pdfs in new_groups:
+        combined_groups[group_hash] = group_pdfs
+
+    # Prepare lines to write back
+    combined_lines = [",".join([group_hash] + group_pdfs) for group_hash, group_pdfs in combined_groups.items()]
+
+    # Upload the combined work items back to S3
+    if new_groups:
+        upload_zstd_csv(workspace_s3, index_file_s3_path, combined_lines)
+
+    logger.info("Completed adding new PDFs.")
+
+async def load_pdf_work_queue(args) -> asyncio.Queue:
+    index_file_s3_path = os.path.join(args.workspace, "pdf_index_list.csv.zstd")
+    output_glob = f"{args.workspace}/dolma_documents/output_*.jsonl"
+
+    # Define the two blocking I/O operations
+    download_task = asyncio.to_thread(download_zstd_csv, workspace_s3, index_file_s3_path)
+    expand_task = asyncio.to_thread(expand_s3_glob, workspace_s3, output_glob)
+
+    # Run both tasks concurrently
+    work_queue_lines, done_work_items = await asyncio.gather(download_task, expand_task)
+
+    # Process the work queue lines
+    work_queue = {
+        parts[0]: parts[1:]
+        for line in work_queue_lines
+        if (parts := line.strip().split(",")) and line.strip()
+    }
+
+    # Extract done work hashes
+    done_work_hashes = {
+        os.path.basename(item)[len('output_'):-len('.jsonl')]
+        for item in done_work_items
+        if os.path.basename(item).startswith('output_') and os.path.basename(item).endswith('.jsonl')
+    }
+
+    # Determine remaining work
+    remaining_work_hashes = set(work_queue) - done_work_hashes
+    remaining_work_queue = {
+        hash_: work_queue[hash_]
+        for hash_ in remaining_work_hashes
+    }
+
+    # Populate the asyncio.Queue with remaining work
+    queue = asyncio.Queue()
+    for work, pdfs in remaining_work_queue.items():
+        await queue.put((work, pdfs))
+
+    return queue
+
+
+async def process_page(session, pdf_path, page_num, args) -> PageResponse:
+    COMPLETION_URL = "http://localhost:30000/v1/chat/completions"
+    
+    query = await build_page_query(
+        pdf_path,
+        page_num,
+        args.target_longest_image_dim,
+        args.target_anchor_text_len
+    )
+ 
+    try:
+        async with session.post(COMPLETION_URL, json=query) as response:
+            if response.status != 200:
+                logger.warning(f"Request failed with status {response.status} for page {page_num}")
+                return None
+                
+            try:
+                base_response_data = await response.json()
+                model_response_json = orjson.loads(base_response_data["outputs"][0]["text"])
+                page_response = PageResponse(**model_response_json)
+            except Exception as e:
+                logger.warning(f"Could not parse response for {pdf_path}-{page_num}")
+    except Exception as e:
+        logger.error(f"Exception while processing page {page_num}: {e}")
+        return None
+
+
+async def process_pdf(args, pdf_s3_path):
+    with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
+        # TODO Switch to aioboto3 or something
+        data = await asyncio.to_thread(lambda: get_s3_bytes(pdf_s3, pdf_s3_path))
+        tf.write(data)
+        tf.flush()
+
+        reader = PdfReader(tf.name)
+        num_pages = reader.get_num_pages()
+
+        # List to hold the tasks for processing each page
+        page_tasks = []
+
+        async with aiohttp.ClientSession() as session:
+            for page_num in range(1, num_pages + 1):
+                # Create a task for each page
+                task = asyncio.create_task(process_page(session, tf.name, page_num, args))
+                page_tasks.append(task)
+
+            # Gather results from all page processing tasks
+            page_results = await asyncio.gather(*page_tasks)
+
+        # If we failed to build a page, then this document is toast
+        # TODO Abort earlier, if a page returns a None, then we can stop processing the whole pdf
+        if any(page is None for page in page_results):
+            return None
+ 
+        # Build the document text and page spans
+        document_text = ''
+        pdf_page_spans = []
+        current_char_pos = 0
+
+        for page_num, result in page_data:
+            try:
+                content = result['choices'][0]['message']['content']
+            except (KeyError, IndexError) as e:
+                logger.error(f"Failed to extract content for page {page_num}: {e}")
+                continue
+
+            start_pos = current_char_pos
+            document_text += content
+            current_char_pos = len(document_text)
+            pdf_page_spans.append({
+                'pdf_page_number': page_num,
+                'start_char': start_pos,
+                'end_char': current_char_pos
+            })
+
+        if not document_text:
+            return None  # Return None if the document text is empty
+
+        # Build the Dolma document
+        metadata = {
+            "Source-File": pdf_s3_path,
+            "pdf-total-pages": num_pages,
+        }
+
+        id_ = hashlib.sha1(document_text.encode()).hexdigest()
+
+        dolma_doc = {
+            "id": id_,
+            "text": document_text,
+            "source": "pdelfin",
+            "added": datetime.datetime.now().strftime("%Y-%m-%d"),
+            "created": datetime.datetime.now().strftime("%Y-%m-%d"),
+            "metadata": metadata,
+            "attributes": {
+                "pdf_page_numbers": pdf_page_spans
+            }
+        }
+
+        return dolma_doc
+
+
+async def worker(args, queue):
+    while True:
+        [work_hash, pdfs] = await queue.get()
+        
+        completed_pdfs = await asyncio.gather(*[process_pdf(args, pdf) for pdf in pdfs])
+        
+        # Take all the not None completed_pdfs and write them as a jsonl to the workspace output location
+        # under the proper work_hash location
+        
+        queue.task_done()
+
+
+async def sglang_server_task(args):
+    model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
+    # TODO cache locally
+    #download_directory(args.model, model_cache_dir)
+
+    proc = await asyncio.create_subprocess_exec(
+        "python3",
+        
+        "-m", "sglang.launch_server",
+        "--model-path", model_cache_dir,
+        "--chat-template", args.model_chat_template,
+        "--context-length", str(args.model_max_context),
+        )
+
+    # Make really sure we kill this subprocess on exit
+    atexit.register(lambda: proc.kill())
+
+    await proc.wait()
+
+
+async def sglang_server_ready():
+    max_attempts = 300
+    delay_sec = 1
+    url = 'http://localhost:30000/v1/models'
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        logger.info("sglang server is ready.")
+                        return
+                    else:
+                        logger.info(f"Attempt {attempt}: Unexpected status code {response.status}")
+        except Exception as e:
+            logger.warning(f"Attempt {attempt}: Exception occurred: {e}")
+
+        await asyncio.sleep(delay_sec)
+
+    raise Exception("sglang server did not become ready after waiting.")
+
+
+async def main():
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
     parser.add_argument('workspace', help='The S3 path where work will be done e.g., s3://bucket/prefix/')
     parser.add_argument('--pdfs', help='Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths', default=None)
@@ -83,7 +351,7 @@ if __name__ == '__main__':
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--group_size', type=int, default=20, help='Number of pdfs that will be part of each work item in the work queue.')
-    parser.add_argument('--workers', type=int, default=10, help='Number of workers to run at a time')
+    parser.add_argument('--workers', type=int, default=1, help='Number of workers to run at a time')
 
     parser.add_argument('--model', help='List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access',
                          default=["weka://oe-data-default/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/best_bf16/",
@@ -94,156 +362,56 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.workspace_profile:
+        global workspace_s3
         workspace_session = boto3.Session(profile_name=args.workspace_profile)
         workspace_s3 = workspace_session.client("s3")
 
     if args.pdf_profile:
+        global pdf_s3
         pdf_session = boto3.Session(profile_name=args.pdf_profile)
         pdf_s3 = pdf_session.client("s3")
 
-    index_file_s3_path = os.path.join(args.workspace, "pdf_index_list.csv.zstd")
     check_poppler_version()
 
-    # Check list of pdfs and that it matches what's in the workspace
     if args.pdfs:
-        if args.pdfs.startswith("s3://"):
-            logger.info(f"Expanding s3 glob at {args.pdfs}")
-            all_pdfs = expand_s3_glob(pdf_s3, args.pdfs)
-        elif os.path.exists(args.pdfs):
-            logger.info(f"Loading file at {args.pdfs}")
-            with open(args.pdfs, "r") as f:
-                all_pdfs = list(filter(None, (line.strip() for line in tqdm(f, desc="Processing PDFs"))))
-        else:
-            raise ValueError("pdfs argument needs to be either an s3 glob search path, or a local file contains pdf paths (one per line)")
+        await populate_pdf_work_queue(args)
 
-        all_pdfs = set(all_pdfs)
-        logger.info(f"Found {len(all_pdfs):,} total pdf paths")
+    sglang_server = asyncio.create_task(sglang_server_task(args))
 
-        existing_lines = download_zstd_csv(workspace_s3, index_file_s3_path)
+    work_queue = await load_pdf_work_queue(args)
+    logger.info(f"Work queue prepared with {work_queue.qsize()} items")
 
-        # Parse existing work items into groups
-        existing_groups = {}
-        for line in existing_lines:
-            if line.strip():
-                parts = line.strip().split(",")
-                group_hash = parts[0]
-                group_pdfs = parts[1:]
-                existing_groups[group_hash] = group_pdfs
-        existing_pdf_set = set(pdf for group_pdfs in existing_groups.values() for pdf in group_pdfs)
+    await sglang_server_ready()
 
-        logger.info(f"Loaded {len(existing_pdf_set):,} existing pdf paths from the workspace")
+    # Create worker tasks to process the queue concurrently.
+    worker_tasks = []
+    for i in range(args.workers):
+        task = asyncio.create_task(worker(args, work_queue))
+        worker_tasks.append(task)
 
-        # Remove existing PDFs from all_pdfs
-        new_pdfs = all_pdfs - existing_pdf_set
-        logger.info(f"{len(new_pdfs):,} new pdf paths to add to the workspace")
+    # Wait for the queue to be fully processed
+    await work_queue.join()
 
-        # Group the new PDFs into chunks of group_size
-        # TODO: Figure out the group size automatically by sampling a few pdfs, and taking the mean/median number of pages, etc.
-        new_groups = []
-        current_group = []
-        for pdf in sorted(new_pdfs):  # Sort for consistency
-            current_group.append(pdf)
-            if len(current_group) == args.group_size:
-                group_hash = compute_workgroup_sha1(current_group)
-                new_groups.append((group_hash, current_group))
-                current_group = []
-        if current_group:
-            group_hash = compute_workgroup_sha1(current_group)
-            new_groups.append((group_hash, current_group))
+    # Cancel our worker tasks.
+    for task in worker_tasks:
+        task.cancel()
 
-        logger.info(f"Created {len(new_groups):,} new work groups")
+    # Wait until all worker tasks are cancelled.
+    await asyncio.gather(*worker_tasks, return_exceptions=True)
+    
+    # Wait for server to stop
+    sglang_server.cancel()
+    await sglang_server
+    
 
-        # Combine existing groups with new groups
-        combined_groups = existing_groups.copy()
-        for group_hash, group_pdfs in new_groups:
-            combined_groups[group_hash] = group_pdfs
-
-        # Prepare lines to write back
-        combined_lines = [",".join([group_hash] + group_pdfs) for group_hash, group_pdfs in combined_groups.items()]
-
-        # Upload the combined work items back to S3
-        if new_groups:
-            upload_zstd_csv(workspace_s3, index_file_s3_path, combined_lines)
-
-        logger.info("Completed adding new PDFs.")
+if __name__ == "__main__":
+    asyncio.run(main())
 
     # TODO
     # If there is a beaker flag, then your job is to trigger this script with N replicas on beaker
     # If not, then your job is to do the actual work
 
-    # Download the model from the best place available
-    model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
-    download_directory(args.model, model_cache_dir)
-
-    # Start up the sglang server
-    sglang_process = subprocess.Popen([
-            "python3", "-m", "sglang.launch_server",
-            "--model-path", model_cache_dir,
-            "--chat-template", args.model_chat_template,
-            "--context-length", str(args.model_max_context),
-        ])
-
-    # Register atexit function and signal handlers to guarantee process termination
-    def terminate_processes():
-        print("Terminating child processes...")
-        sglang_process.terminate()
-        try:
-            sglang_process.wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            print("Forcing termination of child processes.")
-            sglang_process.kill()
-        print("Child processes terminated.")
-
-    atexit.register(terminate_processes)
-
-    def signal_handler(sig, frame):
-        terminate_processes()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # Read in the work queue from s3
-    work_queue_lines = download_zstd_csv(workspace_s3, index_file_s3_path)
-    work_queue = {}
-    for line in work_queue_lines:
-        if line.strip():
-            parts = line.strip().split(",")
-            group_hash = parts[0]
-            group_pdfs = parts[1:]
-            work_queue[group_hash] = group_pdfs
-
-    # Read in the done items from the s3 workspace
-    done_work_items = expand_s3_glob(workspace_s3, f"{args.workspace}/dolma_documents/output_*.jsonl")
-    done_work_hashes = set()
-    for item in done_work_items:
-        filename = os.path.basename(item)
-        if filename.startswith('output_') and filename.endswith('.jsonl'):
-            group_hash = filename[len('output_'):-len('.jsonl')]
-            done_work_hashes.add(group_hash)
-
-    remaining_work_hashes = set(work_queue.keys()) - done_work_hashes
-    remaining_work_queue = {hash: work_queue[hash] for hash in remaining_work_hashes}
-
-    logger.info(f"Remaining work items: {len(remaining_work_queue)}")
-
-    # TODO
-    # Spawn up to N workers to do:
-        # In a loop, take a random work item, read in the pdfs, queue in their requests
-        # Get results back, retry any failed pages
-        # Check periodically if that work is done in s3, if so, then abandon this work
-        # Save results back to s3 workspace output folder
-
     # TODO
     # Possible future addon, in beaker, discover other nodes on this same job
     # Send them a message when you take a work item off the queue
 
-    try:
-        while True:
-            time.sleep(1)
-            
-            if sglang_process.returncode is not None:
-                logger.error(f"Sglang server exited with code {sglang_process.returncode} exiting.")
-    except KeyboardInterrupt:
-        logger.info("Got keyboard interrupt, exiting everything")
-        sys.exit(1)
