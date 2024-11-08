@@ -24,8 +24,8 @@ logging.basicConfig(level=logging.INFO)
 
 
 def parse_s3_path(s3_path: str) -> tuple[str, str]:
-    if not s3_path.startswith('s3://'):
-        raise ValueError('s3_path must start with s3://')
+    if not (s3_path.startswith('s3://') or s3_path.startswith('gs://') or s3_path.startswith('weka://')):
+        raise ValueError('s3_path must start with s3://, gs://, or weka://')
     parsed = urlparse(s3_path)
     bucket = parsed.netloc
     key = parsed.path.lstrip('/')
@@ -137,10 +137,10 @@ def download_directory(model_choices: list[str], local_dir: str):
     """
     Download the model to a specified local directory.
     The function will attempt to download from the first available source in the provided list.
-    Supports Google Cloud Storage (gs://) and Amazon S3 (s3://) links.
+    Supports Weka (weka://), Google Cloud Storage (gs://), and Amazon S3 (s3://) links.
 
     Args:
-        model_choices (list[str]): List of model paths (gs:// or s3://).
+        model_choices (list[str]): List of model paths (weka://, gs://, or s3://).
         local_dir (str): Local directory path where the model will be downloaded.
 
     Raises:
@@ -151,11 +151,20 @@ def download_directory(model_choices: list[str], local_dir: str):
     local_path.mkdir(parents=True, exist_ok=True)
     logger.info(f"Local directory set to: {local_path}")
 
+    # Reorder model_choices to prioritize weka:// links
+    weka_choices = [path for path in model_choices if path.startswith("weka://")]
+    other_choices = [path for path in model_choices if not path.startswith("weka://")]
+    prioritized_choices = weka_choices + other_choices
+
     # Iterate through the provided choices and attempt to download from the first available source
-    for model_path in model_choices:
+    for model_path in prioritized_choices:
         logger.info(f"Attempting to download from: {model_path}")
         try:
-            if model_path.startswith("gs://"):
+            if model_path.startswith("weka://"):
+                download_dir_from_weka(model_path, str(local_path))
+                logger.info(f"Successfully downloaded model from Weka: {model_path}")
+                return
+            elif model_path.startswith("gs://"):
                 download_dir_from_gcs(model_path, str(local_path))
                 logger.info(f"Successfully downloaded model from Google Cloud Storage: {model_path}")
                 return
@@ -229,3 +238,57 @@ def download_dir_from_s3(s3_path: str, local_dir: str):
             pass
 
     logger.info(f"Downloaded model from S3 to {local_dir}")
+
+
+def download_dir_from_weka(weka_path: str, local_dir: str):
+    """Download model files from Weka to a local directory."""
+    # Retrieve Weka credentials from environment variables
+    weka_access_key = os.getenv("WEKA_ACCESS_KEY_ID")
+    weka_secret_key = os.getenv("WEKA_SECRET_ACCESS_KEY")
+    if not weka_access_key or not weka_secret_key:
+        raise ValueError("WEKA_ACCESS_KEY_ID and WEKA_SECRET_ACCESS_KEY environment variables must be set for Weka access.")
+
+    # Configure the boto3 client for Weka
+    weka_endpoint = "https://weka-aus.beaker.org:9000"
+    boto3_config = Config(
+        max_pool_connections=50,  # Adjust this number based on your requirements
+        signature_version='s3v4',
+        retries={'max_attempts': 10, 'mode': 'standard'}
+    )
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=weka_endpoint,
+        aws_access_key_id=weka_access_key,
+        aws_secret_access_key=weka_secret_key,
+        config=boto3_config
+    )
+
+    bucket, prefix = parse_s3_path(weka_path)
+    paginator = s3_client.get_paginator("list_objects_v2")
+    try:
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+    except s3_client.exceptions.NoSuchBucket:
+        raise ValueError(f"The bucket '{bucket}' does not exist in Weka.")
+
+    objects = []
+    for page in pages:
+        if 'Contents' in page:
+            objects.extend(page['Contents'])
+
+    total_files = len(objects)
+    logger.info(f"Found {total_files} files in Weka bucket '{bucket}' with prefix '{prefix}'.")
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
+        for obj in objects:
+            key = obj["Key"]
+            relative_path = os.path.relpath(key, prefix)
+            local_file_path = os.path.join(local_dir, relative_path)
+            os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+            futures.append(executor.submit(s3_client.download_file, bucket, key, local_file_path))
+
+        # Use tqdm to display progress
+        for _ in tqdm(concurrent.futures.as_completed(futures), total=total_files, desc="Downloading from Weka"):
+            pass
+
+    logger.info(f"Downloaded model from Weka to {local_dir}")

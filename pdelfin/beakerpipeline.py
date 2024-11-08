@@ -74,17 +74,6 @@ def compute_workgroup_sha1(work_group: list[str]) -> str:
         sha1.update(pdf.encode('utf-8'))
     return sha1.hexdigest()
 
-async def start_sglang_server(args):
-    model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
-    download_directory(args.model, model_cache_dir)
-
-    # Start up the sglang server
-    sglang_process = subprocess.Popen([
-            "python3", "-m", "sglang.launch_server",
-            "--model-path", model_cache_dir,
-            "--chat-template", args.model_chat_template,
-            "--context-length", str(args.model_max_context),
-        ])
 
 async def populate_pdf_work_queue(args):
     index_file_s3_path = os.path.join(args.workspace, "pdf_index_list.csv.zstd")
@@ -152,42 +141,71 @@ async def populate_pdf_work_queue(args):
 
 async def load_pdf_work_queue(args) -> asyncio.Queue:
     index_file_s3_path = os.path.join(args.workspace, "pdf_index_list.csv.zstd")
-    
-    # Read in the work queue from s3
-    work_queue_lines = download_zstd_csv(workspace_s3, index_file_s3_path)
-    work_queue = {}
-    for line in work_queue_lines:
-        if line.strip():
-            parts = line.strip().split(",")
-            group_hash = parts[0]
-            group_pdfs = parts[1:]
-            work_queue[group_hash] = group_pdfs
+    output_glob = f"{args.workspace}/dolma_documents/output_*.jsonl"
 
-    # Read in the done items from the s3 workspace
-    done_work_items = expand_s3_glob(workspace_s3, f"{args.workspace}/dolma_documents/output_*.jsonl")
-    done_work_hashes = set()
-    for item in done_work_items:
-        filename = os.path.basename(item)
-        if filename.startswith('output_') and filename.endswith('.jsonl'):
-            group_hash = filename[len('output_'):-len('.jsonl')]
-            done_work_hashes.add(group_hash)
+    # Define the two blocking I/O operations
+    download_task = asyncio.to_thread(download_zstd_csv, workspace_s3, index_file_s3_path)
+    expand_task = asyncio.to_thread(expand_s3_glob, workspace_s3, output_glob)
 
-    remaining_work_hashes = set(work_queue.keys()) - done_work_hashes
-    remaining_work_queue = {hash: work_queue[hash] for hash in remaining_work_hashes}
+    # Run both tasks concurrently
+    work_queue_lines, done_work_items = await asyncio.gather(download_task, expand_task)
 
+    # Process the work queue lines
+    work_queue = {
+        parts[0]: parts[1:]
+        for line in work_queue_lines
+        if (parts := line.strip().split(",")) and line.strip()
+    }
+
+    # Extract done work hashes
+    done_work_hashes = {
+        os.path.basename(item)[len('output_'):-len('.jsonl')]
+        for item in done_work_items
+        if os.path.basename(item).startswith('output_') and os.path.basename(item).endswith('.jsonl')
+    }
+
+    # Determine remaining work
+    remaining_work_hashes = set(work_queue) - done_work_hashes
+    remaining_work_queue = {
+        hash_: work_queue[hash_]
+        for hash_ in remaining_work_hashes
+    }
+
+    # Populate the asyncio.Queue with remaining work
     queue = asyncio.Queue()
-
-    for work in remaining_work_queue:
-        await queue.put((work, remaining_work_queue[work]))
+    for work, pdfs in remaining_work_queue.items():
+        await queue.put((work, pdfs))
 
     return queue
 
+async def process_pdf(args, pdf_s3_path):
+    await asyncio.sleep(1)
+    return f"pdf: {pdf_s3_path}"
+
 async def worker(args, queue):
     while True:
-        work = await queue.get()
+        [work_hash, pdfs] = await queue.get()
         
-        logger.info(f"Got work to do for {work}")
+        completed_pdfs = await asyncio.gather(*[process_pdf(args, pdf) for pdf in pdfs])
+        logger.info(f"Completed {completed_pdfs}")
+        
         queue.task_done()
+
+
+async def sglang_server_task(args):
+    model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
+    #download_directory(args.model, model_cache_dir)
+
+    proc = await asyncio.create_subprocess_exec(
+        "python3",
+        
+        "-m", "sglang.launch_server",
+        "--model-path", model_cache_dir,
+        "--chat-template", args.model_chat_template,
+        "--context-length", str(args.model_max_context),
+        )
+
+    await proc.wait()
 
 
 async def main():
@@ -222,25 +240,31 @@ async def main():
     if args.pdfs:
         await populate_pdf_work_queue(args)
 
+    sglang_server = asyncio.create_task(sglang_server_task(args))
+
     work_queue = await load_pdf_work_queue(args)
     logger.info(f"Work queue prepared with {work_queue.qsize()} items")
 
 
     # Create worker tasks to process the queue concurrently.
-    tasks = []
+    worker_tasks = []
     for i in range(args.workers):
         task = asyncio.create_task(worker(args, work_queue))
-        tasks.append(task)
+        worker_tasks.append(task)
 
     # Wait for the queue to be fully processed
     await work_queue.join()
 
     # Cancel our worker tasks.
-    for task in tasks:
+    for task in worker_tasks:
         task.cancel()
 
     # Wait until all worker tasks are cancelled.
-    await asyncio.gather(*tasks, return_exceptions=True)
+    await asyncio.gather(*worker_tasks, return_exceptions=True)
+    
+    # Wait for server to stop
+    sglang_server.cancel()
+    await sglang_server
     
 
 if __name__ == "__main__":
