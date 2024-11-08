@@ -502,12 +502,14 @@ def process_jsonl_content(inference_s3_path: str) -> List[DatabaseManager.BatchI
 
 
 def get_pdf_num_pages(s3_path: str) -> Optional[int]:
+    logger.debug(f"Startng to get_pdf_num_pages for {s3_path}")
     try:
         with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
             tf.write(get_s3_bytes(pdf_s3, s3_path))
             tf.flush()
 
             reader = PdfReader(tf.name)
+            logger.debug(f"Built reader for {s3_path}")
             return reader.get_num_pages()
     except Exception as ex:
         logger.warning(f"Warning, could not add {s3_path} due to {ex}")
@@ -717,6 +719,7 @@ if __name__ == '__main__':
         for future in tqdm(as_completed(future_to_path), total=len(future_to_path), desc="Adding PDFs"):
             s3_path = future_to_path[future]
             num_pages = future.result()
+            logger.debug(f"Got {num_pages} pages back for {s3_path}")
             if num_pages and not db.pdf_exists(s3_path):
                 db.add_pdf(s3_path, num_pages, "pending")
 
@@ -781,7 +784,6 @@ if __name__ == '__main__':
                     pending_futures.keys(),
                     return_when=concurrent.futures.FIRST_COMPLETED,
                 )
-
 
                 for future in done:
                     pdf = pending_futures.pop(future)
