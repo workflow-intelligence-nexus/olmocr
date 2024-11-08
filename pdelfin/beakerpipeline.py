@@ -6,17 +6,18 @@ import os
 import sys
 import time
 import subprocess
-import atexit
 import hashlib
 import base64
+import atexit
 import asyncio
 import aiohttp
+import tempfile
 
 from tqdm import tqdm
 from io import BytesIO
 from PIL import Image
 
-from pdelfin.s3_utils import expand_s3_glob, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
+from pdelfin.s3_utils import expand_s3_glob, get_s3_bytes, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
 from pdelfin.data.renderpdf import render_pdf_to_base64png
 from pdelfin.prompts import build_finetuning_prompt, PageResponse
 from pdelfin.prompts.anchor import get_anchor_text
@@ -306,9 +307,15 @@ async def sglang_server_task(args):
         "--context-length", str(args.model_max_context),
         )
 
+    def _cleanup_sglang_handler():
+        proc.kill()
+
+    atexit.register(_cleanup_sglang_handler)
+
     await proc.wait()
 
-async def sglang_server_ready(args):
+
+async def sglang_server_ready():
     max_attempts = 60
     delay_sec = 1
     url = 'http://localhost:30000/v1/models'
@@ -324,7 +331,7 @@ async def sglang_server_ready(args):
                         logger.info(f"Attempt {attempt}: Unexpected status code {response.status}")
         except Exception as e:
             logger.warning(f"Attempt {attempt}: Exception occurred: {e}")
-            
+
         await asyncio.sleep(delay_sec)
 
     raise Exception("sglang server did not become ready after waiting.")
