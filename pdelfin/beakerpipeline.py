@@ -12,6 +12,7 @@ import base64
 import atexit
 import asyncio
 import aiohttp
+import datetime
 import tempfile
 
 from tqdm import tqdm
@@ -200,7 +201,7 @@ async def process_page(args, session: aiohttp.ClientSession, pdf_s3_path: str, p
     COMPLETION_URL = "http://localhost:30000/v1/chat/completions"
     
     query = await build_page_query(
-        pdf_path,
+        pdf_local_path,
         page_num,
         args.target_longest_image_dim,
         args.target_anchor_text_len
@@ -208,23 +209,16 @@ async def process_page(args, session: aiohttp.ClientSession, pdf_s3_path: str, p
  
     try:
         async with session.post(COMPLETION_URL, json=query) as response:
-            if response.status != 200:
-                logger.warning(f"Request failed with status {response.status} for page {page_num}")
-                return None
-                
-            try:
-                base_response_data = await response.json()
+            response.raise_for_status()
 
-                model_response_json = json.loads(base_response_data["choices"][0]["message"]["content"])
-                page_response = PageResponse(**model_response_json)
+            base_response_data = await response.json()
 
-                return PageResult(pdf_s3_path, page_num, page_response)
-            except Exception as e:
-                logger.warning(f"Could not parse response for {pdf_path}-{page_num}, reason: {e}")
-            
-            raise ValueError("Could not process page")
+            model_response_json = json.loads(base_response_data["choices"][0]["message"]["content"])
+            page_response = PageResponse(**model_response_json)
+
+            return PageResult(pdf_s3_path, page_num, page_response)
     except Exception as e:
-        logger.error(f"Exception while processing page {page_num}: {e}")
+        logger.exception(f"Exception while processing page {page_num}: {e}")
         raise
 
 
@@ -251,7 +245,7 @@ async def process_pdf(args, pdf_s3_path: str):
             try:
                 page_results: list[PageResult] = await asyncio.gather(*page_tasks)
             except:
-                logger.warning(f"Could not load page for {pdf_s3_path}, aborting document")
+                logger.exception(f"Could not load page for {pdf_s3_path}, aborting document")
                 return None
 
  
@@ -310,7 +304,7 @@ async def worker(args, queue):
         # Take all the not None completed_pdfs and write them as a jsonl to the workspace output location
         # under the proper work_hash location
         for dolma_doc in completed_pdfs:
-            logger.info("Done!", dolma_doc)
+            pass
         
         queue.task_done()
 
