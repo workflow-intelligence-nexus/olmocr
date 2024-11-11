@@ -15,7 +15,7 @@ def build_openai_silver_data_prompt(base_text: str) -> str:
         f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
     )
 
-@dataclass
+@dataclass(frozen=True)
 class PageResponse:
     primary_language: Optional[str]
     is_rotation_valid: bool
