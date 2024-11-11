@@ -13,6 +13,7 @@ from google.auth import compute_engine
 from google.cloud import storage
 from botocore.config import Config
 from botocore.exceptions import NoCredentialsError
+from boto3.s3.transfer import TransferConfig
 from typing import Optional
 from urllib.parse import urlparse
 import zstandard as zstd
@@ -209,7 +210,7 @@ def download_dir_from_gcs(gcs_path: str, local_dir: str):
 def download_dir_from_s3(s3_path: str, local_dir: str):
     """Download model files from S3 to a local directory."""
     boto3_config = Config(
-        max_pool_connections=50  # Adjust this number based on your requirements
+        max_pool_connections=500  # Adjust this number based on your requirements
     )
     s3_client = boto3.client('s3', config=boto3_config)
     bucket, prefix = parse_s3_path(s3_path)
@@ -251,10 +252,18 @@ def download_dir_from_weka(weka_path: str, local_dir: str):
     # Configure the boto3 client for Weka
     weka_endpoint = "https://weka-aus.beaker.org:9000"
     boto3_config = Config(
-        max_pool_connections=50,  # Adjust this number based on your requirements
+        max_pool_connections=500,  # Adjust this number based on your requirements
         signature_version='s3v4',
         retries={'max_attempts': 10, 'mode': 'standard'}
     )
+     # Configure transfer settings for multipart download
+    transfer_config = TransferConfig(
+        multipart_threshold=8 * 1024 * 1024,    # 8MB threshold for multipart downloads
+        multipart_chunksize=8 * 1024 * 1024,    # 8MB per part
+        max_concurrency=100,                     # Number of threads for each file download
+        use_threads=True                        # Enable threading
+    )
+
     s3_client = boto3.client(
         's3',
         endpoint_url=weka_endpoint,
@@ -262,6 +271,7 @@ def download_dir_from_weka(weka_path: str, local_dir: str):
         aws_secret_access_key=weka_secret_key,
         config=boto3_config
     )
+
 
     bucket, prefix = parse_s3_path(weka_path)
     paginator = s3_client.get_paginator("list_objects_v2")
@@ -285,7 +295,7 @@ def download_dir_from_weka(weka_path: str, local_dir: str):
             relative_path = os.path.relpath(key, prefix)
             local_file_path = os.path.join(local_dir, relative_path)
             os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-            futures.append(executor.submit(s3_client.download_file, bucket, key, local_file_path))
+            futures.append(executor.submit(s3_client.download_file, bucket, key, local_file_path, Config=transfer_config))
 
         # Use tqdm to display progress
         for _ in tqdm(concurrent.futures.as_completed(futures), total=total_files, desc="Downloading from Weka"):

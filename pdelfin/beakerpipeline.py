@@ -7,6 +7,7 @@ import sys
 import time
 import subprocess
 import hashlib
+import json
 import base64
 import atexit
 import asyncio
@@ -205,7 +206,7 @@ async def process_page(session, pdf_path, page_num, args) -> PageResponse:
                 
             try:
                 base_response_data = await response.json()
-                model_response_json = orjson.loads(base_response_data["outputs"][0]["text"])
+                model_response_json = json.loads(base_response_data["outputs"][0]["text"])
                 page_response = PageResponse(**model_response_json)
             except Exception as e:
                 logger.warning(f"Could not parse response for {pdf_path}-{page_num}")
@@ -239,6 +240,7 @@ async def process_pdf(args, pdf_s3_path):
         # If we failed to build a page, then this document is toast
         # TODO Abort earlier, if a page returns a None, then we can stop processing the whole pdf
         if any(page is None for page in page_results):
+            logger.warning(f"PDF {pdf_s3_path} was not able to complete, not able to process a page")
             return None
  
         # Build the document text and page spans
@@ -305,6 +307,17 @@ async def sglang_server_task(args):
     # TODO cache locally
     #download_directory(args.model, model_cache_dir)
 
+    # Check the rope config and make sure it's got the proper key
+    with open(os.path.join(model_cache_dir, "config.json"), "r") as cfin:
+        config_data = json.load(cfin)
+
+    if "rope_type" in config_data["rope_scaling"]:
+        del config_data["rope_scaling"]["rope_type"]
+        config_data["rope_scaling"]["type"] = "mrope"
+
+        with open(os.path.join(model_cache_dir, "config.json"), "w") as cfout:
+            json.dump(config_data, cfout)
+
     proc = await asyncio.create_subprocess_exec(
         "python3",
         
@@ -315,7 +328,12 @@ async def sglang_server_task(args):
         )
 
     # Make really sure we kill this subprocess on exit
-    atexit.register(lambda: proc.kill())
+    def _kill_proc():
+        proc.terminate()
+        time.sleep(3)
+        proc.kill()
+
+    atexit.register(_kill_proc)
 
     await proc.wait()
 
