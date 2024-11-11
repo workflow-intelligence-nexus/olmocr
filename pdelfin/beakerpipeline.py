@@ -274,11 +274,7 @@ async def process_pdf(args, pdf_s3_path: str):
             start_pos = current_char_pos
             document_text += content
             current_char_pos = len(document_text)
-            pdf_page_spans.append({
-                'pdf_page_number': page_result.page_num,
-                'start_char': start_pos,
-                'end_char': current_char_pos
-            })
+            pdf_page_spans.append([start_pos, current_char_pos, page_result.page_num])
 
         if not document_text:
             return None  # Return None if the document text is empty
@@ -310,7 +306,6 @@ async def process_pdf(args, pdf_s3_path: str):
 
 async def worker(args, queue):
     while True:
-        
         [work_hash, pdfs] = await queue.get()
 
         try:
@@ -344,7 +339,7 @@ async def worker(args, queue):
             logger.info(f"Tokens per second (since process start): input {total_input_tokens / total_time:.1f}, output {total_output_tokens / total_time:.1f}, total {(total_input_tokens + total_output_tokens) / total_time:.1f}")
 
             # Update last batch time
-            last_batch_time = current_time
+            last_batch_time = time.perf_counter()
         except Exception as e:
             logger.exception(f"Exception occurred while processing work_hash {work_hash}: {e}")
         finally:
@@ -416,7 +411,7 @@ async def main():
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--group_size', type=int, default=20, help='Number of pdfs that will be part of each work item in the work queue.')
-    parser.add_argument('--workers', type=int, default=1, help='Number of workers to run at a time')
+    parser.add_argument('--workers', type=int, default=2, help='Number of workers to run at a time')
 
     parser.add_argument('--model', help='List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access',
                          default=["weka://oe-data-default/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/best_bf16/",
