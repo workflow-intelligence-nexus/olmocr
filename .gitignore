@@ -10,6 +10,7 @@ s2orc_previews_3200/*
 /*.html
 debug.log
 birrpipeline-debug.log
+beakerpipeline-debug.log
 
 
 # build artifacts
