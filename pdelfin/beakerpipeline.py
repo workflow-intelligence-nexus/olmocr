@@ -63,7 +63,7 @@ async def build_page_query(local_pdf_path: str, page: int, target_longest_image_
 
     # Allow the page rendering to process in the background while we get the anchor text (which blocks the main thread)
     image_base64 = asyncio.to_thread(render_pdf_to_base64png, local_pdf_path, page, target_longest_image_dim=target_longest_image_dim)
-    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport", target_length=target_anchor_text_len)
+    anchor_text = asyncio.to_thread(get_anchor_text, local_pdf_path, page, pdf_engine="pdfreport", target_length=target_anchor_text_len)
 
     image_base64 = await image_base64
     if image_rotation != 0:
@@ -77,6 +77,8 @@ async def build_page_query(local_pdf_path: str, page: int, target_longest_image_
 
         # Encode the rotated image back to base64
         image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    anchor_text = await anchor_text
 
     return {
         "model": "Qwen/Qwen2-VL-7B-Instruct",
@@ -246,7 +248,7 @@ async def process_pdf(args, pdf_s3_path: str):
         # List to hold the tasks for processing each page
         page_tasks = []
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3600), connector=TCPConnector(limit=100)) as session:
             for page_num in range(1, num_pages + 1):
                 # Create a task for each page
                 task = asyncio.create_task(process_page(args, session, pdf_s3_path, tf.name, page_num))

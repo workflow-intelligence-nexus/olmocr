@@ -109,6 +109,7 @@ def main(jsonl_path, output_dir, template_path):
                 future.result()
             except Exception as e:
                 print(f"An error occurred: {e}")
+                raise
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate HTML pages from a JSONL file with pre-signed S3 links.')
