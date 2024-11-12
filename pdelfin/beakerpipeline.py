@@ -515,24 +515,33 @@ async def metrics_reporter():
         logger.info("\n" + str(await tracker.get_status_table()))
         await asyncio.sleep(10)
 
+def submit_beaker_job(args):
+    from gantry.commands.run import run
+
+    run()
 
 async def main():
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
     parser.add_argument('workspace', help='The S3 path where work will be done e.g., s3://bucket/prefix/')
     parser.add_argument('--pdfs', help='Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths', default=None)
-    parser.add_argument('--target_longest_image_dim', type=int, help='Dimension on longest side to use for rendering the pdf pages', default=1024)
-    parser.add_argument('--target_anchor_text_len', type=int, help='Maximum amount of anchor text to use (characters)', default=6000)
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--group_size', type=int, default=20, help='Number of pdfs that will be part of each work item in the work queue.')
     parser.add_argument('--workers', type=int, default=5, help='Number of workers to run at a time')
 
+    # Model parameters
     parser.add_argument('--model', help='List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access',
                          default=["weka://oe-data-default/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/best_bf16/",
                                   "gs://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/",
                                   "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"])
     parser.add_argument('--model_max_context', type=int, default="8192", help="Maximum context length that the model was fine tuned under")
     parser.add_argument('--model_chat_template', type=str, default="qwen2-vl", help="Chat template to pass to sglang server")
+    parser.add_argument('--target_longest_image_dim', type=int, help='Dimension on longest side to use for rendering the pdf pages', default=1024)
+    parser.add_argument('--target_anchor_text_len', type=int, help='Maximum amount of anchor text to use (characters)', default=6000)
+
+    # Beaker/job running stuff
+    parser.add_argument('--beaker', action='store_true', help='Submit this job to beaker instead of running locally')
+    parser.add_argument('--beaker_workspace', help='Beaker workspace to submit to', default='ai2/pdelfin')
     args = parser.parse_args()
 
     if args.workspace_profile:
@@ -550,6 +559,10 @@ async def main():
 
     if args.pdfs:
         await populate_pdf_work_queue(args)
+
+    if args.beaker:
+        submit_beaker_job()
+        return
 
     # Create a semaphore to control worker access
     # We only allow one worker to move forward with requests, until the server has no more requests in its queue
