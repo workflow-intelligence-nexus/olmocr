@@ -64,8 +64,8 @@ class PageResult:
     page_num: int
     response: PageResponse
 
-    total_input_tokens: int
-    total_output_tokens: int
+    input_tokens: int
+    output_tokens: int
 
 
 async def build_page_query(local_pdf_path: str, page: int, target_longest_image_dim: int, target_anchor_text_len: int, image_rotation: int=0) -> dict:
@@ -247,8 +247,8 @@ async def process_page(args, session: aiohttp.ClientSession, pdf_s3_path: str, p
                     pdf_s3_path,
                     page_num,
                     page_response,
-                    total_input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
-                    total_output_tokens=base_response_data["usage"].get("completion_tokens", 0)
+                    input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
+                    output_tokens=base_response_data["usage"].get("completion_tokens", 0)
                 )
         except aiohttp.ClientError as e:
             logger.warning(f"Client error on attempt {attempt} for {pdf_s3_path}-{page_num}:: {e}")
@@ -312,8 +312,8 @@ async def process_pdf(args, pdf_s3_path: str):
         metadata = {
             "Source-File": pdf_s3_path,
             "pdf-total-pages": num_pages,
-            "total-input-tokens": sum(page.total_input_tokens for page in page_results),
-            "total-output-tokens": sum(page.total_output_tokens for page in page_results)
+            "total-input-tokens": sum(page.input_tokens for page in page_results),
+            "total-output-tokens": sum(page.output_tokens for page in page_results)
         }
 
         id_ = hashlib.sha1(document_text.encode()).hexdigest()
@@ -411,11 +411,10 @@ async def sglang_server_task(args, semaphore):
     last_queue_req = None  # To track transitions
     async def process_line(line):
         # Parse the line and update semaphore if necessary
-        match = re.search(r'#running-req: (\d+), #queue-req: (\d+)', line)
+        match = re.search(r'#queue-req: (\d+)', line)
         if match:
             logger.info(line)
-            running_req = int(match.group(1))
-            queue_req = int(match.group(2))
+            queue_req = int(match.group(1))
 
             nonlocal last_queue_req
             if last_queue_req is not None and last_queue_req != 0 and queue_req == 0:
