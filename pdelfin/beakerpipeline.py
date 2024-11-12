@@ -398,8 +398,7 @@ async def worker(args, queue, semaphore, worker_id):
 
 async def sglang_server_task(args, semaphore):
     model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
-    # TODO cache locally
-    #download_directory(args.model, model_cache_dir)
+    download_directory(args.model, model_cache_dir)
 
     # Check the rope config and make sure it's got the proper key
     with open(os.path.join(model_cache_dir, "config.json"), "r") as cfin:
@@ -484,6 +483,7 @@ async def sglang_server_task(args, semaphore):
 async def sglang_server_host(args, semaphore):
     while True:
         await sglang_server_task(args, semaphore)
+        logger.warning("SGLang server task ended")
 
 
 async def sglang_server_ready():
@@ -525,7 +525,7 @@ async def main():
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--group_size', type=int, default=20, help='Number of pdfs that will be part of each work item in the work queue.')
-    parser.add_argument('--workers', type=int, default=3, help='Number of workers to run at a time')
+    parser.add_argument('--workers', type=int, default=5, help='Number of workers to run at a time')
 
     parser.add_argument('--model', help='List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access',
                          default=["weka://oe-data-default/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/best_bf16/",
