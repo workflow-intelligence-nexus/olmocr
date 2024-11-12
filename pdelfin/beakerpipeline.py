@@ -30,6 +30,7 @@ from pdelfin.data.renderpdf import render_pdf_to_base64png
 from pdelfin.prompts import build_finetuning_prompt, PageResponse
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.check import check_poppler_version
+from pdelfin.metrics import MetricsKeeper
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -60,12 +61,7 @@ workspace_s3 = boto3.client('s3')
 pdf_s3 = boto3.client('s3')
 
 # Global variables for token statistics
-finished_input_tokens = 0
-finished_output_tokens = 0
-sglang_input_tokens = 0
-sglang_output_tokens = 0
-process_start_time = time.perf_counter()
-last_batch_time = process_start_time
+metrics = MetricsKeeper(window=60*5)
 
 # Process pool for offloading cpu bound work, like calculating anchor texts
 process_pool = ProcessPoolExecutor()
@@ -253,10 +249,8 @@ async def process_page(args, session: aiohttp.ClientSession, pdf_s3_path: str, p
 
                 base_response_data = await response.json()
                 
-                # Update global sglang token counts
-                global sglang_input_tokens, sglang_output_tokens
-                sglang_input_tokens += base_response_data["usage"].get("prompt_tokens", 0)
-                sglang_output_tokens += base_response_data["usage"].get("completion_tokens", 0)
+                metrics.add_metrics(sglang_input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
+                                    sglang_output_tokens=base_response_data["usage"].get("completion_tokens", 0))
 
                 model_response_json = json.loads(base_response_data["choices"][0]["message"]["content"])
                 page_response = PageResponse(**model_response_json)
@@ -385,21 +379,9 @@ async def worker(args, queue, semaphore, worker_id):
                 workspace_s3.upload_file(tf.name, bucket, key)
 
             # Update finished token counts from successful documents
-            batch_input_tokens = sum(doc["metadata"]["total-input-tokens"] for doc in dolma_docs)
-            batch_output_tokens = sum(doc["metadata"]["total-output-tokens"] for doc in dolma_docs)
-
-
-            # Print statistics since process start
-            global finished_input_tokens, finished_output_tokens, last_batch_time
-            finished_input_tokens += batch_input_tokens
-            finished_output_tokens += batch_output_tokens
-            total_time = time.perf_counter() - process_start_time
-            
-            # Log both finished and total sglang token statistics
-            logger.info(f"""Token Statistics:
-                Finished documents: input {finished_input_tokens / total_time:.1f} tok/sec, output {finished_output_tokens / total_time:.1f} tok/sec, total {(finished_input_tokens + finished_output_tokens) / total_time:.1f} tok/sec
-                All SGLang requests: input {sglang_input_tokens / total_time:.1f} tok/sec, output {sglang_output_tokens / total_time:.1f} tok/sec, total {(sglang_input_tokens + sglang_output_tokens) / total_time:.1f} tok/sec""")
-
+            metrics.add_metrics(finished_input_tokens=sum(doc["metadata"]["total-input-tokens"] for doc in dolma_docs),
+                                finished_output_tokens=sum(doc["metadata"]["total-output-tokens"] for doc in dolma_docs))
+  
             # Update last batch time
             last_batch_time = time.perf_counter()
         except Exception as e:
@@ -459,7 +441,6 @@ async def sglang_server_task(args, semaphore):
         if match:
             queue_req = int(match.group(1))
             logger.info(f"sglang running req: {last_running_req} queue req: {queue_req}")
-
             
             if last_queue_req != 0 and queue_req == 0:
                 # Release the semaphore when queue_req transitions from non-zero to zero
@@ -520,6 +501,10 @@ async def sglang_server_ready():
 
     raise Exception("sglang server did not become ready after waiting.")
 
+async def metrics_reporter():
+    while True:
+        logger.info(metrics)
+        await asyncio.sleep(10)
 
 async def main():
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
@@ -569,6 +554,8 @@ async def main():
 
     await sglang_server_ready()
 
+    metrics_task = asyncio.create_task(metrics_reporter())
+
     # Create worker tasks to process the queue concurrently.
     worker_tasks = []
     for i in range(args.workers):
@@ -588,6 +575,9 @@ async def main():
     # Wait for server to stop
     sglang_server.cancel()
     await sglang_server
+
+    metrics_task.cancel()
+    await metrics_task
     
 
 if __name__ == "__main__":
