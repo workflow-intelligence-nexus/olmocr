@@ -1,5 +1,8 @@
 import time
+import asyncio
 from collections import deque, defaultdict
+from dataclasses import dataclass, field
+from typing import Dict
 
 class MetricsKeeper:
     def __init__(self, window=60*5):
@@ -47,20 +50,95 @@ class MetricsKeeper:
         Returns a formatted string of metrics showing tokens/sec since start and within the window.
 
         Returns:
-            str: Formatted metrics string.
+            str: Formatted metrics string as a table.
         """
         current_time = time.time()
         elapsed_time = current_time - self.start_time
         window_time = min(self.window, elapsed_time) if elapsed_time > 0 else 1  # Prevent division by zero
 
-        metrics_strings = []
+        # Header
+        header = f"{'Metric Name':<20} {'Lifetime (tokens/sec)':>25} {'Window (tokens/sec)':>25}"
+        separator = "-" * len(header)
+        lines = [header, separator]
+
+        # Sort metrics alphabetically for consistency
         for key in sorted(self.total_metrics.keys()):
             total = self.total_metrics[key]
             window = self.window_sum.get(key, 0)
             total_rate = total / elapsed_time if elapsed_time > 0 else 0
             window_rate = window / window_time if window_time > 0 else 0
-            metrics_strings.append(
-                f"{key}: {total_rate:.2f}/sec (last {int(window_time)}s: {window_rate:.2f}/sec)"
-            )
+            line = f"{key:<20} {total_rate:>25.2f} {window_rate:>25.2f}"
+            lines.append(line)
 
-        return ", ".join(metrics_strings)
+        return "\n".join(lines)
+
+
+class WorkerTracker:
+    def __init__(self):
+        """
+        Initializes the WorkerTracker with a default dictionary.
+        Each worker ID maps to another dictionary that holds counts for each state.
+        """
+        # Mapping from worker_id to a dictionary of state counts
+        self.worker_status: Dict[int, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self.lock = asyncio.Lock()
+
+    async def track_work(self, worker_id: int, work_item_id: str, state: str):
+        """
+        Update the state count for a specific worker.
+
+        Args:
+            worker_id (int): The ID of the worker.
+            work_item_id (str): The unique identifier of the work item (unused in this implementation).
+            state (str): The state to increment for the work item.
+        """
+        async with self.lock:
+            self.worker_status[worker_id][state] += 1
+            logger.debug(f"Worker {worker_id} - State '{state}' incremented to {self.worker_status[worker_id][state]}.")
+
+    async def get_status_table(self) -> str:
+        """
+        Generate a formatted table of the current status of all workers.
+
+        Returns:
+            str: A string representation of the workers' statuses.
+        """
+        async with self.lock:
+            # Determine all unique states across all workers
+            all_states = set()
+            for states in self.worker_status.values():
+                all_states.update(states.keys())
+            all_states = sorted(all_states)
+
+            headers = ["Worker ID"] + all_states
+            rows = []
+            for worker_id, states in sorted(self.worker_status.items()):
+                row = [str(worker_id)]
+                for state in all_states:
+                    count = states.get(state, 0)
+                    row.append(str(count))
+                rows.append(row)
+
+            # Calculate column widths
+            col_widths = [len(header) for header in headers]
+            for row in rows:
+                for idx, cell in enumerate(row):
+                    col_widths[idx] = max(col_widths[idx], len(cell))
+
+            # Create the table header
+            header_line = " | ".join(header.ljust(col_widths[idx]) for idx, header in enumerate(headers))
+            separator = "-+-".join('-' * col_widths[idx] for idx in range(len(headers)))
+
+            # Create the table rows
+            row_lines = [" | ".join(cell.ljust(col_widths[idx]) for idx, cell in enumerate(row)) for row in rows]
+
+            # Combine all parts
+            table = "\n".join([header_line, separator] + row_lines)
+            return table
+
+    def __str__(self):
+        """
+        String representation is not directly supported.
+        Use 'await get_status_table()' to retrieve the status table.
+        """
+        raise NotImplementedError("Use 'await get_status_table()' to get the status table.")

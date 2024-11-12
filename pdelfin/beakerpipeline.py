@@ -30,7 +30,7 @@ from pdelfin.data.renderpdf import render_pdf_to_base64png
 from pdelfin.prompts import build_finetuning_prompt, PageResponse
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.check import check_poppler_version
-from pdelfin.metrics import MetricsKeeper
+from pdelfin.metrics import MetricsKeeper, WorkerTracker
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -62,6 +62,7 @@ pdf_s3 = boto3.client('s3')
 
 # Global variables for token statistics
 metrics = MetricsKeeper(window=60*5)
+tracker = WorkerTracker()
 
 # Process pool for offloading cpu bound work, like calculating anchor texts
 process_pool = ProcessPoolExecutor()
@@ -229,11 +230,12 @@ async def load_pdf_work_queue(args) -> asyncio.Queue:
     return queue
 
 
-async def process_page(args, session: aiohttp.ClientSession, pdf_s3_path: str, pdf_local_path: str, page_num: int) -> PageResult:
+async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf_s3_path: str, pdf_local_path: str, page_num: int) -> PageResult:
     COMPLETION_URL = "http://localhost:30000/v1/chat/completions"
     MAX_RETRIES = 3
     
     attempt = 0
+    await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "started")
 
     while attempt < MAX_RETRIES:
         query = await build_page_query(
@@ -255,6 +257,7 @@ async def process_page(args, session: aiohttp.ClientSession, pdf_s3_path: str, p
                 model_response_json = json.loads(base_response_data["choices"][0]["message"]["content"])
                 page_response = PageResponse(**model_response_json)
 
+                await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "finished")
                 return PageResult(
                     pdf_s3_path,
                     page_num,
@@ -282,8 +285,9 @@ async def process_page(args, session: aiohttp.ClientSession, pdf_s3_path: str, p
             logger.error(f"Failed to process {pdf_s3_path}-{page_num} after {MAX_RETRIES} attempts.")
             raise ValueError(f"Could not process {pdf_s3_path}-{page_num} after {MAX_RETRIES} attempts")
 
+    await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "errored")
 
-async def process_pdf(args, pdf_s3_path: str):
+async def process_pdf(args, worker_id: int, pdf_s3_path: str):
     with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
         # TODO Switch to aioboto3 or something
         data = await asyncio.to_thread(lambda: get_s3_bytes(pdf_s3, pdf_s3_path))
@@ -299,7 +303,7 @@ async def process_pdf(args, pdf_s3_path: str):
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3600), connector=aiohttp.TCPConnector(limit=10)) as session:
             for page_num in range(1, num_pages + 1):
                 # Create a task for each page
-                task = asyncio.create_task(process_page(args, session, pdf_s3_path, tf.name, page_num))
+                task = asyncio.create_task(process_page(args, session, worker_id, pdf_s3_path, tf.name, page_num))
                 page_tasks.append(task)
 
             # Gather results from all page processing tasks
@@ -362,7 +366,7 @@ async def worker(args, queue, semaphore, worker_id):
             # Wait until allowed to proceed
             await semaphore.acquire()
 
-            dolma_docs = await asyncio.gather(*[process_pdf(args, pdf) for pdf in pdfs])
+            dolma_docs = await asyncio.gather(*[process_pdf(args, worker_id, pdf) for pdf in pdfs])
             dolma_docs = [doc for doc in dolma_docs if doc is not None]
 
             # Write the Dolma documents to a local temporary file in JSONL format
@@ -501,10 +505,14 @@ async def sglang_server_ready():
 
     raise Exception("sglang server did not become ready after waiting.")
 
+
 async def metrics_reporter():
     while True:
-        logger.info(metrics)
+        # Leading newlines preserve table formatting in logs
+        logger.info("\n" + str(metrics))
+        logger.info("\n" + str(await tracker.get_status_table()))
         await asyncio.sleep(10)
+
 
 async def main():
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
