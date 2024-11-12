@@ -283,9 +283,9 @@ async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf
 
         if attempt >= MAX_RETRIES:
             logger.error(f"Failed to process {pdf_s3_path}-{page_num} after {MAX_RETRIES} attempts.")
+            await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "errored")
             raise ValueError(f"Could not process {pdf_s3_path}-{page_num} after {MAX_RETRIES} attempts")
 
-    await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "errored")
 
 async def process_pdf(args, worker_id: int, pdf_s3_path: str):
     with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
@@ -297,10 +297,12 @@ async def process_pdf(args, worker_id: int, pdf_s3_path: str):
         reader = PdfReader(tf.name)
         num_pages = reader.get_num_pages()
 
+        logger.info(f"Got {num_pages} pages to do for {pdf_s3_path} in worker {worker_id}")
+
         # List to hold the tasks for processing each page
         page_tasks = []
 
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3600), connector=aiohttp.TCPConnector(limit=10)) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3600), connector=aiohttp.TCPConnector(limit=50)) as session:
             for page_num in range(1, num_pages + 1):
                 # Create a task for each page
                 task = asyncio.create_task(process_page(args, session, worker_id, pdf_s3_path, tf.name, page_num))
@@ -361,6 +363,7 @@ async def process_pdf(args, worker_id: int, pdf_s3_path: str):
 async def worker(args, queue, semaphore, worker_id):
     while True:
         [work_hash, pdfs] = await queue.get()
+        await tracker.clear_work(worker_id)
 
         try:
             # Wait until allowed to proceed

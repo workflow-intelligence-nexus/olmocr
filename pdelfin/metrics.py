@@ -57,7 +57,7 @@ class MetricsKeeper:
         window_time = min(self.window, elapsed_time) if elapsed_time > 0 else 1  # Prevent division by zero
 
         # Header
-        header = f"{'Metric Name':<20} {'Lifetime (tokens/sec)':>25} {'Window (tokens/sec)':>25}"
+        header = f"{'Metric Name':<30} {'Lifetime (tokens/sec)':>25} {'Recently (tokens/sec)':>25}"
         separator = "-" * len(header)
         lines = [header, separator]
 
@@ -83,6 +83,10 @@ class WorkerTracker:
         self.worker_status: Dict[int, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self.lock = asyncio.Lock()
 
+    async def clear_work(self, worker_id: int):
+        async with self.lock:
+            self.worker_status[worker_id].clear()
+
     async def track_work(self, worker_id: int, work_item_id: str, state: str):
         """
         Update the state count for a specific worker.
@@ -94,7 +98,6 @@ class WorkerTracker:
         """
         async with self.lock:
             self.worker_status[worker_id][state] += 1
-            logger.debug(f"Worker {worker_id} - State '{state}' incremented to {self.worker_status[worker_id][state]}.")
 
     async def get_status_table(self) -> str:
         """
