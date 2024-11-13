@@ -536,12 +536,29 @@ def submit_beaker_job(args):
     
     b = Beaker.from_env(default_workspace=args.beaker_workspace)
     account = b.account.whoami()
+    owner = account.name
     beaker_image = "jakep/pdelfin-inference"
 
     task_name = f"pdelfin-{os.path.basename(args.workspace.rstrip('/'))}"
     priority = "normal"
 
     args_list = [arg for arg in sys.argv[1:] if arg != "--beaker"]
+
+    try:
+        b.secret.get(f"{owner}-WEKA_ACCESS_KEY_ID", args.beaker_workspace)
+        b.secret.get(f"{owner}-WEKA_SECRET_ACCESS_KEY", args.beaker_workspace)
+        b.secret.get(f"{owner}-AWS_CREDENTIALS_FILE", args.beaker_workspace)
+    except SecretNotFound:
+        print(f"Expected beaker secrets for accessing Weka and S3 are not found. Are you okay to write those to your beaker workspace {args.beaker_workspace}? [y/n]")
+
+        if input().strip().lower() != "y":
+            print("Exiting...")
+            sys.exit(1)
+
+        b.secret.write(f"{owner}-WEKA_ACCESS_KEY_ID", os.environ.get("WEKA_ACCESS_KEY_ID", ""), args.beaker_workspace)
+        b.secret.write(f"{owner}-WEKA_SECRET_ACCESS_KEY", os.environ.get("WEKA_SECRET_ACCESS_KEY", ""), args.beaker_workspace)
+        b.secret.write(f"{owner}-AWS_CREDENTIALS_FILE", open(os.path.join(os.path.expanduser('~'), '.aws', 'credentials')).read(), args.beaker_workspace)
+
 
     # Create the experiment spec
     experiment_spec = ExperimentSpec(
@@ -561,9 +578,10 @@ def submit_beaker_job(args):
                 command=["python", "-m", "pdelfin.beakerpipeline"] + args_list,
                 env_vars=[
                     EnvVar(name="BEAKER_JOB_NAME", value=task_name),
-                    EnvVar(name="OWNER", value=account.name),
-                    #EnvVar(name="AWS_ACCESS_KEY_ID", secret=f"{account.name}-{S2_AWS_ACCESS_KEY_ID_SECRET_NAME}"),
-                    #EnvVar(name="AWS_SECRET_ACCESS_KEY", secret=f"{account.name}-{S2_AWS_SECRET_ACCESS_KEY_SECRET_NAME}"),
+                    EnvVar(name="OWNER", value=owner),
+                    EnvVar(name="WEKA_ACCESS_KEY_ID", secret=f"{owner}-WEKA_ACCESS_KEY_ID"),
+                    EnvVar(name="WEKA_SECRET_ACCESS_KEY", secret=f"{owner}-WEKA_SECRET_ACCESS_KEY"),
+                    EnvVar(name="AWS_CREDENTIALS_FILE", secret=f"{owner}-AWS_CREDENTIALS_FILE"),
                 ],
                 resources=TaskResources(gpu_count=1),
                 constraints=Constraints(cluster=args.beaker_cluster),
@@ -601,6 +619,12 @@ async def main():
     parser.add_argument('--beaker_workspace', help='Beaker workspace to submit to', default='ai2/pdelfin')
     parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/pluto-cirrascale", "ai2/saturn-cirrascale"])
     args = parser.parse_args()
+
+    if "AWS_CREDENTIALS_FILE" in os.environ:
+        cred_path = os.path.join(os.path.expanduser('~'), '.aws', 'credentials')
+        os.path.makedirs(os.path.dirname(cred_path), exist_ok=True)
+        with open(cred_path, "w") as f:
+            f.write(os.environ.get("AWS_CREDENTIALS_FILE"))
 
     if args.workspace_profile:
         global workspace_s3
