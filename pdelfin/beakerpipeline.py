@@ -638,14 +638,16 @@ async def main():
         pdf_s3 = pdf_session.client("s3")
 
     check_poppler_version()
-    logger.info(f"Starting pipeline with PID {os.getpid()}")
 
     if args.pdfs:
+        logger.info("Got --pdfs argument, going to add to the work queue")
         await populate_pdf_work_queue(args)
 
     if args.beaker:
         submit_beaker_job(args)
         return
+
+    logger.info(f"Starting pipeline with PID {os.getpid()}")
 
     # Create a semaphore to control worker access
     # We only allow one worker to move forward with requests, until the server has no more requests in its queue
