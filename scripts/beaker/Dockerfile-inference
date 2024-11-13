@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 nvidia/cuda:11.8.0-base-ubuntu20.04
+FROM --platform=linux/amd64 nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
 
 RUN apt-get update -y && apt-get install -y software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
@@ -10,6 +10,7 @@ RUN echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula sele
 RUN apt-get update -y && apt-get install -y poppler-utils ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    git \
     python3.11 \
     python3.11-dev \
     python3.11-distutils \
@@ -41,6 +42,7 @@ RUN /root/.local/bin/uv pip install --system --no-cache -e .[inference]
 
 # TODO You can remove this and move it into the pyproject.toml once sglang makes a release > 0.35.0
 RUN /root/.local/bin/uv pip install --system git+https://github.com/sgl-project/sglang.git@eff468dd5a3d24646560eb044276585f7a11ac3c#subdirectory=python&egg=sglang[all]
+RUN /root/.local/bin/uv pip install --system uvicorn uvloop fastapi pyzmq>=25.1.2 outlines==0.0.46 psutil vllm==0.6.3.post1 python-multipart
 
 COPY pdelfin pdelfin
 

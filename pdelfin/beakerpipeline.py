@@ -651,8 +651,8 @@ async def main():
         os.makedirs(os.path.dirname(cred_path), exist_ok=True)
         with open(cred_path, "w") as f:
             f.write(os.environ.get("AWS_CREDENTIALS_FILE"))
-        workspace_s3 = workspace_session.client("s3")
-        pdf_s3 = pdf_session.client("s3")
+        workspace_s3 = boto3.client('s3')
+        pdf_s3 = boto3.client('s3')
 
     if args.workspace_profile:
         workspace_session = boto3.Session(profile_name=args.workspace_profile)
