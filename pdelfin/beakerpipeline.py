@@ -361,11 +361,14 @@ async def process_pdf(args, session: aiohttp.ClientSession, worker_id: int, pdf_
 async def worker(args, queue, semaphore, worker_id):
     while True:
         [work_hash, pdfs] = await queue.get()
-        await tracker.clear_work(worker_id)
 
         try:
+            await tracker.clear_work(worker_id)
+
             # Wait until allowed to proceed
             await semaphore.acquire()
+
+            # TODO: Double check that the work item has not been done already by looking at the s3 workspace
 
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3600), 
                                              connector=aiohttp.TCPConnector(limit=1000)) as session:
@@ -690,10 +693,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-    # TODO
-    # If there is a beaker flag, then your job is to trigger this script with N replicas on beaker
-    # If not, then your job is to do the actual work
 
     # TODO
     # Possible future addon, in beaker, discover other nodes on this same job
