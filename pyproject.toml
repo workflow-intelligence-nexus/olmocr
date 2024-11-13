@@ -36,7 +36,7 @@ dependencies = [
   "zstandard",
   "aiohttp",
   "boto3",
-  "torch>=2.5.0",
+  "torch>=2.4.0",
   "transformers>=4.46.2",
 ]
 license = {file = "LICENSE"}

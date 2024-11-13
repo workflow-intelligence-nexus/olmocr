@@ -515,6 +515,8 @@ async def metrics_reporter():
         logger.info("\n" + str(await tracker.get_status_table()))
         await asyncio.sleep(10)
 
+
+
 def submit_beaker_job(args):
     from beaker import (
         Beaker,
@@ -534,12 +536,12 @@ def submit_beaker_job(args):
     
     b = Beaker.from_env(default_workspace=args.beaker_workspace)
     account = b.account.whoami()
-    beaker_image = "ai2/cuda11.8-ubuntu20.04"
+    beaker_image = "jakep/pdelfin-inference"
 
     task_name = f"pdelfin-{os.path.basename(args.workspace.rstrip('/'))}"
     priority = "normal"
 
-    args_list = sum(([f"--{k}", str(v)] if not isinstance(v, bool) else [f"--{k}"] for k, v in vars(args).items() if v is not None), [])
+    args_list = [arg for arg in sys.argv[1:] if arg != "--beaker"]
 
     # Create the experiment spec
     experiment_spec = ExperimentSpec(

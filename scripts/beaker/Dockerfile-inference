@@ -34,7 +34,7 @@ RUN /root/.local/bin/uv pip install --system --no-cache -e .[inference]
 
 # TODO You can remove this and move it into the pyproject.toml once sglang makes a release > 0.35.0
 RUN /root/.local/bin/uv pip install --system git+https://github.com/sgl-project/sglang.git@eff468dd5a3d24646560eb044276585f7a11ac3c#subdirectory=python&egg=sglang[all]
-
+RUN /root/.local/bin/uv pip install --system flashinfer -i https://flashinfer.ai/whl/cu121/torch2.4/
 
 RUN python3 -m pdelfin.beakerpipeline --help
 
