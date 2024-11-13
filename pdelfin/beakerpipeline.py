@@ -14,6 +14,7 @@ import asyncio
 import aiohttp
 import datetime
 import tempfile
+import random
 import re
 
 from tqdm import tqdm
@@ -225,7 +226,10 @@ async def load_pdf_work_queue(args) -> asyncio.Queue:
 
     # Populate the asyncio.Queue with remaining work
     queue = asyncio.Queue()
-    for work, pdfs in remaining_work_queue.items():
+    shuffled_items = list(remaining_work_queue.items())
+    random.shuffle(shuffled_items)
+
+    for work, pdfs in shuffled_items:
         await queue.put((work, pdfs))
 
     return queue
@@ -640,22 +644,21 @@ async def main():
     parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/pluto-cirrascale", "ai2/saturn-cirrascale"])
     args = parser.parse_args()
 
+    global workspace_s3, pdf_s3
+
     if "AWS_CREDENTIALS_FILE" in os.environ:
         cred_path = os.path.join(os.path.expanduser('~'), '.aws', 'credentials')
         os.makedirs(os.path.dirname(cred_path), exist_ok=True)
         with open(cred_path, "w") as f:
             f.write(os.environ.get("AWS_CREDENTIALS_FILE"))
-        global workspace_s3, pdf_s3
         workspace_s3 = workspace_session.client("s3")
         pdf_s3 = pdf_session.client("s3")
 
     if args.workspace_profile:
-        global workspace_s3
         workspace_session = boto3.Session(profile_name=args.workspace_profile)
         workspace_s3 = workspace_session.client("s3")
 
     if args.pdf_profile:
-        global pdf_s3
         pdf_session = boto3.Session(profile_name=args.pdf_profile)
         pdf_s3 = pdf_session.client("s3")
 
