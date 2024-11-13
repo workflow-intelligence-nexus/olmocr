@@ -1,0 +1,1 @@
+docker build -f ./scripts/beaker/Dockerfile-inference  -t pdelfin-inference .

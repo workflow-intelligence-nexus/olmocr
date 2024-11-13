@@ -68,7 +68,7 @@ dev = [
 ]
 
 inference = [
-    { git = "https://github.com/sgl-project/sglang.git", rev = "eff468dd5a3d24646560eb044276585f7a11ac3c", subdirectory = "python", extras = ["all"] }
+    "git+https://github.com/sgl-project/sglang.git@eff468dd5a3d24646560eb044276585f7a11ac3c#subdirectory=python&egg=sglang[all]"
 ]
 
 train = [

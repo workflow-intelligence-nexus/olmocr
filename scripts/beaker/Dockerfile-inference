@@ -1,0 +1,30 @@
+FROM --platform=linux/amd64 nvidia/cuda:11.8.0-base-ubuntu20.04
+
+RUN apt-get update -y && apt-get install -y software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get -y update
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils \
+    ca-certificates \
+    build-essential \
+    curl \
+    unzip
+
+RUN apt-get update && apt-get -y install python3.10-venv
+
+ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
+RUN /install.sh && rm /install.sh
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /root
+COPY pyproject.toml pyproject.toml
+COPY pdelfin pdelfin
+
+RUN /root/.local/bin/uv pip install --system --no-cache -e .[inference]
+
+
+#RUN python3 -m pdelfin.beakerpipeline --help
+
