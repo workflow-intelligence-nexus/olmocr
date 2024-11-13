@@ -31,6 +31,7 @@ from pdelfin.prompts import build_finetuning_prompt, PageResponse
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.check import check_poppler_version
 from pdelfin.metrics import MetricsKeeper, WorkerTracker
+from pdelfin.version import VERSION
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -537,7 +538,7 @@ def submit_beaker_job(args):
     b = Beaker.from_env(default_workspace=args.beaker_workspace)
     account = b.account.whoami()
     owner = account.name
-    beaker_image = "jakep/pdelfin-inference"
+    beaker_image = f"jakep/pdelfin-inference-{VERSION}"
 
     task_name = f"pdelfin-{os.path.basename(args.workspace.rstrip('/'))}"
     priority = "normal"
@@ -622,7 +623,7 @@ async def main():
 
     if "AWS_CREDENTIALS_FILE" in os.environ:
         cred_path = os.path.join(os.path.expanduser('~'), '.aws', 'credentials')
-        os.path.makedirs(os.path.dirname(cred_path), exist_ok=True)
+        os.makedirs(os.path.dirname(cred_path), exist_ok=True)
         with open(cred_path, "w") as f:
             f.write(os.environ.get("AWS_CREDENTIALS_FILE"))
 
