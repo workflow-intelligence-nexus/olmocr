@@ -35,6 +35,9 @@ dependencies = [
   "requests",
   "zstandard",
   "aiohttp",
+  "boto3",
+  "torch>=2.5.0",
+  "transformers>=4.46.2",
 ]
 license = {file = "LICENSE"}
 
@@ -68,7 +71,8 @@ dev = [
 ]
 
 inference = [
-    "git+https://github.com/sgl-project/sglang.git@eff468dd5a3d24646560eb044276585f7a11ac3c#subdirectory=python&egg=sglang[all]"
+    #"sglang["all"] 
+    #"git+https://github.com/sgl-project/sglang.git@eff468dd5a3d24646560eb044276585f7a11ac3c#subdirectory=python&egg=sglang[all]"
 ]
 
 train = [

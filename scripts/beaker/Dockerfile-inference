@@ -13,7 +13,14 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
     curl \
     unzip
 
-RUN apt-get update && apt-get -y install python3.10-venv
+RUN rm -rf /var/lib/apt/lists/* \
+    && unlink /usr/bin/python3 \
+    && ln -s /usr/bin/python3.11 /usr/bin/python3 \
+    && ln -s /usr/bin/python3 /usr/bin/python \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python \
+    && pip3 install -U pip    
+
+RUN apt-get update && apt-get -y install python3.11-venv
 
 ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
 RUN /install.sh && rm /install.sh
@@ -25,6 +32,9 @@ COPY pdelfin pdelfin
 
 RUN /root/.local/bin/uv pip install --system --no-cache -e .[inference]
 
+# TODO You can remove this and move it into the pyproject.toml once sglang makes a release > 0.35.0
+RUN /root/.local/bin/uv pip install --system git+https://github.com/sgl-project/sglang.git@eff468dd5a3d24646560eb044276585f7a11ac3c#subdirectory=python&egg=sglang[all]
 
-#RUN python3 -m pdelfin.beakerpipeline --help
+
+RUN python3 -m pdelfin.beakerpipeline --help
 
