@@ -253,6 +253,7 @@ async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf
     COMPLETION_URL = "http://localhost:30000/v1/chat/completions"
     MAX_RETRIES = 3
     
+    exponential_backoffs = 0
     attempt = 0
     await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "started")
 
@@ -290,9 +291,10 @@ async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf
             # Now we want to do exponential backoff, and not count this as an actual page retry
             # Page retrys are supposed to be for fixing bad results from the model, but actual requests to sglang 
             # are supposed to work. Probably this means that the server is just restarting
-            logger.info(f"Sleeping for 5 seconds on {pdf_s3_path}-{page_num} to allow server restart")
-            await asyncio.sleep(5)
-
+            sleep_delay = 10 * (2 ** exponential_backoffs)
+            exponential_backoffs += 1
+            logger.info(f"Sleeping for {sleep_delay} seconds on {pdf_s3_path}-{page_num} to allow server restart")
+            await asyncio.sleep(sleep_delay)
         except json.JSONDecodeError as e:
             logger.warning(f"JSON decode error on attempt {attempt} for {pdf_s3_path}-{page_num}: {e}")
             attempt += 1
@@ -597,7 +599,7 @@ def submit_beaker_job(args):
                 name=task_name,
                 propagate_failure=False,
                 propagate_preemption=False,
-                replicas=1,
+                replicas=args.beaker_gpus,
                 context=TaskContext(
                     priority=Priority(priority),
                     preemptible=True,
@@ -611,7 +613,7 @@ def submit_beaker_job(args):
                     EnvVar(name="WEKA_SECRET_ACCESS_KEY", secret=f"{owner}-WEKA_SECRET_ACCESS_KEY"),
                     EnvVar(name="AWS_CREDENTIALS_FILE", secret=f"{owner}-AWS_CREDENTIALS_FILE"),
                 ],
-                resources=TaskResources(gpu_count=args.beaker_gpus),
+                resources=TaskResources(gpu_count=1),
                 constraints=Constraints(cluster=args.beaker_cluster),
                 result=ResultSpec(path="/noop-results"),
             )
