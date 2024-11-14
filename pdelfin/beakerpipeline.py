@@ -447,6 +447,7 @@ async def sglang_server_task(args, semaphore):
         "--model-path", model_cache_dir,
         "--chat-template", args.model_chat_template,
         "--context-length", str(args.model_max_context),
+        "--log-level-http", "warning",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         )
@@ -631,7 +632,7 @@ async def main():
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--group_size', type=int, default=20, help='Number of pdfs that will be part of each work item in the work queue.')
-    parser.add_argument('--workers', type=int, default=5, help='Number of workers to run at a time')
+    parser.add_argument('--workers', type=int, default=8, help='Number of workers to run at a time')
 
     # Model parameters
     parser.add_argument('--model', help='List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access',
