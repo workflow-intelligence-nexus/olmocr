@@ -69,6 +69,8 @@ tracker = WorkerTracker()
 # Process pool for offloading cpu bound work, like calculating anchor texts
 process_pool = ProcessPoolExecutor()
 
+SGLANG_SERVER_PORT = 30002
+
 @dataclass(frozen=True)
 class PageResult:
     s3_path: str
@@ -250,7 +252,7 @@ async def work_item_completed(args, work_hash: str) -> bool:
 
 
 async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf_s3_path: str, pdf_local_path: str, page_num: int) -> PageResult:
-    COMPLETION_URL = "http://localhost:30000/v1/chat/completions"
+    COMPLETION_URL = f"http://localhost:{SGLANG_SERVER_PORT}/v1/chat/completions"
     MAX_RETRIES = 3
     
     exponential_backoffs = 0
@@ -303,7 +305,7 @@ async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf
             await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "cancelled")
             raise
         except Exception as e:
-            logger.warning(f"Unexpected error on attempt {attempt} for {pdf_s3_path}-{page_num}: {e}")
+            logger.warning(f"Unexpected error on attempt {attempt} for {pdf_s3_path}-{page_num}: {type(e)} - {e}")
             attempt += 1
 
         if attempt >= MAX_RETRIES:
@@ -404,12 +406,12 @@ async def worker(args, queue, semaphore, worker_id):
                 logger.info(f"Work {work_hash} was already completed, skipping")
                 continue
 
-            async with asyncio.TaskGroup() as tg, \
-                       aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3600), 
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3600), 
                                              connector=aiohttp.TCPConnector(limit=1000)) as session:
-                dolma_docs = [tg.create_task(process_pdf(args, session, worker_id, pdf)) for pdf in pdfs]
+                async with asyncio.TaskGroup() as tg:      
+                    dolma_tasks = [tg.create_task(process_pdf(args, session, worker_id, pdf)) for pdf in pdfs]
 
-            dolma_docs = [task.result() for doc in dolma_docs if task.result() is not None]
+            dolma_docs = [task.result() for task in dolma_tasks if task.result() is not None]
 
             # Write the Dolma documents to a local temporary file in JSONL format
             with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tf:
@@ -457,6 +459,7 @@ async def sglang_server_task(args, semaphore):
         "--model-path", model_cache_dir,
         "--chat-template", args.model_chat_template,
         "--context-length", str(args.model_max_context),
+        "--port", str(SGLANG_SERVER_PORT),
         "--log-level-http", "warning",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -530,7 +533,7 @@ async def sglang_server_host(args, semaphore):
 async def sglang_server_ready():
     max_attempts = 300
     delay_sec = 1
-    url = 'http://localhost:30000/v1/models'
+    url = f'http://localhost:{SGLANG_SERVER_PORT}/v1/models'
 
     for attempt in range(1, max_attempts + 1):
         try:
