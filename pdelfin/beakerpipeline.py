@@ -69,7 +69,7 @@ tracker = WorkerTracker()
 # Process pool for offloading cpu bound work, like calculating anchor texts
 process_pool = ProcessPoolExecutor()
 
-SGLANG_SERVER_PORT = 30003
+SGLANG_SERVER_PORT = 30002
 
 @dataclass(frozen=True)
 class PageResult:
@@ -429,6 +429,8 @@ async def worker(args, queue, semaphore, worker_id):
             if await work_item_completed(args, work_hash):
                 logger.info(f"Work {work_hash} was already completed, skipping")
                 continue
+            else:
+                logger.info(f"Proceeding with {work_hash} on worker {worker_id}")
 
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3600), 
                                              connector=aiohttp.TCPConnector(limit=1000)) as session:
