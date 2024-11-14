@@ -480,8 +480,8 @@ async def sglang_server_task(args, semaphore):
 
             last_queue_req = queue_req
 
-        # And have a semaphore release automatically if there are no running requests for > 30 seconds
-        if last_running_req == 0 and can_release_automatically and time.time() - last_semaphore_release > 30 and semaphore.locked():
+        # And have a semaphore release automatically if there are no queued requests for > 30 seconds
+        if last_queue_req == 0 and can_release_automatically and time.time() - last_semaphore_release > 30 and semaphore.locked():
             semaphore.release()
             last_semaphore_release = time.time()
             can_release_automatically = False
