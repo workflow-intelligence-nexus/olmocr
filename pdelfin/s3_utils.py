@@ -165,6 +165,11 @@ def download_directory(model_choices: List[str], local_dir: str):
 
     # Reorder model_choices to prioritize weka:// links
     weka_choices = [path for path in model_choices if path.startswith("weka://")]
+
+    # This is so hacky, but if you are on beaker/pluto, don't use weka
+    if os.environ.get("BEAKER_NODE_HOSTNAME", "").lower().startswith("pluto"):
+        weka_choices = []
+
     other_choices = [path for path in model_choices if not path.startswith("weka://")]
     prioritized_choices = weka_choices + other_choices
 
