@@ -194,7 +194,7 @@ async def populate_pdf_work_queue(args):
 
 async def load_pdf_work_queue(args) -> asyncio.Queue:
     index_file_s3_path = os.path.join(args.workspace, "pdf_index_list.csv.zstd")
-    output_glob = f"{args.workspace}/dolma_documents/output_*.jsonl"
+    output_glob = os.path.join(args.workspace, "dolma_documents", "*.jsonl")
 
     # Define the two blocking I/O operations
     download_task = asyncio.to_thread(download_zstd_csv, workspace_s3, index_file_s3_path)
