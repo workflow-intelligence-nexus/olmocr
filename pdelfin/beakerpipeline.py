@@ -570,7 +570,6 @@ def submit_beaker_job(args):
     beaker_image = f"jakep/pdelfin-inference-{VERSION}"
 
     task_name = f"pdelfin-{os.path.basename(args.workspace.rstrip('/'))}"
-    priority = "normal"
 
     args_list = [arg for arg in sys.argv[1:] if arg != "--beaker"]
 
@@ -601,7 +600,7 @@ def submit_beaker_job(args):
                 propagate_preemption=False,
                 replicas=args.beaker_gpus,
                 context=TaskContext(
-                    priority=Priority(priority),
+                    priority=Priority(args.beaker_priority),
                     preemptible=True,
                 ),
                 image=ImageSource(beaker=beaker_image),
@@ -649,6 +648,7 @@ async def main():
     parser.add_argument('--beaker_workspace', help='Beaker workspace to submit to', default='ai2/pdelfin')
     parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/pluto-cirrascale", "ai2/saturn-cirrascale"])
     parser.add_argument('--beaker_gpus', type=int, default=1, help="Number of gpu replicas to run")
+    parser.add_argument('--beaker_priority', type=str, default="normal", help="Beaker priority level for the job")
     args = parser.parse_args()
 
     global workspace_s3, pdf_s3
