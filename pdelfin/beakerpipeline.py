@@ -366,11 +366,12 @@ async def process_pdf(args, session: aiohttp.ClientSession, worker_id: int, pdf_
 
             # Collect the results from the entire task group, assuming no exceptions
             page_results = [task.result() for task in page_tasks]
+            return build_dolma_document(pdf_s3_path, page_results)
         except Exception as e:
             logger.exception(f"Exception in process_pdf for {pdf_s3_path}: {e}")
-            raise
-
-        return build_dolma_document(pdf_s3_path, page_results)
+            # You can't build a dolma doc with even 1 failed page, so just get out of here
+            # However, you don't want to propagate an exception higher up and cancel the entire work_group
+            return None
 
 
 def build_dolma_document(pdf_s3_path, page_results):
@@ -435,7 +436,16 @@ async def worker(args, queue, semaphore, worker_id):
                 async with asyncio.TaskGroup() as tg:      
                     dolma_tasks = [tg.create_task(process_pdf(args, session, worker_id, pdf)) for pdf in pdfs]
 
-            dolma_docs = [task.result() for task in dolma_tasks if task.result() is not None]
+            dolma_docs = []
+            for task in dolma_tasks:
+                try:
+                    result = task.result()
+                except:
+                    # some dolma doc creations may have failed
+                    pass
+
+                if result is not None:
+                    dolma_docs.append(result)
 
             # Write the Dolma documents to a local temporary file in JSONL format
             with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tf:
