@@ -313,8 +313,12 @@ async def process_pdf(args, session: aiohttp.ClientSession, worker_id: int, pdf_
         tf.write(data)
         tf.flush()
 
-        reader = PdfReader(tf.name)
-        num_pages = reader.get_num_pages()
+        try:
+            reader = PdfReader(tf.name)
+            num_pages = reader.get_num_pages()
+        except:
+            logger.exception(f"Could not count number of pages for {pdf_s3_path}, aborting document")
+            return None
 
         logger.info(f"Got {num_pages} pages to do for {pdf_s3_path} in worker {worker_id}")
 
@@ -607,7 +611,7 @@ def submit_beaker_job(args):
                     EnvVar(name="WEKA_SECRET_ACCESS_KEY", secret=f"{owner}-WEKA_SECRET_ACCESS_KEY"),
                     EnvVar(name="AWS_CREDENTIALS_FILE", secret=f"{owner}-AWS_CREDENTIALS_FILE"),
                 ],
-                resources=TaskResources(gpu_count=1),
+                resources=TaskResources(gpu_count=args.beaker_gpus),
                 constraints=Constraints(cluster=args.beaker_cluster),
                 result=ResultSpec(path="/noop-results"),
             )
@@ -642,6 +646,7 @@ async def main():
     parser.add_argument('--beaker', action='store_true', help='Submit this job to beaker instead of running locally')
     parser.add_argument('--beaker_workspace', help='Beaker workspace to submit to', default='ai2/pdelfin')
     parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/pluto-cirrascale", "ai2/saturn-cirrascale"])
+    parser.add_argument('--beaker_gpus', type=int, default=1, help="Number of gpu replicas to run")
     args = parser.parse_args()
 
     global workspace_s3, pdf_s3
