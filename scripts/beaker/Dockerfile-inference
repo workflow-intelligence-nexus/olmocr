@@ -40,10 +40,16 @@ COPY pdelfin/version.py pdelfin/version.py
 
 RUN /root/.local/bin/uv pip install --system --no-cache -e .[inference]
 
-# TODO You can remove this and move it into the pyproject.toml once sglang makes a release > 0.35.0
-RUN /root/.local/bin/uv pip install --system git+https://github.com/sgl-project/sglang.git@eff468dd5a3d24646560eb044276585f7a11ac3c#subdirectory=python&egg=sglang[all]
-RUN /root/.local/bin/uv pip install --system uvicorn uvloop fastapi pyzmq>=25.1.2 outlines==0.0.46 psutil vllm==0.6.3.post1 python-multipart
-
 COPY pdelfin pdelfin
 
+# TODO You can remove this and move it into the pyproject.toml once sglang makes a release > 0.35.0
+RUN git clone https://github.com/sgl-project/sglang.git
+WORKDIR sglang/python
+RUN git checkout eff468dd5a3d24646560eb044276585f7a11ac3c
+RUN /root/.local/bin/uv pip install --system --no-cache -e .[all]
+
+WORKDIR /root
+COPY pdelfin pdelfin
+
+RUN python3 -m sglang.launch_server --help
 RUN python3 -m pdelfin.beakerpipeline --help

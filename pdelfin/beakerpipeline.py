@@ -646,7 +646,9 @@ async def main():
 
     global workspace_s3, pdf_s3
 
-    if "AWS_CREDENTIALS_FILE" in os.environ:
+    # setup the job to work in beaker environment, load secrets, adjust logging, etc.
+    if "BEAKER_JOB_NAME" in os.environ:
+        sglang_logger.addHandler(console_handler)
         cred_path = os.path.join(os.path.expanduser('~'), '.aws', 'credentials')
         os.makedirs(os.path.dirname(cred_path), exist_ok=True)
         with open(cred_path, "w") as f:
