@@ -4,6 +4,7 @@ import posixpath
 import logging
 import tempfile
 import boto3
+import time
 import requests
 import concurrent.futures
 import hashlib  # Added for MD5 hash computation
@@ -13,7 +14,7 @@ from pathlib import Path
 from google.auth import compute_engine
 from google.cloud import storage
 from botocore.config import Config
-from botocore.exceptions import NoCredentialsError
+from botocore.exceptions import NoCredentialsError, ClientError
 from boto3.s3.transfer import TransferConfig
 from typing import Optional, List
 from urllib.parse import urlparse
@@ -79,16 +80,28 @@ def get_s3_bytes(s3_client, s3_path: str, start_index: Optional[int] = None, end
 
     return obj['Body'].read()
 
-def get_s3_bytes_with_backoff(s3_client, pdf_s3_path, max_retries: int=8, backoff_factor: int=2):
+def get_s3_bytes_with_backoff(s3_client, pdf_s3_path, max_retries: int = 8, backoff_factor: int = 2):
     attempt = 0
+
     while attempt < max_retries:
         try:
             return get_s3_bytes(s3_client, pdf_s3_path)
+        except ClientError as e:
+            # Check for AccessDenied error and raise immediately
+            if e.response['Error']['Code'] == 'AccessDenied':
+                logger.error(f"AccessDenied error when trying to access {pdf_s3_path}: {e}")
+                raise
+            else:
+                wait_time = backoff_factor ** attempt
+                logger.warning(f"Attempt {attempt+1} failed to get_s3_bytes for {pdf_s3_path}: {e}. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+                attempt += 1
         except Exception as e:
             wait_time = backoff_factor ** attempt
             logger.warning(f"Attempt {attempt+1} failed to get_s3_bytes for {pdf_s3_path}: {e}. Retrying in {wait_time} seconds...")
             time.sleep(wait_time)
             attempt += 1
+
     logger.error(f"Failed to get_s3_bytes for {pdf_s3_path} after {max_retries} retries.")
     raise Exception("Failed to get_s3_bytes after retries")
 
