@@ -525,7 +525,7 @@ async def sglang_server_task(args, semaphore):
 
     # Shared variables between tasks
     last_running_req, last_queue_req = 0, 0
-    can_release_automatically = True
+    can_release_automatically = False
     last_semaphore_release = time.time()
 
     async def process_line(line):
@@ -797,7 +797,7 @@ async def main():
     logger.info("Work done")
 
 if __name__ == "__main__":
-    asyncio.run(main(), debug=True)
+    asyncio.run(main())
 
     # TODO
     # Possible future addon, in beaker, discover other nodes on this same job
