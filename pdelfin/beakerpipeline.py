@@ -564,8 +564,7 @@ async def sglang_server_task(args, semaphore):
         nonlocal last_running_req, last_queue_req, can_release_automatically, last_semaphore_release
         try:
             while True:
-                await asyncio.sleep(1)  # Check every second
-                logger.info(f"{last_queue_req}, {can_release_automatically}, {time.time() - last_semaphore_release}, {semaphore.locked()}")
+                await asyncio.sleep(1)
                 if (last_queue_req == 0 and can_release_automatically and
                         time.time() - last_semaphore_release > 30 and semaphore.locked()):
                     semaphore.release()
@@ -578,11 +577,11 @@ async def sglang_server_task(args, semaphore):
     # Start tasks to read stdout, stderr, and handle timeout logic
     stdout_task = asyncio.create_task(read_stream(proc.stdout))
     stderr_task = asyncio.create_task(read_stream(proc.stderr))
-    timeout_task_future = asyncio.create_task(timeout_task())
+    timeout_task = asyncio.create_task(timeout_task())
 
     await proc.wait()
-    timeout_task_future.cancel()
-    await asyncio.gather(stdout_task, stderr_task, timeout_task_future, return_exceptions=True)
+    timeout_task.cancel()
+    await asyncio.gather(stdout_task, stderr_task, timeout_task, return_exceptions=True)
 
 
 async def sglang_server_host(args, semaphore):
