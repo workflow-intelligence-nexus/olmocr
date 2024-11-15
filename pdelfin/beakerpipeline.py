@@ -785,10 +785,11 @@ async def main():
     await asyncio.gather(*worker_tasks, return_exceptions=True)
     
     # Wait for server to stop
+    process_pool.shutdown(wait=False)
+
     sglang_server.cancel()
     metrics_task.cancel()
-    logger.info("Work done, force exitting...")
-    sys.exit(0)
+    logger.info("Work done")
 
 if __name__ == "__main__":
     asyncio.run(main(), debug=True)
