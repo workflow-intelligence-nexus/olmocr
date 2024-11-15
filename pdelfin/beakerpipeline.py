@@ -244,8 +244,8 @@ async def load_pdf_work_queue(args) -> asyncio.Queue:
     }
 
     # Determine remaining work
-    #remaining_work_hashes = set(work_queue) - done_work_hashes
-    remaining_work_hashes = set(["0e779f21fbb75d38ed4242c7e5fe57fa9a636bac"])
+    remaining_work_hashes = set(work_queue) - done_work_hashes
+    #remaining_work_hashes = set(["0e779f21fbb75d38ed4242c7e5fe57fa9a636bac"]) # If you want to debug with a specific work hash
     remaining_work_queue = {
         hash_: work_queue[hash_]
         for hash_ in remaining_work_hashes
