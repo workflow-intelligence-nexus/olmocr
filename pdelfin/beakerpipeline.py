@@ -688,7 +688,7 @@ def submit_beaker_job(args):
                     EnvVar(name="AWS_CREDENTIALS_FILE", secret=f"{owner}-AWS_CREDENTIALS_FILE"),
                 ],
                 resources=TaskResources(gpu_count=1),
-                constraints=Constraints(cluster=args.beaker_cluster),
+                constraints=Constraints(cluster=args.beaker_cluster if isinstance(args.beaker_cluster, list) else [args.beaker_cluster]),
                 result=ResultSpec(path="/noop-results"),
             )
         ],
