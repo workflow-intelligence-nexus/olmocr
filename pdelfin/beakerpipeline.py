@@ -532,6 +532,10 @@ async def sglang_server_task(args, semaphore):
         nonlocal last_running_req, last_queue_req, can_release_automatically, last_semaphore_release
         sglang_logger.info(line)
 
+        if "Detected errors during sampling" in line:
+            logger.error("Cannot continue, sampling errors detected, model is probably corrupt")
+            sys.exit(1)
+
         match = re.search(r'#running-req: (\d+)', line)
         if match:
             last_running_req = int(match.group(1))
@@ -721,7 +725,7 @@ async def main():
     # Beaker/job running stuff
     parser.add_argument('--beaker', action='store_true', help='Submit this job to beaker instead of running locally')
     parser.add_argument('--beaker_workspace', help='Beaker workspace to submit to', default='ai2/pdelfin')
-    parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/pluto-cirrascale", "ai2/saturn-cirrascale"])
+    parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/pluto-cirrascale", "ai2/saturn-cirrascale", "ai2/augusta-google-1"])
     parser.add_argument('--beaker_gpus', type=int, default=1, help="Number of gpu replicas to run")
     parser.add_argument('--beaker_priority', type=str, default="normal", help="Beaker priority level for the job")
     args = parser.parse_args()
