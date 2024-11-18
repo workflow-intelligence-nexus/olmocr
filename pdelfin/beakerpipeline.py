@@ -312,6 +312,11 @@ async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf
             model_response_json = json.loads(base_response_data["choices"][0]["message"]["content"])
             page_response = PageResponse(**model_response_json)
 
+            if not page_response.is_rotation_valid and attempt < MAX_RETRIES - 1:
+                logger.info(f"Got invalid_page rotation for {pdf_s3_path}-{page_num} attempt {attempt}, retrying with {page_response.rotation_correction} rotation")
+                local_image_rotation = page_response.rotation_correction
+                raise ValueError(f"invalid_page rotation for {pdf_s3_path}-{page_num}")
+
             await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "finished")
             return PageResult(
                 pdf_s3_path,
@@ -510,7 +515,7 @@ async def sglang_server_task(args, semaphore):
 
     # Check GPU memory, lower mem devices need a bit less KV cache space because the VLM takes additional memory
     gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # Convert to GB
-    mem_fraction_arg = ["--mem-fraction-static", "0.8"] if gpu_memory < 60 else []
+    mem_fraction_arg = ["--mem-fraction-static", "0.80"] if gpu_memory < 60 else []
 
     cmd = [
         "python3",
@@ -865,7 +870,7 @@ if __name__ == "__main__":
 
     # TODO
     # - Refactor the work queue into its own file so it's reusable and generic, and it makes temporary work files (prevent issue where if a work item is done, then it stalls because queue was just emptied)
-    # - Fix the queue release mechanism so that it just does a timeout, based on zero queue size only, so you don't block things
+    # X Fix the queue release mechanism so that it just does a timeout, based on zero queue size only, so you don't block things
     # - Add logging of failed pages and have the stats function read them
     # - Add the page rotation check and mechanism
     # - Sglang commit a fix for the context length issue
