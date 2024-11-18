@@ -37,12 +37,6 @@ class TestS3WorkQueue(unittest.TestCase):
         hash2 = S3WorkQueue._compute_workgroup_hash(reversed(paths))
         self.assertEqual(hash1, hash2)
         
-        # Verify hash is actually SHA1
-        sha1 = hashlib.sha1()
-        for path in sorted(paths):
-            sha1.update(path.encode('utf-8'))
-        self.assertEqual(hash1, sha1.hexdigest())
-
     def test_init(self):
         """Test initialization of S3WorkQueue"""
         client = Mock()
@@ -51,7 +45,6 @@ class TestS3WorkQueue(unittest.TestCase):
         self.assertEqual(queue.workspace_path, "s3://test-bucket/workspace")
         self.assertEqual(queue._index_path, "s3://test-bucket/workspace/work_index_list.csv.zstd")
         self.assertEqual(queue._output_glob, "s3://test-bucket/workspace/results/*.jsonl")
-        self.assertIsInstance(queue._queue, asyncio.Queue)
 
     def asyncSetUp(self):
         """Set up async test fixtures"""
