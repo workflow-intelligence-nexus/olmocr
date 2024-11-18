@@ -126,7 +126,7 @@ async def build_page_query(local_pdf_path: str, page: int, target_longest_image_
 
 async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf_s3_path: str, pdf_local_path: str, page_num: int) -> PageResult:
     COMPLETION_URL = f"http://localhost:{SGLANG_SERVER_PORT}/v1/chat/completions"
-    MAX_RETRIES = 3
+    MAX_RETRIES = args.max_page_retries
     
     exponential_backoffs = 0
     local_anchor_text_len = args.target_anchor_text_len
@@ -667,6 +667,7 @@ async def main():
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
     parser.add_argument('--pages_per_group', type=int, default=500, help='Aiming for this many pdf pages per work item group')
+    parser.add_argument('--max_page_retries', type=int, default=8, help='Max number of times we will retry rendering a page')
     parser.add_argument('--workers', type=int, default=8, help='Number of workers to run at a time')
     parser.add_argument('--stats', action='store_true', help='Instead of running any job, reports some statistics about the current workspace')
 
