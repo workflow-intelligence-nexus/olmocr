@@ -701,7 +701,7 @@ async def main():
         os.makedirs(os.path.dirname(cred_path), exist_ok=True)
         with open(cred_path, "w") as f:
             f.write(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_FILE"))
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS_FILE"] = cred_path
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
         workspace_s3 = boto3.client('s3')
         pdf_s3 = boto3.client('s3')
 
