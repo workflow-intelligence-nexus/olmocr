@@ -811,9 +811,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 
     # TODO
-    # - Fix loading of the model checkpoints, it's so flakey now, maybe use datasets
     # - Add logging of failed pages and have the stats function read them
-    # - Fallback to different method if < 2% of pages are failed, make that configurable
     # - Sglang commit a fix for the context length issue
     # - pypdf fix for the 'v' error
     # - Get a solid benchmark on the stream vs non stream approach

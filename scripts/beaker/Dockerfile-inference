@@ -48,6 +48,9 @@ WORKDIR sglang/python
 RUN git checkout eff468dd5a3d24646560eb044276585f7a11ac3c
 RUN /root/.local/bin/uv pip install --system --no-cache -e .[all]
 
+# TODO You can remove this once pypdf > 5.10 comes out
+RUN /root/.local/bin/uv pip install --system --no-cache git+https://github.com/py-pdf/pypdf.git@c6e43374ab002d76811ec85333fdc2c82c268251
+
 WORKDIR /root
 COPY pdelfin pdelfin
 
