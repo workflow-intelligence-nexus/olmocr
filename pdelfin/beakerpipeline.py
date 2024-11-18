@@ -804,5 +804,11 @@ if __name__ == "__main__":
     asyncio.run(main())
 
     # TODO
-    # Possible future addon, in beaker, discover other nodes on this same job
-    # Send them a message when you take a work item off the queue
+    # - Refactor the work queue into its own file so it's reusable and generic, and it makes temporary work files (prevent issue where if a work item is done, then it stalls because queue was just emptied)
+    # - Fix the queue release mechanism so that it just does a timeout, based on zero queue size only, so you don't block things
+    # - Add the page rotation check and mechanism
+    # - Sglang commit a fix for the context length issue
+    # - Get a solid benchmark on the stream vs non stream approach
+    # - sglang error on s3://ai2-s2-pdfs/73ee/35e7ed5c2fb113ceba652284aaa51db7c2fc.pdf-2 
+    # - Client error on attempt 0 for s3://ai2-s2-pdfs/e13c/9e03ce463ba53bfb15b26dbfd55c0bbc5568.pdf-1: 400, message='Bad Request', 
+    # - Fix loading of the model checkpoints, it's so flakey now, maybe use datasets
