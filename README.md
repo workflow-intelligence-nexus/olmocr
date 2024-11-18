@@ -99,12 +99,11 @@ options:
 
 ### Batch Inference Usage
 
-If you want run a fine tuned model in order to linearize millions of PDFs, you need to use the [birrpipeline.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/birrpipeline.py) script.
+Below are instructions to use mise/birr to conver pdfs:
 
 birrpipeline.py will take as input all of your PDFs (stored in S3), and generate the inputs needed to run those through your fine-tuned model.
 After that, you will use [birr](https://github.com/allenai/mise/tree/main/birr) (part of mise) in order to run those batch inference files efficiently via VLLM.
 
-You should expect somewhere between 1,400 to 1,800 tokens per second per H100 GPU.
 
 ```
 usage: birrpipeline.py [-h] [--add_pdfs ADD_PDFS] [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM] [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--workspace_profile WORKSPACE_PROFILE]

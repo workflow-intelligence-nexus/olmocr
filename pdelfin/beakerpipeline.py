@@ -531,6 +531,21 @@ def submit_beaker_job(args):
         b.secret.write(f"{owner}-WEKA_SECRET_ACCESS_KEY", os.environ.get("WEKA_SECRET_ACCESS_KEY", ""), args.beaker_workspace)
         b.secret.write(f"{owner}-AWS_CREDENTIALS_FILE", open(os.path.join(os.path.expanduser('~'), '.aws', 'credentials')).read(), args.beaker_workspace)
 
+    try:
+        b.secret.get(f"OE_DATA_GCS_SA_KEY", args.beaker_workspace)
+        raise SecretNotFound
+    except SecretNotFound:
+        print("Input the olmo-gcs SA key if you would like to load weights from gcs (end with a double newline):")
+        lines = []
+        prev_empty = False
+        for line in iter(input, None):
+            if not line and prev_empty:
+                break
+            prev_empty = not line
+            lines.append(line)
+        gcs_sa_key = "\n".join(lines[:-1]).strip()  # Remove the last empty line
+        if gcs_sa_key:
+            b.secret.write(f"OE_DATA_GCS_SA_KEY", gcs_sa_key, args.beaker_workspace)
 
     # Create the experiment spec
     experiment_spec = ExperimentSpec(
@@ -554,6 +569,7 @@ def submit_beaker_job(args):
                     EnvVar(name="WEKA_ACCESS_KEY_ID", secret=f"{owner}-WEKA_ACCESS_KEY_ID"),
                     EnvVar(name="WEKA_SECRET_ACCESS_KEY", secret=f"{owner}-WEKA_SECRET_ACCESS_KEY"),
                     EnvVar(name="AWS_CREDENTIALS_FILE", secret=f"{owner}-AWS_CREDENTIALS_FILE"),
+                    EnvVar(name="GOOGLE_APPLICATION_CREDENTIALS", secret=f"OE_DATA_GCS_SA_KEY"),
                 ],
                 resources=TaskResources(gpu_count=1),
                 constraints=Constraints(cluster=args.beaker_cluster if isinstance(args.beaker_cluster, list) else [args.beaker_cluster]),
