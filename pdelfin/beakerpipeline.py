@@ -568,7 +568,7 @@ def submit_beaker_job(args):
                     EnvVar(name="WEKA_ACCESS_KEY_ID", secret=f"{owner}-WEKA_ACCESS_KEY_ID"),
                     EnvVar(name="WEKA_SECRET_ACCESS_KEY", secret=f"{owner}-WEKA_SECRET_ACCESS_KEY"),
                     EnvVar(name="AWS_CREDENTIALS_FILE", secret=f"{owner}-AWS_CREDENTIALS_FILE"),
-                    EnvVar(name="GOOGLE_APPLICATION_CREDENTIALS", secret=f"OE_DATA_GCS_SA_KEY"),
+                    EnvVar(name="GOOGLE_APPLICATION_CREDENTIALS_FILE", secret=f"OE_DATA_GCS_SA_KEY"),
                 ],
                 resources=TaskResources(gpu_count=1),
                 constraints=Constraints(cluster=args.beaker_cluster if isinstance(args.beaker_cluster, list) else [args.beaker_cluster]),
@@ -697,6 +697,11 @@ async def main():
         os.makedirs(os.path.dirname(cred_path), exist_ok=True)
         with open(cred_path, "w") as f:
             f.write(os.environ.get("AWS_CREDENTIALS_FILE"))
+        cred_path = os.path.join(os.path.expanduser('~'), '.gcs', 'credentials')
+        os.makedirs(os.path.dirname(cred_path), exist_ok=True)
+        with open(cred_path, "w") as f:
+            f.write(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_FILE"))
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS_FILE"] = cred_path
         workspace_s3 = boto3.client('s3')
         pdf_s3 = boto3.client('s3')
 
