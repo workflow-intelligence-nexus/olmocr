@@ -301,6 +301,9 @@ async def process_page(args, session: aiohttp.ClientSession, worker_id: int, pdf
                 if response.status == 400:
                     error_text = await response.text()
                     raise ValueError(f"Got BadRequestError from server: {error_text}, skipping this response")
+                elif response.status == 500:
+                    error_text = await response.text()
+                    raise ValueError(f"Got InternalServerError from server: {error_text}, skipping this response")
                 else:
                     response.raise_for_status()
 
@@ -880,6 +883,6 @@ if __name__ == "__main__":
     # X Add the page rotation check and mechanism
     # - Sglang commit a fix for the context length issue
     # - Get a solid benchmark on the stream vs non stream approach
-    # - sglang error on s3://ai2-s2-pdfs/73ee/35e7ed5c2fb113ceba652284aaa51db7c2fc.pdf-2 
+    # X sglang error on s3://ai2-s2-pdfs/73ee/35e7ed5c2fb113ceba652284aaa51db7c2fc.pdf-2 
     # X Client error on attempt 0 for s3://ai2-s2-pdfs/e13c/9e03ce463ba53bfb15b26dbfd55c0bbc5568.pdf-1: 400, message='Bad Request', 
     # - Fix loading of the model checkpoints, it's so flakey now, maybe use datasets
