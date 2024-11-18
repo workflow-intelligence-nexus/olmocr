@@ -533,7 +533,6 @@ def submit_beaker_job(args):
 
     try:
         b.secret.get(f"OE_DATA_GCS_SA_KEY", args.beaker_workspace)
-        raise SecretNotFound
     except SecretNotFound:
         print("Input the olmo-gcs SA key if you would like to load weights from gcs (end with a double newline):")
         lines = []
