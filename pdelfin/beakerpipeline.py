@@ -550,15 +550,19 @@ async def sglang_server_task(args, semaphore):
 
     # Shared variables between tasks
     last_running_req, last_queue_req = 0, 0
+    server_printed_ready_message = False
     last_semaphore_release = time.time()
 
     async def process_line(line):
-        nonlocal last_running_req, last_queue_req, last_semaphore_release
+        nonlocal last_running_req, last_queue_req, last_semaphore_release, server_printed_ready_message
         sglang_logger.info(line)
 
         if "Detected errors during sampling" in line:
             logger.error("Cannot continue, sampling errors detected, model is probably corrupt")
             sys.exit(1)
+
+        if not server_printed_ready_message and "The server is fired up and ready to roll!" in line:
+            server_printed_ready_message = True
 
         match = re.search(r'#running-req: (\d+)', line)
         if match:
@@ -582,7 +586,7 @@ async def sglang_server_task(args, semaphore):
         try:
             while True:
                 await asyncio.sleep(1)
-                if last_queue_req == 0 and time.time() - last_semaphore_release > 30 and semaphore.locked():
+                if server_printed_ready_message and last_queue_req == 0 and time.time() - last_semaphore_release > 30 and semaphore.locked():
                     semaphore.release()
                     last_semaphore_release = time.time()
                     logger.info("Semaphore released, allowing a worker to proceed.")
