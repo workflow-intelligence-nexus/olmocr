@@ -512,7 +512,11 @@ def submit_beaker_job(args):
 
     task_name = f"pdelfin-{os.path.basename(args.workspace.rstrip('/'))}"
 
+    # Take out --beaker flag so the workers will just run things
     args_list = [arg for arg in sys.argv[1:] if arg != "--beaker"]
+
+    # Take out the --pdfs [arg] or --pdfs=[arg], since the queue is populated locally
+    args_list = [arg for i, arg in enumerate(args_list) if not (arg.startswith("--pdfs") or (i > 0 and args_list[i-1] == "--pdfs"))]
 
     try:
         b.secret.get(f"{owner}-WEKA_ACCESS_KEY_ID", args.beaker_workspace)
