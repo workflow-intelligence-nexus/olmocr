@@ -589,16 +589,15 @@ def print_stats(args):
     index_file_s3_path = os.path.join(args.workspace, "work_index_list.csv.zstd")
     output_glob = os.path.join(args.workspace, "results", "*.jsonl")
     
-    work_queue_lines = download_zstd_csv(workspace_s3, index_file_s3_path)
     done_work_items = expand_s3_glob(workspace_s3, output_glob)
+    work_queue = {
+            parts[0]: parts[1:]
+            for line in download_zstd_csv(workspace_s3, index_file_s3_path)
+            if (parts := line.strip().split(",")) and line.strip()
+        }
     
-    total_items = len([line for line in work_queue_lines if line.strip()])
+    total_items = len(work_queue)
     completed_items = len(done_work_items)
-    
-    print(f"\nWork Items Status:")
-    print(f"Total work items: {total_items:,}")
-    print(f"Completed items: {completed_items:,}")
-    print(f"Remaining items: {total_items - completed_items:,}")
     
     def process_output_file(s3_path):
         try:
@@ -632,10 +631,10 @@ def print_stats(args):
     original_paths = set()
     
     # First collect all original PDF paths
-    for line in work_queue_lines:
-        if line.strip():
-            paths = line.strip().split(',')
-            original_paths.update(paths[1:])
+    for done_work_item in done_work_items:
+        if match := re.search(r"output_(\w+).jsonl", done_work_item):
+            done_work_hash = match.group(1)
+            original_paths.update(work_queue[done_work_hash])
     
     with ThreadPoolExecutor() as executor:
         futures = {executor.submit(process_output_file, item): item for item in done_work_items}
@@ -649,6 +648,11 @@ def print_stats(args):
             all_processed_paths.update(processed_paths)
     
     skipped_paths = original_paths - all_processed_paths
+
+    print(f"\nWork Items Status:")
+    print(f"Total work items: {total_items:,}")
+    print(f"Completed items: {completed_items:,}")
+    print(f"Remaining items: {total_items - completed_items:,}")
     
     print(f"\nResults:")
     print(f"Total documents processed: {docs_total:,}")
