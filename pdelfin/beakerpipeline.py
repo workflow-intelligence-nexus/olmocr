@@ -289,7 +289,8 @@ def build_dolma_document(pdf_s3_path, page_results):
         "Source-File": pdf_s3_path,
         "pdf-total-pages": len(page_results),
         "total-input-tokens": sum(page.input_tokens for page in page_results),
-        "total-output-tokens": sum(page.output_tokens for page in page_results)
+        "total-output-tokens": sum(page.output_tokens for page in page_results),
+        "total-fallback-pages": sum(page.is_fallback for page in page_results),
     }
 
     id_ = hashlib.sha1(document_text.encode()).hexdigest()
