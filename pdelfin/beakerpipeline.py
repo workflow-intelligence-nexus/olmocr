@@ -180,7 +180,7 @@ async def process_page(args, session: httpx.AsyncClient, worker_id: int, pdf_s3_
                 output_tokens=base_response_data["usage"].get("completion_tokens", 0),
                 is_fallback=False,
             )
-        except (httpx.TimeoutException, asyncio.TimeoutError) as e:
+        except (httpx.TimeoutException, httpx.ConnectError, asyncio.TimeoutError) as e:
             logger.warning(f"Client error on attempt {attempt} for {pdf_s3_path}-{page_num}: {e}")
             
             # Now we want to do exponential backoff, and not count this as an actual page retry
@@ -845,9 +845,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 
     # TODO
-    # - Add logging of failed pages and have the stats function read them
     # - Sglang commit a fix for the context length issue
-    # - pypdf fix for the 'v' error
     # - aiohttp repro and bug report
     # - Get a solid benchmark on the stream vs non stream approach
     
