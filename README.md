@@ -53,9 +53,11 @@ With default settings, it should work fine on any available GPUs.
 
 ```bash
 python -m pdelfin.beakerpipeline --help
-usage: beakerpipeline.py [-h] [--pdfs PDFS] [--workspace_profile WORKSPACE_PROFILE] [--pdf_profile PDF_PROFILE] [--pages_per_group PAGES_PER_GROUP] [--workers WORKERS] [--stats]
-                         [--model MODEL] [--model_max_context MODEL_MAX_CONTEXT] [--model_chat_template MODEL_CHAT_TEMPLATE] [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM]
-                         [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--beaker] [--beaker_workspace BEAKER_WORKSPACE] [--beaker_cluster BEAKER_CLUSTER] [--beaker_gpus BEAKER_GPUS]
+usage: beakerpipeline.py [-h] [--pdfs PDFS] [--workspace_profile WORKSPACE_PROFILE] [--pdf_profile PDF_PROFILE] [--pages_per_group PAGES_PER_GROUP]
+                         [--max_page_retries MAX_PAGE_RETRIES] [--max_page_error_rate MAX_PAGE_ERROR_RATE] [--workers WORKERS] [--stats]
+                         [--model MODEL] [--model_max_context MODEL_MAX_CONTEXT] [--model_chat_template MODEL_CHAT_TEMPLATE]
+                         [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM] [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--beaker]
+                         [--beaker_workspace BEAKER_WORKSPACE] [--beaker_cluster BEAKER_CLUSTER] [--beaker_gpus BEAKER_GPUS]
                          [--beaker_priority BEAKER_PRIORITY]
                          workspace
 
@@ -66,17 +68,22 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  --pdfs PDFS           Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths
+  --pdfs PDFS           Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list
+                        of pdf paths
   --workspace_profile WORKSPACE_PROFILE
                         S3 configuration profile for accessing the workspace
   --pdf_profile PDF_PROFILE
                         S3 configuration profile for accessing the raw pdf documents
   --pages_per_group PAGES_PER_GROUP
                         Aiming for this many pdf pages per work item group
+  --max_page_retries MAX_PAGE_RETRIES
+                        Max number of times we will retry rendering a page
+  --max_page_error_rate MAX_PAGE_ERROR_RATE
+                        Rate of allowable failed pages in a document, 1/250 by default
   --workers WORKERS     Number of workers to run at a time
   --stats               Instead of running any job, reports some statistics about the current workspace
-  --model MODEL         List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest
-                        to access
+  --model MODEL         List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script
+                        will try to use the one which is fastest to access
   --model_max_context MODEL_MAX_CONTEXT
                         Maximum context length that the model was fine tuned under
   --model_chat_template MODEL_CHAT_TEMPLATE
@@ -95,75 +102,6 @@ options:
   --beaker_priority BEAKER_PRIORITY
                         Beaker priority level for the job
 ```
-
-
-### Batch Inference Usage
-
-Below are instructions to use mise/birr to conver pdfs:
-
-birrpipeline.py will take as input all of your PDFs (stored in S3), and generate the inputs needed to run those through your fine-tuned model.
-After that, you will use [birr](https://github.com/allenai/mise/tree/main/birr) (part of mise) in order to run those batch inference files efficiently via VLLM.
-
-
-```
-usage: birrpipeline.py [-h] [--add_pdfs ADD_PDFS] [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM] [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--workspace_profile WORKSPACE_PROFILE]
-                       [--pdf_profile PDF_PROFILE] [--max_size_mb MAX_SIZE_MB] [--workers WORKERS] [--reindex] [--skip_build_queries]
-                       workspace
-
-Manager for running millions of PDFs through a batch inference pipeline
-
-positional arguments:
-  workspace             The S3 path where work will be done e.g., s3://bucket/prefix/)
-
-options:
-  -h, --help            show this help message and exit
-  --add_pdfs ADD_PDFS   Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths
-  --target_longest_image_dim TARGET_LONGEST_IMAGE_DIM
-                        Dimension on longest side to use for rendering the pdf pages
-  --target_anchor_text_len TARGET_ANCHOR_TEXT_LEN
-                        Maximum amount of anchor text to use (characters)
-  --workspace_profile WORKSPACE_PROFILE
-                        S3 configuration profile for accessing the workspace
-  --pdf_profile PDF_PROFILE
-                        S3 configuration profile for accessing the raw pdf documents
-  --max_size_mb MAX_SIZE_MB
-                        Max file size in MB
-  --workers WORKERS     Number of workers to run in the processpool
-  --reindex             Reindex all of the page_results
-  --skip_build_queries  Skip generation of new pdf page queries for batch inferencing
-```
-
-```bash
-python -m pdelfin.birrpipeline [s3_workspace_path] --add_pdfs [s3_glob_path or path to file with s3 paths (one per line)]
-```
-
-For example:
-```bash
-python -m pdelfin.birrpipeline s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename] --pdf_profile s2 --add_pdfs s3://ai2-oe-data/jakep/gnarly_pdfs/*.pdf
-```
-
-After this runs the first time, you should have a whole bunch of json files generated in 
-
-`s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/round_0/`
-
-Now you need to run them using birr. 
-You can use the [qwen2-vl-7b-pdf-weka.yaml](https://github.com/allenai/pdelfin/blob/main/scripts/birr/config/qwen2-vl-7b-pdf-weka.yaml) file here as a template for your birr config.
-You will need to edit your queue name, priority level, etc.
-
-```bash
-mise birr create-queue -n [your_queue] --owner [your username] --project ai2-oe-data 
-
-mise birr populate-queue -n [your_queue] "s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/inference_inputs/round_0/*.jsonl"
-
-mise birr submit-job -c pdelfin/scripts/birr/config/qwen2-vl-7b-pdf-weka-customized.yaml
-```
-
-Once the batch inference job completes, you will want to run the birrpipeline again (witthout the --add_pdfs argument). This will index all of the 
-batch inference files, and assemble dolma docs, which you can preview with [dolmaviewer.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/viewer/dolmaviewer.py)
-
-Because of the nature of vlms, you will need to run multiple rounds of inference in order to convert the majority of your files. This is because
-sometimes generation will fail due to repetition errors, (or if the pdf page was rotated incorrectly, the system will attempt to classify that and rotate it properly on
-the next round). Usually 2 to 3 complete rounds is enough to get most of your files.
 
 
 ### TODOs for future versions
