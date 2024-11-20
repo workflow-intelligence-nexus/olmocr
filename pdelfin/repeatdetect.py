@@ -1,7 +1,7 @@
 import unittest
 import random
 import string
-from collections import deque, defaultdict
+import time
 
 class RepeatDetector:
     def __init__(self, max_ngram_size: int = 10):
@@ -147,5 +147,25 @@ class RepeatDetectorTest(unittest.TestCase):
         self.assertEqual(d.ngram_repeats(), [1, 5, 1, 2])
 
 
+class BenchmarkRepeatDetect(unittest.TestCase):
+    def testLargeRandom(self):
+        all_data = []
+
+        for iter in range(1000):
+            all_data.append(''.join(random.choices("a", k=10000)))
+
+        start = time.perf_counter()
+
+        for data in all_data:
+            d = RepeatDetector(max_ngram_size=20)
+            d.add_letters(data)
+            print(d.ngram_repeats())
+
+        end = time.perf_counter()
+
+        print(f"testLargeRandom took {end-start:0.0001f} seconds")
+
+
 if __name__ == "__main__":
+
     unittest.main()
