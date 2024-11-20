@@ -53,9 +53,11 @@ With default settings, it should work fine on any available GPUs.
 
 ```bash
 python -m pdelfin.beakerpipeline --help
-usage: beakerpipeline.py [-h] [--pdfs PDFS] [--workspace_profile WORKSPACE_PROFILE] [--pdf_profile PDF_PROFILE] [--pages_per_group PAGES_PER_GROUP] [--workers WORKERS] [--stats]
-                         [--model MODEL] [--model_max_context MODEL_MAX_CONTEXT] [--model_chat_template MODEL_CHAT_TEMPLATE] [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM]
-                         [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--beaker] [--beaker_workspace BEAKER_WORKSPACE] [--beaker_cluster BEAKER_CLUSTER] [--beaker_gpus BEAKER_GPUS]
+usage: beakerpipeline.py [-h] [--pdfs PDFS] [--workspace_profile WORKSPACE_PROFILE] [--pdf_profile PDF_PROFILE] [--pages_per_group PAGES_PER_GROUP]
+                         [--max_page_retries MAX_PAGE_RETRIES] [--max_page_error_rate MAX_PAGE_ERROR_RATE] [--workers WORKERS] [--stats]
+                         [--model MODEL] [--model_max_context MODEL_MAX_CONTEXT] [--model_chat_template MODEL_CHAT_TEMPLATE]
+                         [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM] [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--beaker]
+                         [--beaker_workspace BEAKER_WORKSPACE] [--beaker_cluster BEAKER_CLUSTER] [--beaker_gpus BEAKER_GPUS]
                          [--beaker_priority BEAKER_PRIORITY]
                          workspace
 
@@ -66,17 +68,22 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  --pdfs PDFS           Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths
+  --pdfs PDFS           Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list
+                        of pdf paths
   --workspace_profile WORKSPACE_PROFILE
                         S3 configuration profile for accessing the workspace
   --pdf_profile PDF_PROFILE
                         S3 configuration profile for accessing the raw pdf documents
   --pages_per_group PAGES_PER_GROUP
                         Aiming for this many pdf pages per work item group
+  --max_page_retries MAX_PAGE_RETRIES
+                        Max number of times we will retry rendering a page
+  --max_page_error_rate MAX_PAGE_ERROR_RATE
+                        Rate of allowable failed pages in a document, 1/250 by default
   --workers WORKERS     Number of workers to run at a time
   --stats               Instead of running any job, reports some statistics about the current workspace
-  --model MODEL         List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest
-                        to access
+  --model MODEL         List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script
+                        will try to use the one which is fastest to access
   --model_max_context MODEL_MAX_CONTEXT
                         Maximum context length that the model was fine tuned under
   --model_chat_template MODEL_CHAT_TEMPLATE
