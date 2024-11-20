@@ -638,7 +638,7 @@ def print_stats(args):
                     total_input_tokens += doc["metadata"].get("total-input-tokens", 0)
                     total_output_tokens += doc["metadata"].get("total-output-tokens", 0)
                     total_pages += doc["metadata"].get("pdf-total-pages", 0)
-                    total_fallback_pages += doc["metadata"].get("pdf-fallback-pages", 0)
+                    total_fallback_pages += doc["metadata"].get("total-fallback-pages", 0)
                     processed_paths.add(doc["metadata"]["Source-File"])
                     
             return doc_count, total_input_tokens, total_output_tokens, total_pages, total_fallback_pages, processed_paths
@@ -687,6 +687,7 @@ def print_stats(args):
     print(f"Total pages processed: {pages_total:,}")
     
     print(f"\nTotal output tokens: {output_tokens_total:,}")
+    print(f"Projected output tokens: {round((output_tokens_total/max(1, completed_items))*total_items):,}")
 
     print(f"\nAverage pages per doc: {pages_total/max(1,docs_total):,.1f}")
     print(f"Average output tokens per doc: {output_tokens_total/max(1,docs_total):,.1f}")
