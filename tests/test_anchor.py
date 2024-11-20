@@ -143,6 +143,17 @@ class AnchorTest(unittest.TestCase):
 
         self.assertEqual(anchor_text.strip(), "Page dimensions: 612.0x792.0")
 
+    def testCannotLoad(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "load_v_error.pdf")
+
+        reader = PdfReader(local_pdf_path)
+        page = 5
+        anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport", target_length=6000)
+
+        print(anchor_text)
+        print(len(anchor_text))
+        self.assertLess(len(anchor_text), 6000)
+
     # TODO This one still fails
     def testExcessiveMapAnchor(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "map1.pdf")
