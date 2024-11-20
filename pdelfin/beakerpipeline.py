@@ -287,6 +287,7 @@ def build_dolma_document(pdf_s3_path, page_results):
     # Build the Dolma document
     metadata = {
         "Source-File": pdf_s3_path,
+        "pdelfin-version": VERSION,
         "pdf-total-pages": len(page_results),
         "total-input-tokens": sum(page.input_tokens for page in page_results),
         "total-output-tokens": sum(page.output_tokens for page in page_results),
@@ -627,27 +628,30 @@ def print_stats(args):
             total_input_tokens = 0
             total_output_tokens = 0
             total_pages = 0
+            total_fallback_pages = 0 
             processed_paths = set()
             
             for line in data.decode('utf-8').splitlines():
                 if line.strip():
                     doc = json.loads(line)
                     doc_count += 1
-                    total_input_tokens += doc["metadata"]["total-input-tokens"]
-                    total_output_tokens += doc["metadata"]["total-output-tokens"]
-                    total_pages += doc["metadata"]["pdf-total-pages"]
+                    total_input_tokens += doc["metadata"].get("total-input-tokens", 0)
+                    total_output_tokens += doc["metadata"].get("total-output-tokens", 0)
+                    total_pages += doc["metadata"].get("pdf-total-pages", 0)
+                    total_fallback_pages += doc["metadata"].get("pdf-fallback-pages", 0)
                     processed_paths.add(doc["metadata"]["Source-File"])
                     
-            return doc_count, total_input_tokens, total_output_tokens, total_pages, processed_paths
+            return doc_count, total_input_tokens, total_output_tokens, total_pages, total_fallback_pages, processed_paths
         except Exception as e:
             logger.warning(f"Error processing {s3_path}: {e}")
-            return 0, 0, 0, 0, set()
+            return 0, 0, 0, 0, 0, set()
     
     print("\nProcessing output files...")
     docs_total = 0
     input_tokens_total = 0
     output_tokens_total = 0
     pages_total = 0
+    fallback_pages_total = 0
     all_processed_paths = set()
     original_paths = set()
     
@@ -661,11 +665,12 @@ def print_stats(args):
         futures = {executor.submit(process_output_file, item): item for item in done_work_items}
         
         for future in tqdm(as_completed(futures), total=len(futures)):
-            doc_count, input_tokens, output_tokens, pages, processed_paths = future.result()
+            doc_count, input_tokens, output_tokens, pages, fallback_pages, processed_paths = future.result()
             docs_total += doc_count
             input_tokens_total += input_tokens
             output_tokens_total += output_tokens
             pages_total += pages
+            fallback_pages_total += fallback_pages
             all_processed_paths.update(processed_paths)
     
     skipped_paths = original_paths - all_processed_paths
@@ -678,6 +683,7 @@ def print_stats(args):
     print(f"\nResults:")
     print(f"Total documents processed: {docs_total:,}")
     print(f"Total documents skipped: {len(skipped_paths):,}")
+    print(f"Total pages on fallback: {fallback_pages_total:,}")
     print(f"Total pages processed: {pages_total:,}")
     
     print(f"\nTotal output tokens: {output_tokens_total:,}")
