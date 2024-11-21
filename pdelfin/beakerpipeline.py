@@ -184,7 +184,7 @@ async def process_page(args, session: httpx.AsyncClient, worker_id: int, pdf_s3_
                 output_tokens=base_response_data["usage"].get("completion_tokens", 0),
                 is_fallback=False,
             )
-        except (httpx.TimeoutException, httpx.ConnectError, asyncio.TimeoutError) as e:
+        except (httpx.TransportError, asyncio.TimeoutError) as e:
             logger.warning(f"Client error on attempt {attempt} for {pdf_s3_path}-{page_num}: {e}")
             
             # Now we want to do exponential backoff, and not count this as an actual page retry
