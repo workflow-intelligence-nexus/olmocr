@@ -22,7 +22,7 @@ from tqdm import tqdm
 from io import BytesIO
 from PIL import Image
 from pypdf import PdfReader
-from functools import partial
+from functools import partial, cache
 from dataclasses import dataclass
 from typing import Optional, Tuple, List, Dict, Set
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
@@ -72,8 +72,8 @@ tracker = WorkerTracker()
 # Process pool for offloading cpu bound work, like calculating anchor texts
 process_pool = ProcessPoolExecutor()
 
-# Filter object so we don't reload it's language detect model each time
-pdf_filter = PdfFilter(languages_to_keep={Language.ENGLISH, None}, apply_download_spam_check=True, apply_form_check=True)
+# Filter object, cached so it will only get loaded when/if you need it
+get_pdf_filter = cache(lambda: PdfFilter(languages_to_keep={Language.ENGLISH, None}, apply_download_spam_check=True, apply_form_check=True))
 
 SGLANG_SERVER_PORT = 30024
 
@@ -238,7 +238,7 @@ async def process_pdf(args, session: httpx.AsyncClient, worker_id: int, pdf_s3_p
 
         logger.info(f"Got {num_pages} pages to do for {pdf_s3_path} in worker {worker_id}")
 
-        if args.apply_filter and pdf_filter.filter_out_pdf(tf.name):
+        if args.apply_filter and get_pdf_filter().filter_out_pdf(tf.name):
             logger.info(f"Filtering out pdf {pdf_s3_path}")
             return None
 
