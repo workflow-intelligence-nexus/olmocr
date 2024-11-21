@@ -30,6 +30,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from pdelfin.s3_queue import S3WorkQueue, WorkItem
 from pdelfin.s3_utils import expand_s3_glob, get_s3_bytes, get_s3_bytes_with_backoff, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
 from pdelfin.data.renderpdf import render_pdf_to_base64png
+from pdelfin.filter.filter import PdfFilter, Language
 from pdelfin.prompts import build_finetuning_prompt, PageResponse
 from pdelfin.prompts.anchor import get_anchor_text
 from pdelfin.check import check_poppler_version
@@ -70,6 +71,9 @@ tracker = WorkerTracker()
 
 # Process pool for offloading cpu bound work, like calculating anchor texts
 process_pool = ProcessPoolExecutor()
+
+# Filter object so we don't reload it's language detect model each time
+pdf_filter = PdfFilter(languages_to_keep={Language.ENGLISH, None}, apply_download_spam_check=True, apply_form_check=True)
 
 SGLANG_SERVER_PORT = 30024
 
@@ -233,6 +237,10 @@ async def process_pdf(args, session: httpx.AsyncClient, worker_id: int, pdf_s3_p
             return None
 
         logger.info(f"Got {num_pages} pages to do for {pdf_s3_path} in worker {worker_id}")
+
+        if args.apply_filter and pdf_filter.filter_out_pdf(tf.name):
+            logger.info(f"Filtering out pdf {pdf_s3_path}")
+            return None
 
         # List to hold the tasks for processing each page
         page_tasks = []
@@ -704,6 +712,7 @@ async def main():
     parser.add_argument('--max_page_retries', type=int, default=8, help='Max number of times we will retry rendering a page')
     parser.add_argument('--max_page_error_rate', type=float, default=0.004, help='Rate of allowable failed pages in a document, 1/250 by default')
     parser.add_argument('--workers', type=int, default=8, help='Number of workers to run at a time')
+    parser.add_argument('--apply_filter', action='store_true', help='Apply basic filtering to English pdfs which are not forms, and not likely seo spam')
     parser.add_argument('--stats', action='store_true', help='Instead of running any job, reports some statistics about the current workspace')
 
     # Model parameters
