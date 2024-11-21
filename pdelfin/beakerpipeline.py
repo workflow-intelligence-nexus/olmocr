@@ -215,7 +215,7 @@ async def process_page(args, session: httpx.AsyncClient, worker_id: int, pdf_s3_
         pdf_s3_path,
         page_num,
         PageResponse(natural_text=get_anchor_text(pdf_local_path, page_num, pdf_engine="pdftotext"),
-                     is_rotation_valid=True, rotation_correction=0, is_table=False, is_diagram=False),
+                     primary_language=None, is_rotation_valid=True, rotation_correction=0, is_table=False, is_diagram=False),
         input_tokens=0,
         output_tokens=0,
         is_fallback=True
