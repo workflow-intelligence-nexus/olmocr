@@ -326,7 +326,7 @@ async def worker(args, work_queue: S3WorkQueue, semaphore, worker_id):
         await tracker.clear_work(worker_id)
 
         try:    
-            async with httpx.AsyncClient(timeout=600, limits=httpx.Limits(max_connections=1000)) as session:
+            async with httpx.AsyncClient(timeout=600, limits=httpx.Limits(max_keepalive_connections=0, max_connections=1000)) as session:
                 async with asyncio.TaskGroup() as tg:      
                     dolma_tasks = [tg.create_task(process_pdf(args, session, worker_id, pdf)) for pdf in work_item.s3_work_paths]
                     logger.info(f"Created all tasks for {work_item.hash}")
