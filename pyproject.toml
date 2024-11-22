@@ -71,8 +71,7 @@ dev = [
 ]
 
 inference = [
-    #"sglang["all"] 
-    #"git+https://github.com/sgl-project/sglang.git@eff468dd5a3d24646560eb044276585f7a11ac3c#subdirectory=python&egg=sglang[all]"
+    "sglang[all]>=0.3.6",
     "beaker-py",
 ]
 
