@@ -437,6 +437,11 @@ async def sglang_server_task(args, semaphore):
             logger.error("Cannot continue, sampling errors detected, model is probably corrupt")
             sys.exit(1)
 
+        # TODO, need to trace down this issue in sglang itself, but it will otherwise cause the server to lock up
+        if "IndexError: list index out of range" in line:
+            logger.error("IndexError in model, restarting server")
+            proc.terminate()
+
         if not server_printed_ready_message and "The server is fired up and ready to roll!" in line:
             server_printed_ready_message = True
             last_semaphore_release = time.time()
