@@ -17,6 +17,7 @@ import tempfile
 import random
 import re
 import torch
+import multiprocessing
 
 from tqdm import tqdm
 from io import BytesIO
@@ -71,7 +72,7 @@ metrics = MetricsKeeper(window=60*5)
 tracker = WorkerTracker()
 
 # Process pool for offloading cpu bound work, like calculating anchor texts
-process_pool = ProcessPoolExecutor()
+process_pool = ProcessPoolExecutor(mp_context=multiprocessing.get_context('spawn'))
 
 # Filter object, cached so it will only get loaded when/if you need it
 get_pdf_filter = cache(lambda: PdfFilter(languages_to_keep={Language.ENGLISH, None}, apply_download_spam_check=True, apply_form_check=True))
@@ -151,14 +152,19 @@ async def process_page(args, session: httpx.AsyncClient, worker_id: int, pdf_s3_
 
         try:
             response = await session.post(COMPLETION_URL, json=query)
-            if response.status_code == 400:
-                raise ValueError(f"Got BadRequestError from server: {response.text}, skipping this response")
-            elif response.status_code == 500:
-                raise ValueError(f"Got InternalServerError from server: {response.text}, skipping this response")
-            else:
-                response.raise_for_status()
 
-            base_response_data = response.json()
+            try:
+                if response.status_code == 400:
+                    raise ValueError(f"Got BadRequestError from server: {response.text}, skipping this response")
+                elif response.status_code == 500:
+                    raise ValueError(f"Got InternalServerError from server: {response.text}, skipping this response")
+                else:
+                    response.raise_for_status()
+
+                base_response_data = response.json()
+            finally:
+                await response.aclose()
+                
 
             if base_response_data["usage"]["total_tokens"] > args.model_max_context:
                 local_anchor_text_len = max(1, local_anchor_text_len // 2)
@@ -186,7 +192,7 @@ async def process_page(args, session: httpx.AsyncClient, worker_id: int, pdf_s3_
                 is_fallback=False,
             )
         except (httpx.TransportError, asyncio.TimeoutError) as e:
-            logger.warning(f"Client error on attempt {attempt} for {pdf_s3_path}-{page_num}: {e}")
+            logger.warning(f"Client error on attempt {attempt} for {pdf_s3_path}-{page_num}: {type(e)} {e}")
             
             # Now we want to do exponential backoff, and not count this as an actual page retry
             # Page retrys are supposed to be for fixing bad results from the model, but actual requests to sglang 
@@ -342,7 +348,7 @@ async def worker(args, work_queue: S3WorkQueue, semaphore, worker_id):
         await tracker.clear_work(worker_id)
 
         try:    
-            async with httpx.AsyncClient(timeout=600, limits=httpx.Limits(max_keepalive_connections=0, max_connections=1000)) as session:
+            async with httpx.AsyncClient(timeout=3600, limits=httpx.Limits(max_keepalive_connections=0, max_connections=6000)) as session:
                 async with asyncio.TaskGroup() as tg:      
                     dolma_tasks = [tg.create_task(process_pdf(args, session, worker_id, pdf)) for pdf in work_item.s3_work_paths]
                     logger.info(f"Created all tasks for {work_item.hash}")
@@ -868,7 +874,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 
     # TODO
-    # - Sglang commit a fix for the context length issue
+    # - Fix broken process pool, maybe we can just do better with a "spawn"?
+    # - Figure out simple repro case for new sglang livelock case with indexerrors
+    # - It seems another case of deadlocks is when many requests are sent/pending to sglang, ex. 3k+ or 4k+ requests, probably hitting some internal limit
     # - aiohttp repro and bug report
     # - Get a solid benchmark on the stream vs non stream approach
     
