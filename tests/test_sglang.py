@@ -77,6 +77,7 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
 
             query["temperature"] = 0.0
             query["logprobs"] = True
+            query["top_logprobs"] = 5
             response = await session.post(COMPLETION_URL, json=query)
 
         print(response.text)
@@ -175,56 +176,76 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
 
         inputs = {key: value.to(self.device) for (key, value) in inputs.items()}
 
-        # Generate the output with temperature=0
-        generation_output = self.model.generate(
-            **inputs,
-            temperature=0.0,
-            max_new_tokens=1,
-            max_length=8192,
-            num_return_sequences=1,
-            do_sample=False,
-            output_scores=True,
-            return_dict_in_generate=True,
-        )
+        generated_tokens = []
+        max_steps = 10
 
-        print(generation_output.scores)
+        top_logprobs_hf = []
 
-        # Extract the generated token's log probabilities
-        scores = generation_output.scores  # Tuple of length 1
-        logits = scores[0]  # Tensor of shape (batch_size, vocab_size)
-        log_probs = F.log_softmax(logits, dim=-1)  # Apply log softmax to get log probabilities
+        for step in range(max_steps):
+            # Generate the output with temperature=0
+            generation_output = self.model.generate(
+                **inputs,
+                temperature=0.0,
+                max_new_tokens=1,
+                max_length=8192,
+                num_return_sequences=1,
+                do_sample=False,
+                output_scores=True,
+                return_dict_in_generate=True,
+            )
 
-        # Get top 5 tokens and their log probabilities
-        topk_log_probs, topk_indices = torch.topk(log_probs[0], k=5)
-        topk_tokens = self.tokenizer.convert_ids_to_tokens(topk_indices.tolist())
+            print(generation_output.scores)
 
-        print("Top 5 tokens and their log probabilities:")
-        for token, log_prob in zip(topk_tokens, topk_log_probs.tolist()):
-            print(f"Token: {token}, Log Prob: {log_prob:.2f}, Prob {math.exp(log_prob):.2f}%")
+            # Extract the generated token's log probabilities
+            scores = generation_output.scores  # Tuple of length 1
+            logits = scores[0]  # Tensor of shape (batch_size, vocab_size)
+            log_probs = F.log_softmax(logits, dim=-1)  # Apply log softmax to get log probabilities
+
+            # Get top 5 tokens and their log probabilities
+            topk_log_probs, topk_indices = torch.topk(log_probs[0], k=5)
+            topk_tokens = self.tokenizer.convert_ids_to_tokens(topk_indices.tolist())
 
 
-        # # Decode the output
-        # decoded_output = self.tokenizer.decode(generation_output[0], skip_special_tokens=True)
+            top_logprobs_hf.append((topk_tokens, topk_log_probs.tolist()))
 
-        # print(decoded_output)
+            # Pick the top token
+            next_token_id = topk_indices[0].unsqueeze(0).unsqueeze(0)  # Shape: (1, 1)
+            next_token_str = self.tokenizer.convert_ids_to_tokens([next_token_id.item()])[0]
 
-        # # Convert the decoded output into the expected PageResponse structure
-        # input_length = inputs["input_ids"].shape[1]
+            generated_tokens.append(next_token_id.item())
 
-        # # Decode the output and extract only the new part
-        # decoded_output = self.tokenizer.decode(generation_output[0], skip_special_tokens=True)
-        # new_part = self.tokenizer.decode(generation_output[0][input_length:], skip_special_tokens=True)
+            # Append the next token to input_ids and update attention_mask
+            inputs['input_ids'] = torch.cat([inputs['input_ids'], next_token_id], dim=-1)
+            inputs['attention_mask'] = torch.cat(
+                [inputs['attention_mask'], torch.ones((1, 1), dtype=inputs['attention_mask'].dtype).to(self.device)], dim=-1
+            )
 
-        # print(new_part)
+        # Now take all the input ids and run them through sglang as a comparison
+        async with AsyncClient(timeout=600) as session:
+            query["temperature"] = 0.0
+            query["max_tokens"] = max_steps 
+            query["logprobs"] = True
+            query["top_logprobs"] = 5
+            COMPLETION_URL = f"http://localhost:{30000}/v1/chat/completions"
+            response = await session.post(COMPLETION_URL, json=query)
 
-        # # Convert the new part into the expected PageResponse structure
-        # generated_response = PageResponse(**json.loads(new_part))
+            response_data = response.json()
 
-        # # Assert the output matches the expected text
-        # self.assertEqual(generated_response.natural_text, EDGAR_TEXT)
+            print(response_data)
+
+            for step, lptok in enumerate(response_data["choices"][0]["logprobs"]["content"]):
+                print("Top 5 tokens and their log probabilities:")
+                (topk_tokens, topk_log_probs) = top_logprobs_hf[step]
+                for token, log_prob, lptokcur in zip(topk_tokens, topk_log_probs, lptok["top_logprobs"]):
+                    print(f"HF Token: {token}, Log Prob: {log_prob:.2f} Prob {math.exp(log_prob)*100:.2f}%  SGLANG Token {lptokcur['token']} Logprob {lptokcur['logprob']} Prob {math.exp(lptokcur['logprob'])*100:.2f}%")
+
+
+            
+
 
     async def asyncTearDown(self):
         # Clean up the model and tokenizer
         del self.model
         del self.tokenizer
         torch.cuda.empty_cache()
+
