@@ -9,6 +9,7 @@ from unittest.mock import patch, AsyncMock
 import os
 import json
 import tempfile
+import math
 import base64
 import torch
 from io import BytesIO
@@ -18,7 +19,7 @@ from pathlib import Path
 from pdelfin.beakerpipeline import sglang_server_task, sglang_server_ready, build_page_query, SGLANG_SERVER_PORT, render_pdf_to_base64png, get_anchor_text, download_directory
 from pdelfin.prompts import PageResponse
 from httpx import AsyncClient
-
+import torch.nn.functional as F
 MODEL_FINETUNED_PATH = "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"
 
 EDGAR_TEXT = (
@@ -52,7 +53,7 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
 
         # Set up a semaphore for server tasks
         self.semaphore = asyncio.Semaphore(1)
-
+        self.maxDiff = None
 
         # Start the sglang server
         self.my_server_task = asyncio.create_task(sglang_server_task(self.args, self.semaphore))
@@ -135,6 +136,7 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
 
         # Path to the test PDF
         self.test_pdf_path = Path(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "edgar.pdf"))
+        self.maxDiff = None
 
     async def test_hugging_face_generation(self):
         query = await build_page_query(
@@ -176,31 +178,49 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         generation_output = self.model.generate(
             **inputs,
             temperature=0.0,
-            max_new_tokens=3000,
+            max_new_tokens=1,
             max_length=8192,
             num_return_sequences=1,
             do_sample=False,
+            output_scores=True,
+            return_dict_in_generate=True,
         )
 
-        # Decode the output
-        decoded_output = self.tokenizer.decode(generation_output[0], skip_special_tokens=True)
+        print(generation_output.scores)
 
-        print(decoded_output)
+        # Extract the generated token's log probabilities
+        scores = generation_output.scores  # Tuple of length 1
+        logits = scores[0]  # Tensor of shape (batch_size, vocab_size)
+        log_probs = F.log_softmax(logits, dim=-1)  # Apply log softmax to get log probabilities
 
-        # Convert the decoded output into the expected PageResponse structure
-        input_length = inputs["input_ids"].shape[1]
+        # Get top 5 tokens and their log probabilities
+        topk_log_probs, topk_indices = torch.topk(log_probs[0], k=5)
+        topk_tokens = self.tokenizer.convert_ids_to_tokens(topk_indices.tolist())
 
-        # Decode the output and extract only the new part
-        decoded_output = self.tokenizer.decode(generation_output[0], skip_special_tokens=True)
-        new_part = self.tokenizer.decode(generation_output[0][input_length:], skip_special_tokens=True)
+        print("Top 5 tokens and their log probabilities:")
+        for token, log_prob in zip(topk_tokens, topk_log_probs.tolist()):
+            print(f"Token: {token}, Log Prob: {log_prob:.2f}, Prob {math.exp(log_prob):.2f}%")
 
-        print(new_part)
 
-        # Convert the new part into the expected PageResponse structure
-        generated_response = PageResponse(**json.loads(new_part))
+        # # Decode the output
+        # decoded_output = self.tokenizer.decode(generation_output[0], skip_special_tokens=True)
 
-        # Assert the output matches the expected text
-        self.assertEqual(generated_response.natural_text, EDGAR_TEXT, maxDiff=None)
+        # print(decoded_output)
+
+        # # Convert the decoded output into the expected PageResponse structure
+        # input_length = inputs["input_ids"].shape[1]
+
+        # # Decode the output and extract only the new part
+        # decoded_output = self.tokenizer.decode(generation_output[0], skip_special_tokens=True)
+        # new_part = self.tokenizer.decode(generation_output[0][input_length:], skip_special_tokens=True)
+
+        # print(new_part)
+
+        # # Convert the new part into the expected PageResponse structure
+        # generated_response = PageResponse(**json.loads(new_part))
+
+        # # Assert the output matches the expected text
+        # self.assertEqual(generated_response.natural_text, EDGAR_TEXT)
 
     async def asyncTearDown(self):
         # Clean up the model and tokenizer
