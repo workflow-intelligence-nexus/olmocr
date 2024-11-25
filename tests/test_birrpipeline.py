@@ -72,27 +72,59 @@ class TestBuildDolmaDoc(unittest.TestCase):
         # Define get_s3_bytes side effect function
         def get_s3_bytes_side_effect(s3_client, s3_path, start_index=None, end_index=None):
             if s3_path == 's3://bucket/inference/output1.jsonl':
+                inner_data = {
+                    "primary_language": "en",
+                    "is_rotation_valid": True,
+                    "rotation_correction": 0,
+                    "is_table": False,
+                    "is_diagram": False,
+                    "natural_text": "Short Text"
+                }
                 data = {
                     "custom_id": f"{pdf_s3_path}-1",
-                    "outputs": [{"text": "{\"is_rotation_valid\": true, \"natural_text\": \"Short Text\"}"}],
+                    "outputs": [{"text": json.dumps(inner_data)}],
                     "round": 0
                 }
             elif s3_path == 's3://bucket/inference/output2.jsonl':
+                inner_data = {
+                    "primary_language": "en",
+                    "is_rotation_valid": False,
+                    "rotation_correction": 90,
+                    "is_table": True,
+                    "is_diagram": False,
+                    "natural_text": "Very Long Text Here that is longer"
+                }
                 data = {
                     "custom_id": f"{pdf_s3_path}-1",
-                    "outputs": [{"text": "{\"is_rotation_valid\": false, \"natural_text\": \"Very Long Text Here that is longer\"}"}],
+                    "outputs": [{"text": json.dumps(inner_data)}],
                     "round": 0
                 }
             elif s3_path == 's3://bucket/inference/output3.jsonl':
+                inner_data = {
+                    "primary_language": "en",
+                    "is_rotation_valid": True,
+                    "rotation_correction": 0,
+                    "is_table": False,
+                    "is_diagram": True,
+                    "natural_text": "Medium Length Text"
+                }
                 data = {
                     "custom_id": f"{pdf_s3_path}-1",
-                    "outputs": [{"text": "{\"is_rotation_valid\": true, \"natural_text\": \"Medium Length Text\"}"}],
+                    "outputs": [{"text": json.dumps(inner_data)}],
                     "round": 0
                 }
             elif s3_path == 's3://bucket/inference/output4.jsonl':
+                inner_data = {
+                    "primary_language": "en",
+                    "is_rotation_valid": True,
+                    "rotation_correction": 0,
+                    "is_table": False,
+                    "is_diagram": False,
+                    "natural_text": "The Longest Correct Text"
+                }
                 data = {
                     "custom_id": f"{pdf_s3_path}-1",
-                    "outputs": [{"text": "{\"is_rotation_valid\": true, \"natural_text\": \"The Longest Correct Text\"}"}],
+                    "outputs": [{"text": json.dumps(inner_data)}],
                     "round": 0
                 }
             else:
