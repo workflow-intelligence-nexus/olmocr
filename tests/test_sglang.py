@@ -59,6 +59,11 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
         self.assertIn("choices", response_data)
         self.assertGreater(len(response_data["choices"]), 0)
 
+        model_response_json = json.loads(response_data["choices"][0]["message"]["content"])
+        page_response = PageResponse(**model_response_json)
+
+        print(page_response)
+
         # Shut down the server
         my_server_task.cancel()
         with self.assertRaises(asyncio.CancelledError):
