@@ -9,8 +9,11 @@ from unittest.mock import patch, AsyncMock
 import os
 import json
 import tempfile
+import base64
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, Qwen2VLForConditionalGeneration
+from io import BytesIO
+from PIL import Image
+from transformers import AutoProcessor, AutoTokenizer, Qwen2VLForConditionalGeneration
 from pathlib import Path
 from pdelfin.beakerpipeline import sglang_server_task, sglang_server_ready, build_page_query, SGLANG_SERVER_PORT, render_pdf_to_base64png, get_anchor_text, download_directory
 from pdelfin.prompts import PageResponse
@@ -126,6 +129,7 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_cache_dir, trust_remote_code=True)
         self.model = Qwen2VLForConditionalGeneration.from_pretrained(model_cache_dir, torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+        self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
 
@@ -133,20 +137,46 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         self.test_pdf_path = Path(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "edgar.pdf"))
 
     async def test_hugging_face_generation(self):
-        # Prepare the input text for the model (mock extracted text for page 1 of the PDF)
-        input_text = (
-            "Extracted content of page 1 of edgar.pdf. "
-            "Convert to natural text with proper formatting and summarization:"
+        query = await build_page_query(
+                str(self.test_pdf_path),
+                page=1,
+                target_longest_image_dim=1024,
+                target_anchor_text_len=6000,
+            )
+
+       # Apply chat template to get the text
+        text = self.processor.apply_chat_template(
+            query["messages"], tokenize=False, add_generation_prompt=True
         )
 
-        # Tokenize the input
-        inputs = self.tokenizer(input_text, return_tensors="pt").to(self.device)
+        print(text)
+
+        image_url = query["messages"][0]["content"][1]["image_url"]["url"]
+
+        # Remove the "data:image/png;base64," prefix
+        base64_image = image_url.split(",")[1]
+
+        # Decode the base64 string into bytes
+        image_data = base64.b64decode(base64_image)
+
+        # Create a BytesIO object and load it into a PIL image
+        main_image = Image.open(BytesIO(image_data))
+
+        # Process inputs using processor
+        inputs = self.processor(
+            text=[text],
+            images=[main_image],
+            padding=True,
+            return_tensors="pt",
+        )
+
+        inputs = {key: value.to(self.device) for (key, value) in inputs.items()}
 
         # Generate the output with temperature=0
         generation_output = self.model.generate(
             **inputs,
             temperature=0.0,
-            max_new_tokens=100,
+            max_new_tokens=3000,
             max_length=8192,
             num_return_sequences=1,
             do_sample=False,
