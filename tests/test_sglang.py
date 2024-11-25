@@ -188,11 +188,19 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         print(decoded_output)
 
         # Convert the decoded output into the expected PageResponse structure
-        generated_response = PageResponse(natural_text=decoded_output)
+        input_length = inputs["input_ids"].shape[1]
 
+        # Decode the output and extract only the new part
+        decoded_output = self.tokenizer.decode(generation_output[0], skip_special_tokens=True)
+        new_part = self.tokenizer.decode(generation_output[0][input_length:], skip_special_tokens=True)
+
+        print(new_part)
+
+        # Convert the new part into the expected PageResponse structure
+        generated_response = PageResponse(**json.loads(new_part))
 
         # Assert the output matches the expected text
-        self.assertEqual(generated_response.natural_text, EDGAR_TEXT)
+        self.assertEqual(generated_response.natural_text, EDGAR_TEXT, maxDiff=None)
 
     async def asyncTearDown(self):
         # Clean up the model and tokenizer
