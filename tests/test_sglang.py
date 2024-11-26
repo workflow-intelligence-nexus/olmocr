@@ -12,6 +12,7 @@ import tempfile
 import math
 import base64
 import torch
+import numpy as np
 from io import BytesIO
 from PIL import Image
 from transformers import AutoProcessor, AutoTokenizer, Qwen2VLForConditionalGeneration
@@ -174,6 +175,10 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
             return_tensors="pt",
         )
 
+        print(f"image_grid_thw - {inputs['image_grid_thw'].shape} {inputs['image_grid_thw']}")
+        print(f"pixel_values - {inputs['pixel_values'].shape} {inputs['pixel_values'].detach().cpu().numpy()}")
+        np.save('/root/pixel_values.npy', inputs['pixel_values'].detach().cpu().numpy())
+
         inputs = {key: value.to(self.device) for (key, value) in inputs.items()}
 
         generated_tokens = []
@@ -187,14 +192,13 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
                 **inputs,
                 temperature=0.0,
                 max_new_tokens=1,
-                max_length=8192,
+                #max_length=8192,
                 num_return_sequences=1,
                 do_sample=False,
                 output_scores=True,
                 return_dict_in_generate=True,
             )
 
-            print(generation_output.scores)
 
             # Extract the generated token's log probabilities
             scores = generation_output.scores  # Tuple of length 1
@@ -230,8 +234,6 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
             response = await session.post(COMPLETION_URL, json=query)
 
             response_data = response.json()
-
-            print(response_data)
 
             for step, lptok in enumerate(response_data["choices"][0]["logprobs"]["content"]):
                 print("\nTop 5 tokens and their log probabilities:")
