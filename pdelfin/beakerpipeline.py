@@ -494,7 +494,13 @@ async def sglang_server_task(args, semaphore):
     stderr_task = asyncio.create_task(read_stream(proc.stderr))
     timeout_task = asyncio.create_task(timeout_task())
 
-    await proc.wait()
+    try:
+        await proc.wait()
+    except asyncio.CancelledError:
+        logger.warning("Got cancellation for sglang_server_task, terminating server")
+        proc.terminate()
+        raise
+
     timeout_task.cancel()
     await asyncio.gather(stdout_task, stderr_task, timeout_task, return_exceptions=True)
 

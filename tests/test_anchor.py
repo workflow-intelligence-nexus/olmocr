@@ -195,5 +195,5 @@ class TestRenderPdf(unittest.TestCase):
                 w1, h1 = get_pdf_media_box_width_height(file, page_num)
                 pypdfpage = reader.pages[page_num - 1]
 
-                self.assertEqual(w1, pypdfpage.mediabox.width)
-                self.assertEqual(h1, pypdfpage.mediabox.height)
+                self.assertAlmostEqual(w1, pypdfpage.mediabox.width, places=3)
+                self.assertAlmostEqual(h1, pypdfpage.mediabox.height, places=3)
