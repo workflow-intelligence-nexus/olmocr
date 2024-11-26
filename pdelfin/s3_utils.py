@@ -3,6 +3,7 @@ import glob
 import posixpath
 import logging
 import tempfile
+import base64
 import boto3
 import time
 import requests
