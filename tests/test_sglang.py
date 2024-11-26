@@ -177,7 +177,7 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         inputs = {key: value.to(self.device) for (key, value) in inputs.items()}
 
         generated_tokens = []
-        max_steps = 10
+        max_steps = 100
 
         top_logprobs_hf = []
 
@@ -234,12 +234,12 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
             print(response_data)
 
             for step, lptok in enumerate(response_data["choices"][0]["logprobs"]["content"]):
-                print("Top 5 tokens and their log probabilities:")
+                print("\nTop 5 tokens and their log probabilities:")
                 (topk_tokens, topk_log_probs) = top_logprobs_hf[step]
                 for token, log_prob, lptokcur in zip(topk_tokens, topk_log_probs, lptok["top_logprobs"]):
-                    print(f"HF Token: {token}, Log Prob: {log_prob:.2f} Prob {math.exp(log_prob)*100:.2f}%  SGLANG Token {lptokcur['token']} Logprob {lptokcur['logprob']} Prob {math.exp(lptokcur['logprob'])*100:.2f}%")
+                    print(f"HF Token: {token} Log Prob: {log_prob:.2f} Prob {math.exp(log_prob)*100:.2f}%  SGLANG Token {lptokcur['token']} Logprob {lptokcur['logprob']:.2f} Prob {math.exp(lptokcur['logprob'])*100:.2f}%")
 
-
+                
             
 
 
