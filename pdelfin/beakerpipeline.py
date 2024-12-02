@@ -517,9 +517,10 @@ async def sglang_server_host(args, semaphore):
         logger.warning("SGLang server task ended")
         retry += 1
 
-    logger.error(f"Ended up restarting the sglang server more than {retry} times, cancelling")
-    sys.exit(1)
-    
+    if retry >= MAX_RETRIES:
+        logger.error(f"Ended up restarting the sglang server more than {retry} times, cancelling")
+        sys.exit(1)
+
 
 async def sglang_server_ready():
     max_attempts = 300
