@@ -509,10 +509,17 @@ async def sglang_server_task(args, semaphore):
 
 
 async def sglang_server_host(args, semaphore):
-    while True:
+    MAX_RETRIES = 5
+    retry = 0
+
+    while retry < MAX_RETRIES:
         await sglang_server_task(args, semaphore)
         logger.warning("SGLang server task ended")
+        retry += 1
 
+    logger.error(f"Ended up restarting the sglang server more than {retry} times, cancelling")
+    sys.exit(1)
+    
 
 async def sglang_server_ready():
     max_attempts = 300
@@ -883,7 +890,6 @@ if __name__ == "__main__":
     asyncio.run(main())
 
     # TODO
-    # - Fix broken process pool, maybe we can just do better with a "spawn"?
     # - Figure out simple repro case for new sglang livelock case with indexerrors
     # - It seems another case of deadlocks is when many requests are sent/pending to sglang, ex. 3k+ or 4k+ requests, probably hitting some internal limit
     # - aiohttp repro and bug report
