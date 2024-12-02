@@ -474,8 +474,11 @@ async def sglang_server_task(args, semaphore):
             line = await stream.readline()
             if not line:
                 break
-            line = line.decode('utf-8').rstrip()
-            await process_line(line)
+            try:
+                line = line.decode('utf-8').rstrip()
+                await process_line(line)
+            except Exception as ex:
+                logger.warning(f"Got {ex} when reading log line from inference server, skipping")
 
     async def timeout_task():
         nonlocal last_running_req, last_queue_req, last_semaphore_release
