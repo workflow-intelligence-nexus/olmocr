@@ -76,7 +76,7 @@ def process_document(data, s3_client, template, output_dir):
     html_content = template.render(id=id_, pages=pages, s3_link=s3_link)
 
     # Write the HTML content to a file
-    filename = f'{id_}.html'
+    filename = f'{source_file.replace("s3://", "").replace("/", "_").replace(".", "_")}.html'
     filepath = os.path.join(output_dir, filename)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(html_content)
