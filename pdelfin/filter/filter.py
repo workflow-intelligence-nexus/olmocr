@@ -72,14 +72,14 @@ class PdfFilter:
         try:
             # Attempt to read the PDF at the beginning
             pdf_reader = PdfReader(local_pdf_path)
+
+            # Form check
+            if self.apply_form_check and self._is_form(pdf_reader):
+                logger.info(f"Filtering out {local_pdf_path} because it's a form")
+                return True  # Filter out
         except Exception as e:
             logger.warning(f"Error reading PDF {local_pdf_path}: {e}")
             return True  # Filter out the PDF if an exception occurs
-
-        # Form check
-        if self.apply_form_check and self._is_form(pdf_reader):
-            logger.info(f"Filtering out {local_pdf_path} because it's a form")
-            return True  # Filter out
 
         # Read the first five pages of text for language calculation
         pdftotext_result = subprocess.run(
