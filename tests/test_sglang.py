@@ -312,10 +312,10 @@ class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
         )
 
         with torch.no_grad():
-            result = self.model.visual(inputs["pixel_values"].to(self.device), grid_thw=inputs["image_grid_thw"].to(self.device))
+            hf_output = self.model.visual(inputs["pixel_values"].to(self.device), grid_thw=inputs["image_grid_thw"].to(self.device))
 
 
-        print("GOT", result, result.shape)
+        print("HF", hf_output, hf_output.shape)
 
         from sglang.srt.configs.model_config import ModelConfig
         from sglang.srt.managers.schedule_batch import Req, ScheduleBatch
@@ -343,4 +343,60 @@ class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
         )
 
         print(model_runner)
+        with torch.no_grad():
+            sglang_output = model_runner.model.visual(inputs["pixel_values"].to(self.device), grid_thw=inputs["image_grid_thw"].to(self.device))
 
+        print("SGLANG", sglang_output, sglang_output.shape)
+
+        # Convert to float32 for numerical stability if needed
+        hf = hf_output.float()
+        sg = sglang_output.float()
+        
+        # Basic shape and dtype comparison
+        print("\n=== Basic Properties ===")
+        print(f"Shapes match: {hf.shape == sg.shape}")
+        print(f"HF shape: {hf.shape}, SGLang shape: {sg.shape}")
+        print(f"HF dtype: {hf.dtype}, SGLang dtype: {sg.dtype}")
+        
+        # Move tensors to CPU for numpy operations
+        hf_np = hf.cpu().numpy()
+        sg_np = sg.cpu().numpy()
+        
+        # Statistical metrics
+        print("\n=== Statistical Metrics ===")
+        print(f"Mean absolute difference: {torch.mean(torch.abs(hf - sg)).item():.6f}")
+        print(f"Max absolute difference: {torch.max(torch.abs(hf - sg)).item():.6f}")
+        print(f"Mean squared error: {torch.mean((hf - sg) ** 2).item():.6f}")
+        print(f"Root mean squared error: {torch.sqrt(torch.mean((hf - sg) ** 2)).item():.6f}")
+        
+        # Cosine similarity (across feature dimension)
+        cos_sim = F.cosine_similarity(hf, sg)
+        print(f"Mean cosine similarity: {torch.mean(cos_sim).item():.6f}")
+        print(f"Min cosine similarity: {torch.min(cos_sim).item():.6f}")
+
+        # Find largest absolute differences
+        print("\n=== Largest Absolute Differences ===")
+        diffs = torch.abs(hf - sg)
+        flat_diffs = diffs.flatten()
+        
+        # Get indices of top 10 differences
+        top_k = 10
+        top_values, top_flat_indices = torch.topk(flat_diffs, top_k)
+        
+        # Convert flat indices to multidimensional indices
+        top_indices = np.unravel_index(top_flat_indices.cpu().numpy(), diffs.shape)
+        
+        print(f"\nTop {top_k} largest absolute differences:")
+        print("Index".ljust(30) + "Difference".ljust(15) + "HF Value".ljust(15) + "SGLang Value")
+        print("-" * 75)
+        
+        for i in range(top_k):
+            # Get the index tuple for this difference
+            idx = tuple(dim[i] for dim in top_indices)
+            diff_val = top_values[i].item()
+            hf_val = hf[idx].item()
+            sg_val = sg[idx].item()
+            
+            # Format the index tuple and values
+            idx_str = str(idx)
+            print(f"{idx_str:<30}{diff_val:<15.6f}{hf_val:<15.6f}{sg_val:.6f}")
