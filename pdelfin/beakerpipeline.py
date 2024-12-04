@@ -21,6 +21,7 @@ import multiprocessing
 
 from tqdm import tqdm
 from urllib.parse import urlparse
+from botocore.exceptions import ClientError
 from io import BytesIO
 from PIL import Image
 from pypdf import PdfReader
@@ -295,10 +296,16 @@ async def process_page(args, worker_id: int, pdf_s3_path: str, pdf_local_path: s
 
 async def process_pdf(args, worker_id: int, pdf_s3_path: str):
     with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
-        # TODO Switch to aioboto3 or something
-        data = await asyncio.to_thread(lambda: get_s3_bytes_with_backoff(pdf_s3, pdf_s3_path))
-        tf.write(data)
-        tf.flush()
+        try:
+            data = await asyncio.to_thread(lambda: get_s3_bytes_with_backoff(pdf_s3, pdf_s3_path))
+            tf.write(data)
+            tf.flush()
+        except ClientError as ex:
+            if ex.response['Error']['Code'] == 'NoSuchKey':
+                logger.info(f"S3 File Not found, skipping it completely {pdf_s3_path}")
+                return None
+            else:
+                raise
 
         try:
             reader = PdfReader(tf.name)

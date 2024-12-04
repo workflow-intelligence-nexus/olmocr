@@ -89,9 +89,9 @@ def get_s3_bytes_with_backoff(s3_client, pdf_s3_path, max_retries: int = 8, back
         try:
             return get_s3_bytes(s3_client, pdf_s3_path)
         except ClientError as e:
-            # Check for AccessDenied error and raise immediately
-            if e.response['Error']['Code'] == 'AccessDenied':
-                logger.error(f"AccessDenied error when trying to access {pdf_s3_path}: {e}")
+            # Check for some error kinds AccessDenied error and raise immediately
+            if e.response['Error']['Code'] in ('AccessDenied', 'NoSuchKey'):
+                logger.error(f"{e.response['Error']['Code']} error when trying to access {pdf_s3_path}: {e}")
                 raise
             else:
                 wait_time = backoff_factor ** attempt
