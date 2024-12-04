@@ -455,12 +455,10 @@ async def worker(args, work_queue: S3WorkQueue, semaphore, worker_id):
             metrics.add_metrics(finished_input_tokens=sum(doc["metadata"]["total-input-tokens"] for doc in dolma_docs),
                                 finished_output_tokens=sum(doc["metadata"]["total-output-tokens"] for doc in dolma_docs))
   
-            # Update last batch time
-            last_batch_time = time.perf_counter()
+            await work_queue.mark_done(work_item)
         except Exception as e:
             logger.exception(f"Exception occurred while processing work_hash {work_item.hash}: {e}")
         finally:
-            await work_queue.mark_done(work_item)
             semaphore.release()
 
 
