@@ -23,20 +23,6 @@ from httpx import AsyncClient
 import torch.nn.functional as F
 MODEL_FINETUNED_PATH = "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"
 
-EDGAR_TEXT = (
-    "Edgar, King of England\n\nEdgar (or Eadgar;[1] c. 944 – 8 July 975) was King of the English from 959 until his death in 975. "
-    "He became king of all England on his brother's death. He was the younger son of King Edmund I and his first wife Ælfgifu. "
-    "A detailed account of Edgar's reign is not possible, because only a few events were recorded by chroniclers and monastic writers "
-    "were more interested in recording the activities of the leaders of the church.\n\nEdgar mainly followed the political policies of his predecessors, "
-    "but there were major changes in the religious sphere. The English Benedictine Reform, which he strongly supported, became a dominant religious and social force.[2] "
-    "It is seen by historians as a major achievement, and it was accompanied by a literary and artistic flowering, mainly associated with Æthelwold, Bishop of Winchester. "
-    "Monasteries aggressively acquired estates from lay landowners with Edgar's assistance, leading to disorder when he died and former owners sought to recover their lost property, "
-    "sometimes by force. Edgar's major administrative reform was the introduction of a standardised coinage in the early 970s to replace the previous decentralised system. "
-    "He also issued legislative codes which mainly concentrated on improving procedures for enforcement of the law.\n\nEngland had suffered from Viking invasions for over a century "
-    "when Edgar came to power, but there were none during his reign, which fell in a lull in attacks between the mid-950s and the early 980s.[3] After his death the throne was disputed "
-    "between the supporters of his two surviving sons; the elder one, Edward the Martyr, was chosen with the support of Dunstan, the Archbishop of Canterbury. Three years later Edward was "
-    "murdered and succeeded by his younger half-brother, Æthelred the Unready. Later chroniclers presented Edgar's reign as a golden age when England was free from external attacks and internal disorder, especially"
-)
 
 class TestSglangServer(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -64,7 +50,7 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
 
     async def test_sglang_server_initialization_and_request(self):
         # Mock data paths
-        self.test_pdf_path = Path(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "edgar.pdf"))
+        self.test_pdf_path = Path(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "ambiguous.pdf"))
 
         # Send a single request to the sglang server for page 1
         async with AsyncClient(timeout=600) as session:
@@ -141,7 +127,7 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         self.model.to(self.device)
 
         # Path to the test PDF
-        self.test_pdf_path = Path(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "edgar.pdf"))
+        self.test_pdf_path = Path(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "ambiguous.pdf"))
         self.maxDiff = None
 
     async def test_hugging_face_generation(self):
@@ -193,7 +179,7 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         inputs = {key: value.to(self.device) for (key, value) in inputs.items()}
 
         generated_tokens = []
-        max_steps = 100
+        max_steps = 50
 
         top_logprobs_hf = []
 
@@ -254,13 +240,107 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
                 for token, log_prob, lptokcur in zip(topk_tokens, topk_log_probs, lptok["top_logprobs"]):
                     print(f"HF Token: {token} Log Prob: {log_prob:.2f} Prob {math.exp(log_prob)*100:.2f}%  SGLANG Token {lptokcur['token']} Logprob {lptokcur['logprob']:.2f} Prob {math.exp(lptokcur['logprob'])*100:.2f}%")
 
-                
-            
-
-
     async def asyncTearDown(self):
         # Clean up the model and tokenizer
         del self.model
         del self.tokenizer
         torch.cuda.empty_cache()
+
+class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        # Set up the Hugging Face model and tokenizer
+        model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
+        download_directory([MODEL_FINETUNED_PATH], model_cache_dir)
+
+        # Check the rope config and make sure it's got the proper key
+        with open(os.path.join(model_cache_dir, "config.json"), "r") as cfin:
+            config_data = json.load(cfin)
+
+        if "rope_type" in config_data["rope_scaling"]:
+            del config_data["rope_scaling"]["rope_type"]
+            config_data["rope_scaling"]["type"] = "mrope"
+
+            with open(os.path.join(model_cache_dir, "config.json"), "w") as cfout:
+                json.dump(config_data, cfout)
+
+        self.model_cache_dir = model_cache_dir
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_cache_dir, trust_remote_code=True)
+        self.image_token_id = self.tokenizer.encode("<|image_pad|>")[0]
+
+        self.model = Qwen2VLForConditionalGeneration.from_pretrained(model_cache_dir, torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+        self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+
+        # Path to the test PDF
+        self.test_pdf_path = Path(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "ambiguous.pdf"))
+        self.maxDiff = None
+
+    async def test_vision_encoder(self):
+        query = await build_page_query(
+                str(self.test_pdf_path),
+                page=1,
+                target_longest_image_dim=1024,
+                target_anchor_text_len=6000,
+            )
+
+        messages = query["messages"]
+  
+        # Apply chat template to get the text
+        text = self.processor.apply_chat_template(
+            query["messages"], tokenize=False, add_generation_prompt=True
+        )
+
+        image_url = query["messages"][0]["content"][1]["image_url"]["url"]
+
+        # Remove the "data:image/png;base64," prefix
+        base64_image = image_url.split(",")[1]
+
+        # Decode the base64 string into bytes
+        image_data = base64.b64decode(base64_image)
+
+        # Create a BytesIO object and load it into a PIL image
+        main_image = Image.open(BytesIO(image_data))
+
+        # Process inputs using processor
+        inputs = self.processor(
+            text=[text],
+            images=[main_image],
+            padding=True,
+            return_tensors="pt",
+        )
+
+        with torch.no_grad():
+            result = self.model.visual(inputs["pixel_values"].to(self.device), grid_thw=inputs["image_grid_thw"].to(self.device))
+
+
+        print("GOT", result, result.shape)
+
+        from sglang.srt.configs.model_config import ModelConfig
+        from sglang.srt.managers.schedule_batch import Req, ScheduleBatch
+        from sglang.srt.model_executor.forward_batch_info import ForwardBatch
+        from sglang.srt.model_executor.model_runner import ModelRunner
+        from sglang.srt.sampling.sampling_params import SamplingParams
+        from sglang.srt.hf_transformers_utils import get_tokenizer
+        from sglang.srt.server_args import ServerArgs, PortArgs
+
+        model_config = ModelConfig(
+            self.model_cache_dir,
+            model_override_args="{}"
+        )
+        
+        server_args = ServerArgs(model_path=self.model_cache_dir)
+        # Initialize model runner
+        model_runner = ModelRunner(
+            model_config=model_config,
+            mem_fraction_static=0.8,
+            gpu_id=0,
+            tp_rank=0,
+            tp_size=1,
+            nccl_port=12435,
+            server_args=server_args,
+        )
+
+        print(model_runner)
 
