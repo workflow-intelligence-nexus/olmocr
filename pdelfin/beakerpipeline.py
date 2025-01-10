@@ -718,7 +718,7 @@ def submit_beaker_job(args):
 
 def print_stats(args):    
     LONG_CONTEXT_THRESHOLD = 32768
-    
+
     # Get total work items and completed items
     index_file_s3_path = os.path.join(args.workspace, "work_index_list.csv.zstd")
     output_glob = os.path.join(args.workspace, "results", "*.jsonl")
@@ -858,7 +858,7 @@ async def main():
     # Beaker/job running stuff
     parser.add_argument('--beaker', action='store_true', help='Submit this job to beaker instead of running locally')
     parser.add_argument('--beaker_workspace', help='Beaker workspace to submit to', default='ai2/pdelfin')
-    parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/pluto-cirrascale", "ai2/neptune-cirrascale", "ai2/saturn-cirrascale", "ai2/augusta-google-1"])
+    parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/ceres-cirrascale", "ai2/neptune-cirrascale", "ai2/saturn-cirrascale", "ai2/augusta-google-1"])
     parser.add_argument('--beaker_gpus', type=int, default=1, help="Number of gpu replicas to run")
     parser.add_argument('--beaker_priority', type=str, default="normal", help="Beaker priority level for the job")
     args = parser.parse_args()

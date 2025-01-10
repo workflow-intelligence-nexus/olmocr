@@ -50,7 +50,7 @@ def download_batch_result(batch_id, output_folder):
         return batch_id, False
     
     if batch_data.output_file_id is None:
-        print(f"WARNING: {batch_id} is completed, but not output file was generated")
+        print(f"WARNING: {batch_id} is completed, but no output file was generated")
         return batch_id, False
 
     print(f"Downloading batch data for {batch_id}")

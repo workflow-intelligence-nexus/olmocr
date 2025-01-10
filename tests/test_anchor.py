@@ -197,3 +197,12 @@ class TestRenderPdf(unittest.TestCase):
 
                 self.assertAlmostEqual(w1, pypdfpage.mediabox.width, places=3)
                 self.assertAlmostEqual(h1, pypdfpage.mediabox.height, places=3)
+
+class TestOutputSamplePage(unittest.TestCase):
+    def testTobaccoPaper(self):
+        local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
+        anchor_text = get_anchor_text(local_pdf_path, 1, 'pdfreport', target_length=6000)
+
+        print("")
+        print(anchor_text)
+        print("")
