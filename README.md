@@ -10,7 +10,7 @@ What is included:
  - An eval toolkit for comparing different pipeline versions - [runeval.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/eval/runeval.py)
  - Basic filtering by language and SEO spam removal - [filter.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/filter/filter.py)
  - Finetuning code for Qwen2-VL (and soon other VLMs) - [train.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/train/train.py)
- - Processing millions of PDFs through a finetuned model using VLLM (requires [birr](https://github.com/allenai/mise/tree/main/birr)) - [birrpipeline.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/birrpipeline.py)
+ - Processing millions of PDFs through a finetuned model using Sglang - [beakerpipeline.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/beakerpipeline.py)
  - Viewing Dolma Docs created from PDFs - [dolmaviewer.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/viewer/dolmaviewer.py)
 
 ### Installation
