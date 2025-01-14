@@ -42,6 +42,7 @@ def build_review_page(args, comparisons):
        page_data.append({
                 "s3_path": comp.pdf_path,
                 "page": 1,
+                "entry_key": comp.pdf_path + "-" + comp.comparison_a_method + "-" + comp.comparison_b_method,
                 "gold_text": comp.comparison_a_str,
                 "gold_metadata": comp.comparison_a_method,
                 "eval_text": comp.comparison_b_str,

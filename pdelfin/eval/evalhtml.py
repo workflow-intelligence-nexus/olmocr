@@ -70,6 +70,7 @@ def process_entry(i, entry):
         "page_image": page_image_base64,
         "s3_path": entry["s3_path"],
         "page": entry["page"],
+        "key": entry.get("entry_key", entry["s3_path"] + "_" + str(entry["page"])),
         "alignment": entry["alignment"],
         "signed_pdf_link": signed_pdf_link,
         "left_metadata": left_metadata,
