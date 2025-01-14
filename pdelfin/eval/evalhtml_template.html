@@ -200,7 +200,7 @@
 
     <div class="container">
         {% for entry in entries %}
-        <div class="entry {{ entry.gold_class }} {{ entry.eval_class }}" data-entry-id="{{ entry.s3_path | replace('/', '_') }}_{{ entry.page }}">
+        <div class="entry {{ entry.gold_class }} {{ entry.eval_class }}" data-entry-id="{{ entry.s3_path | replace('/', '_') }}_{{ entry.page }}" data-left-metadata="{{ entry.left_metadata }}" data-right-metadata="{{ entry.right_metadata }}">
             <div class="image-container">
                 <img src="data:image/png;base64,{{ entry.page_image }}" alt="Render">
 

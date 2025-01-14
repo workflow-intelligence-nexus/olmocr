@@ -35,9 +35,11 @@ def process_entry(i, entry):
     if random.choice([True, False]):
         left_text, right_text = entry["gold_text"], entry["eval_text"]
         left_class, right_class = "gold", "eval"
+        left_metadata, right_metadata = entry.get("gold_metadata", ""), entry.get("eval_metadata", "")
     else:
         left_text, right_text = entry["eval_text"], entry["gold_text"]
         left_class, right_class = "eval", "gold"
+        left_metadata, right_metadata = entry.get("eval_metadata", ""), entry.get("gold_metadata", "")
 
     # Generate diff for right_text compared to left_text
     diff_html = generate_diff_html(left_text, right_text)
@@ -70,6 +72,8 @@ def process_entry(i, entry):
         "page": entry["page"],
         "alignment": entry["alignment"],
         "signed_pdf_link": signed_pdf_link,
+        "left_metadata": left_metadata,
+        "right_metadata": right_metadata,
         "left_text": left_text,
         "right_text": right_text,
         "diff_text": diff_html, 
