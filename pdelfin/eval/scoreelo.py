@@ -66,11 +66,7 @@ def parse_entry_metadata(html):
         entry_id_1: {
           'left_metadata': str,
           'right_metadata': str,
-          'is_left_gold': bool,
-          'is_right_gold': bool,
-          'is_left_eval': bool,
-          'is_right_eval': bool,
-          ...
+          'class_str': str,
         },
         ...
       }
@@ -78,15 +74,7 @@ def parse_entry_metadata(html):
     Note: This uses a regex that looks for something like:
         <div class="entry gold eval" data-entry-id="..." 
              data-left-metadata="..." data-right-metadata="...">
-    Adjust if your HTML changes structure or you need more nuance.
     """
-    # This regex attempts to capture:
-    #   1) The entire `class="entry ..."` portion (to detect "gold", "eval", etc.)
-    #   2) data-entry-id="some_string"
-    #   3) data-left-metadata="some_string"
-    #   4) data-right-metadata="some_string"
-    # 
-    # We use a DOTALL and multiline approach, and some non-greedy capturing.
     pattern = re.compile(
         r'<div\s+class="entry([^"]*)"\s+data-entry-id="([^"]+)"\s+data-left-metadata="([^"]+)"\s+data-right-metadata="([^"]+)"',
         re.DOTALL | re.MULTILINE
@@ -101,27 +89,6 @@ def parse_entry_metadata(html):
 
         # Transform the HTML's data-entry-id to match the JS datastore keys:
         entry_id = sanitize_key(entry_id)
-
-
-        # Basic flags
-        is_left_gold = " gold" in class_str or class_str.startswith("gold")
-        is_right_gold = " gold" in class_str or class_str.startswith("gold")
-        is_left_eval = " eval" in class_str or class_str.startswith("eval")
-        is_right_eval = " eval" in class_str or class_str.startswith("eval")
-
-        # The above checks are naive because the template often has: 
-        #    class="entry gold eval"
-        # for the entire entry, meaning it might not tell you *which side* is gold/eval.
-        # 
-        # If your template uses "left_class=gold" or "right_class=eval" etc. 
-        # you might need to refine your approach:
-        # For instance, we see the code uses separate classes on the text blocks themselves:
-        #    <div class="text-block {{ entry.left_class }}" data-choice="left">
-        # So you may want to parse those sub-blocks if you need the actual side. 
-        #
-        # For demonstration, we'll just store the raw class string plus the metadata:
-        # 
-        # If the real logic is "gold" is always left, "eval" is always right, you can adapt here.
 
         entries[entry_id] = {
             "class_str": class_str,
@@ -138,19 +105,13 @@ def build_comparison_report(entries_dict, datastore):
     We assume:
       - If user vote is 'left', then left_metadata's method "wins".
       - If user vote is 'right', then right_metadata's method "wins".
-      - If user vote is 'both_good', 'both_bad', or 'invalid_pdf', we do not count it as a direct matchup.
+      - If user vote is 'both_good', 'both_bad', or 'invalid_pdf', 
+        we do not count it as a direct matchup.
     
-    Returns a nested dict or a summary of (methodA, methodB) => { "A_wins": x, "B_wins": y }.
+    Returns a structure:
+      comparisons[(A, B)] = [A_wins, B_wins],
+        where A < B lexicographically in that tuple.
     """
-    print(entries_dict)
-    
-    print("")
-
-    print(datastore)
-
-    print("")
-
-    # comparisons[ (methodA, methodB) ] = [A_wins, B_wins]
     comparisons = defaultdict(lambda: [0, 0])  
 
     for entry_id, vote in datastore.items():
@@ -161,47 +122,91 @@ def build_comparison_report(entries_dict, datastore):
         left_method = entries_dict[entry_id]["left_metadata"]
         right_method = entries_dict[entry_id]["right_metadata"]
         
+        if left_method == right_method:
+            # Same "method" on both sides => skip
+            continue
+        
         if vote == "left":
             # left_method beats right_method
-            if left_method != right_method:
-                # Use a sorted tuple so the pair is always in a consistent order
-                pair = tuple(sorted([left_method, right_method]))
-                if pair[0] == left_method:
-                    comparisons[pair][0] += 1  # left_method is pair[0]
-                else:
-                    comparisons[pair][1] += 1  # left_method is pair[1]
+            pair = tuple(sorted([left_method, right_method]))
+            if pair[0] == left_method:
+                comparisons[pair][0] += 1
+            else:
+                comparisons[pair][1] += 1
         
         elif vote == "right":
             # right_method beats left_method
-            if left_method != right_method:
-                pair = tuple(sorted([left_method, right_method]))
-                if pair[0] == right_method:
-                    comparisons[pair][0] += 1
-                else:
-                    comparisons[pair][1] += 1
+            pair = tuple(sorted([left_method, right_method]))
+            if pair[0] == right_method:
+                comparisons[pair][0] += 1
+            else:
+                comparisons[pair][1] += 1
         
         else:
-            # "both_good", "both_bad", "invalid_pdf", etc. 
-            # Not counted as a direct head-to-head winner.
+            # "both_good", "both_bad", "invalid_pdf", etc. -> not counted
             pass
 
+    return comparisons
 
-    # Build a more readable summary
-    # comparisons[(A, B)] = [A_wins, B_wins], where A < B lexicographically in that tuple
-    results = []
+def elo_update(ratingA, ratingB, scoreA, scoreB, k=32):
+    """
+    Perform a single ELO update for a match between A and B.
+      - ratingA, ratingB are current ELO ratings of A and B.
+      - scoreA, scoreB in {0 or 1} (1 if the player is the winner, 0 if loser).
+      - Returns (new_ratingA, new_ratingB).
+    """
+    # Expected scores for each player
+    expectedA = 1 / (1 + 10 ** ((ratingB - ratingA) / 400))
+    expectedB = 1 / (1 + 10 ** ((ratingA - ratingB) / 400))
+
+    new_ratingA = ratingA + k * (scoreA - expectedA)
+    new_ratingB = ratingB + k * (scoreB - expectedB)
+    return new_ratingA, new_ratingB
+
+def compute_elo_arena(comparisons, k=32, initial_rating=1500):
+    """
+    Given the aggregated comparisons dict:
+      comparisons[(A, B)] = [A_wins, B_wins]
+
+    1) Collect all unique methods.
+    2) Initialize them to initial_rating (1500).
+    3) For each pair (A, B), apply A_wins times the scenario 
+       "A beats B" -> ELO update
+       B_wins times the scenario "B beats A" -> ELO update
+
+    Because we don't have a strict order of matches, we just 
+    apply them in some consistent but arbitrary order.
+
+    Returns a dict { method_name: final_elo_rating }
+    """
+    # 1) Collect all unique methods
+    methods = set()
+    for (A,B) in comparisons.keys():
+        methods.add(A)
+        methods.add(B)
+
+    # 2) Initialize ratings
+    ratings = {m: float(initial_rating) for m in methods}
+
+    # 3) Walk through each pair
     for (A, B), (A_wins, B_wins) in comparisons.items():
-        total = A_wins + B_wins
-        A_rate = (A_wins / total) if total else 0
-        B_rate = (B_wins / total) if total else 0
-        results.append({
-            "methodA": A,
-            "methodB": B,
-            "A_wins": A_wins,
-            "B_wins": B_wins,
-            "A_win_rate": f"{100 * A_rate:.1f}%",
-            "B_win_rate": f"{100 * B_rate:.1f}%",
-        })
-    return results
+        for _ in range(A_wins):
+            # A beats B
+            oldA = ratings[A]
+            oldB = ratings[B]
+            newA, newB = elo_update(oldA, oldB, 1, 0, k=k)
+            ratings[A] = newA
+            ratings[B] = newB
+        
+        for _ in range(B_wins):
+            # B beats A
+            oldA = ratings[A]
+            oldB = ratings[B]
+            newA, newB = elo_update(oldA, oldB, 0, 1, k=k)
+            ratings[A] = newA
+            ratings[B] = newB
+
+    return ratings
 
 def make_report(urls):
     """
@@ -211,6 +216,7 @@ def make_report(urls):
       - Fetches the JSON datastore
       - Parses .entry blocks for metadata
       - Produces an overall "win rate" report for each method vs method
+      - Produces an ELO arena result for each method
     """
     # Aggregate all entries from all URLs into a single dict
     # so each entry_id is unique across all pages (they usually are).
@@ -243,27 +249,33 @@ def make_report(urls):
             master_datastore[k] = v
 
     # Now build the comparison report
-    report = build_comparison_report(master_entries_dict, master_datastore)
-
-    print("=== Comparison Report (Win Rates) ===")
-    if not report:
+    comparisons = build_comparison_report(master_entries_dict, master_datastore)
+    
+    print("=== Pairwise Win/Loss Report ===")
+    if not comparisons:
         print("No head-to-head comparisons found (did not find left/right votes).")
         return
     
     # Print out each matchup
-    for row in report:
-        A = row["methodA"]
-        B = row["methodB"]
-        A_wins = row["A_wins"]
-        B_wins = row["B_wins"]
-        A_win_rate = row["A_win_rate"]
-        B_win_rate = row["B_win_rate"]
-        
+    for (A, B), (A_wins, B_wins) in comparisons.items():
+        total = A_wins + B_wins
+        A_rate = A_wins / total * 100 if total else 0
+        B_rate = B_wins / total * 100 if total else 0
         print(
             f"{A} vs {B}: "
-            f"{A} wins={A_wins} ({A_win_rate}), "
-            f"{B} wins={B_wins} ({B_win_rate})"
+            f"{A} wins={A_wins} ({A_rate:.1f}%), "
+            f"{B} wins={B_wins} ({B_rate:.1f}%)"
         )
+
+    # ==== ELO Arena ====
+    elo_ratings = compute_elo_arena(comparisons, k=32, initial_rating=1500)
+    
+    # Sort methods by final rating descending
+    sorted_ratings = sorted(elo_ratings.items(), key=lambda x: x[1], reverse=True)
+    
+    print("\n=== ELO Arena Results ===")
+    for method, rating in sorted_ratings:
+        print(f"{method}: {rating:.2f}")
 
 if __name__ == "__main__":
     # Example usage
