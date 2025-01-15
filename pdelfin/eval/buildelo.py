@@ -63,13 +63,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '--review_size',
-        default=20,
+        default=50,
         type=int,
         help="Number of entries to show on the generated review page",
     )
     parser.add_argument(
         '--comparisons',
-        default=["pdelf", "gotocr", "gotocr_format"],
+        default=["pdelf", "gotocr", "gotocr_format", "mineru"],
         help="Different variants to compare against"
     )
     parser.add_argument(
@@ -113,10 +113,14 @@ if __name__ == "__main__":
                 alignment=comparer.compute(text_a, text_b)
                 )
             )
+
+        # if len(all_comps) > 1000:
+        #     break
     
-        # DEBUG CODE, remove
-        if len(all_comps) > 10:
-            break
-            
-    all_comps.sort(key=lambda c: c.alignment)
+    # Sorting by alignment score is problemetic, because it only returns completely pathological parses
+    # And we miss cases where the parse is similar, but one thing hallucinated a word or two, etc.
+    #all_comps.sort(key=lambda c: c.alignment)
+    
+    random.shuffle(all_comps)
+
     result = build_review_page(args, all_comps[0:args.review_size])
