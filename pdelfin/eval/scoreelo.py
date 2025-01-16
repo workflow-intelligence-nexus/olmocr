@@ -280,7 +280,25 @@ def make_report(urls):
 if __name__ == "__main__":
     # Example usage
     urls = [
-        "https://jakep-tinyhost.s3.amazonaws.com/review_page-681aae527593.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=BR1nqCUKQLBlh3HIsHjeyRVQumI%3D&Expires=1737500018",
-        # Add more URLs here...
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_0-e09ebadf34a7.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=JEQpJxSaMIHuc9DFHyfHuxx0dEU%3D&Expires=1737654586",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_1-c2d267f97a73.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=KMiOTQiFEvgxU94ZrlJRFAgSQZA%3D&Expires=1737654587",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_10-b806c811fb67.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=NaoHNU2ZmEGrgMsxg2JHK%2Fv5zd0%3D&Expires=1737654587",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_11-19c1936b4372.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=BjkVydyKjzzH3uZiZ1GkWAk6cbk%3D&Expires=1737654588",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_12-cd41808a7974.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=jsk8TzJTKJwHi1Ru4%2Bw%2BiHZG638%3D&Expires=1737654589",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_13-8b055079b5eb.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=SE7kkobEBip44O8JY5axoMTV2Bs%3D&Expires=1737654590",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_14-1126e0da563c.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=jLSEWpDUzpmS8P9mNXbBoDYDOwU%3D&Expires=1737654590",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_15-05704e3d000d.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=TaCbyv2%2FDGCnCOgTzUvfEXdO%2Fmo%3D&Expires=1737654591",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_16-e57f795a89da.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=stqm1etAfDIpAQGNvZwe9c%2BYUbA%3D&Expires=1737654592",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_17-041a6d042764.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=rOTroBcSqCh3oM65bOJHEfaeal8%3D&Expires=1737654592",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_18-7a29697cee63.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=abmYM9KtzjicmdacRykPWXCdQr0%3D&Expires=1737654593",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_19-d32f14c067f8.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=iVg3nxrZXVpYybkLJIgOEJ3v37E%3D&Expires=1737654594",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_2-43c553548e69.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=IK27gl7b6NY05YNnnsimMVJc99I%3D&Expires=1737654595",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_3-fb42a458ecd5.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=d1qevJe8ZQONnu7zezYSJe3cbBw%3D&Expires=1737654595",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_4-76a50eed331a.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=qwZu2q1H4Y%2Bf3Kw7DNSYcTxwI7A%3D&Expires=1737654596",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_5-150b4d3583de.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=c%2FeqjnDSIRirgQviFWRLWVowKmA%3D&Expires=1737654597",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_6-6ca285526fd3.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=tkWDDuRinY77BLQCqumtlMiFJU8%3D&Expires=1737654598",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_7-01d711ee8bf7.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=eQtFo6CHJYHGu85wK0YG5khlE5U%3D&Expires=1737654598",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_8-0f36b852f274.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=weI3WB8vhjBYjk6t85DmyLdP97k%3D&Expires=1737654599",
+        "https://jakep-tinyhost.s3.amazonaws.com/review_page_9-115e33463fd2.html?AWSAccessKeyId=AKIASHLPW4FEVZOPGK46&Signature=b4CpkHprCUtZoL0u%2FFYzsu%2BB1yU%3D&Expires=1737654600",
     ]
     make_report(urls)
