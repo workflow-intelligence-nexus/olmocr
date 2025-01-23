@@ -1688,7 +1688,7 @@ class Molmo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
         torch.backends.cuda.enable_flash_sdp(True)
-        torch.backends.cuda.enable_mem_efficient_sdp(True)  # this is super slow so make sure torch won't use it
+        torch.backends.cuda.enable_mem_efficient_sdp(True)  # jakep: I found that setting this to true in torch 2.5.1 greatly increased performance (6sec/it from 22sec/it)
 
         wte = None
         if self.config.additional_vocab_size is not None:
