@@ -20,7 +20,13 @@ def main():
 
     print("Training dataset........")
     print(train_dataset)
-    print(train_dataset[0])
+
+    train_example = train_dataset[0]
+    print(train_example)
+    print({(x, y.shape) for x,y in train_example.items()})
+    print("\nTokens")
+    print(processor.tokenizer.batch_decode(train_example["input_ids"]))
+
     print("\n\n")
 
     print("Validation dataset........")
