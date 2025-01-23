@@ -8,7 +8,7 @@ wandb:
   entity: ai2-llm
 
 generate:
-  max_length: 8192
+  max_length: 4096
 
 train_data:
   seed: 1337
@@ -62,7 +62,7 @@ lora:
   rank: 32
   alpha: 32
   dropout: 0.05
-  task_type: causal_lm
+  task_type: CAUSAL_LM
   target_modules:
       # attention layers in main transformer
       - att_proj 
