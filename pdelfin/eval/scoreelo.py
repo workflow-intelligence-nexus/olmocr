@@ -1,7 +1,7 @@
 import requests
 import re
 from urllib.parse import urlsplit, urlunsplit, parse_qs, urlencode
-import json
+import csv
 from collections import defaultdict
 
 def fetch_review_page_html(url):
@@ -266,6 +266,17 @@ def make_report(urls):
             f"{A} wins={A_wins} ({A_rate:.1f}%), "
             f"{B} wins={B_wins} ({B_rate:.1f}%)"
         )
+
+    # -- ADDED: Write the same data to scoreelo.csv
+    with open("scoreelo.csv", "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["MethodA", "MethodB", "A_wins", "B_wins", "A_rate(%)", "B_rate(%)"])
+        for (A, B), (A_wins, B_wins) in comparisons.items():
+            total = A_wins + B_wins
+            A_rate = A_wins / total * 100 if total else 0
+            B_rate = B_wins / total * 100 if total else 0
+            writer.writerow([A, B, A_wins, B_wins, f"{A_rate:.1f}", f"{B_rate:.1f}"])
+
 
     # ==== ELO Arena ====
     elo_ratings = compute_elo_arena(comparisons, k=32, initial_rating=1500)
