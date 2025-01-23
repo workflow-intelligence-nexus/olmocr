@@ -37,6 +37,7 @@ class MolmoProcessorTest(unittest.TestCase):
         print(inputs)
 
         print("\nShapes")
+        # {('input_ids', torch.Size([1, 589])), ('images', torch.Size([1, 5, 576, 588])), ('image_masks', torch.Size([1, 5, 576])), ('image_input_idx', torch.Size([1, 5, 144]))}
         print({(x, y.shape) for x,y in inputs.items()})
 
         print("\nTokens")
