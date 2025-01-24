@@ -10,7 +10,7 @@ then
 fi
 
 
-EXTRA_ARGS="-c pdelfin/train/config/molmo-o-lora.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/molmo-pdf/v1/models/\${BEAKER_USER_ID}\""
+EXTRA_ARGS="-c pdelfin/train/config/molmo-o-lora-8192.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/molmo-pdf/v1/models/\${BEAKER_USER_ID}\""
 
 run_name=$(basename "$0" .sh)
 
@@ -22,8 +22,8 @@ run_name=$(basename "$0" .sh)
 CLUSTER='jupiter'
 
 gantry run \
-    --description "${run_name}-4096"\
-    --task-name "${run_name}-4096"\
+    --description "${run_name}-8192"\
+    --task-name "${run_name}-8192"\
     --allow-dirty \
     --host-networking \
     --workspace ai2/oe-data-model-based-cleanup \
