@@ -22,8 +22,8 @@ run_name=$(basename "$0" .sh)
 CLUSTER='jupiter'
 
 gantry run \
-    --description "${run_name}"\
-    --task-name "${run_name}"\
+    --description "${run_name}-4096"\
+    --task-name "${run_name}-4096"\
     --allow-dirty \
     --host-networking \
     --workspace ai2/oe-data-model-based-cleanup \
@@ -32,7 +32,6 @@ gantry run \
     --pip gantry-requirements.txt \
     --priority high \
     --gpus 8 \
-    --preemptible \
     --cluster "ai2/${CLUSTER}*" \
     --budget ai2/oe-data \
     --weka "oe-data-default:/data" \
