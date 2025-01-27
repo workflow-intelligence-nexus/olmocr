@@ -10,19 +10,19 @@ from PIL import Image
 from transformers import AutoProcessor
 from unittest.mock import patch
 
-from pdelfin.train.dataloader import (
+from olmocr.train.dataloader import (
     build_finetuning_dataset,
 )
 
-from pdelfin.train.dataprep import (
+from olmocr.train.dataprep import (
     prepare_data_for_qwen2_training, build_finetuning_prompt,
     prepare_data_for_molmo_training, batch_prepare_data_for_molmo_training
 )
 import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from pdelfin.train.utils import make_dataset
-from pdelfin.train.core.config import TrainConfig, DataConfig, SourceConfig
+from olmocr.train.utils import make_dataset
+from olmocr.train.core.config import TrainConfig, DataConfig, SourceConfig
 
 class TestDataprep(unittest.TestCase):
     def testFullDataloader(self):
@@ -215,8 +215,8 @@ class TestMolmoDataPrep(unittest.TestCase):
         random.seed(42)
 
         # Mock the functions that require actual PDF files
-        with patch('pdelfin.prompts.anchor.get_anchor_text') as mock_get_anchor_text, \
-            patch('pdelfin.data.renderpdf.render_pdf_to_base64png') as mock_render_pdf_to_base64png:
+        with patch('olmocr.prompts.anchor.get_anchor_text') as mock_get_anchor_text, \
+            patch('olmocr.data.renderpdf.render_pdf_to_base64png') as mock_render_pdf_to_base64png:
 
             # Set return values for the mocked functions
             mock_get_anchor_text.return_value = "This is the anchor text."
@@ -323,8 +323,8 @@ class TestMolmoDataPrep(unittest.TestCase):
         target_anchor_text_len = [0, 6000]
 
         # Mock the necessary functions
-        with patch('pdelfin.prompts.anchor.get_anchor_text') as mock_get_anchor_text, \
-            patch('pdelfin.data.renderpdf.render_pdf_to_base64png') as mock_render_pdf_to_base64png:
+        with patch('olmocr.prompts.anchor.get_anchor_text') as mock_get_anchor_text, \
+            patch('olmocr.data.renderpdf.render_pdf_to_base64png') as mock_render_pdf_to_base64png:
 
             mock_get_anchor_text.return_value = "This is the anchor text."
             img = Image.new('RGB', (100, 100), color='red')

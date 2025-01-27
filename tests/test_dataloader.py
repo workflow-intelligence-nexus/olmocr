@@ -5,14 +5,14 @@ from functools import partial
 
 from transformers import AutoProcessor
 
-from pdelfin.train.dataloader import (
+from olmocr.train.dataloader import (
     build_finetuning_dataset,
     extract_openai_batch_response,
     load_jsonl_into_ds,
     list_dataset_files
 )
 
-from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training
+from olmocr.train.dataprep import batch_prepare_data_for_qwen2_training
 
 
 class TestBatchQueryResponseDataset(unittest.TestCase):

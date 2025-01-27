@@ -2,7 +2,7 @@
 
 ## Steps
 
-1. Update the version in `pdelfin/version.py`.
+1. Update the version in `olmocr/version.py`.
 
 3. Run the release script:
 

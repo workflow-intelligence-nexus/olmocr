@@ -1,23 +1,23 @@
 Installation
 ============
 
-**pdelfin** supports Python >= 3.8.
+**olmocr** supports Python >= 3.8.
 
 ## Installing with `pip`
 
-**pdelfin** is available [on PyPI](https://pypi.org/project/pdelfin/). Just run
+**olmocr** is available [on PyPI](https://pypi.org/project/olmocr/). Just run
 
 ```bash
-pip install pdelfin
+pip install olmocr
 ```
 
 ## Installing from source
 
-To install **pdelfin** from source, first clone [the repository](https://github.com/allenai/pdelfin):
+To install **olmocr** from source, first clone [the repository](https://github.com/allenai/olmocr):
 
 ```bash
-git clone https://github.com/allenai/pdelfin.git
-cd pdelfin
+git clone https://github.com/allenai/olmocr.git
+cd olmocr
 ```
 
 Then run

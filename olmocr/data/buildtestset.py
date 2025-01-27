@@ -10,8 +10,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from urllib.parse import urlparse
 from typing import List
 
-from pdelfin.data.renderpdf import render_pdf_to_base64png
-from pdelfin.filter import PdfFilter
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.filter import PdfFilter
 
 pdf_filter = PdfFilter()
 

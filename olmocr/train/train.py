@@ -36,11 +36,11 @@ from torch.utils.data import DataLoader
 
 import wandb
 
-from pdelfin.train.core.cli import make_cli, save_config, to_native_types
-from pdelfin.train.core.config import TrainConfig
-from pdelfin.train.core.loggers import get_logger
-from pdelfin.train.core.paths import copy_dir, join_path
-from pdelfin.train.core.state import BeakerState
+from olmocr.train.core.cli import make_cli, save_config, to_native_types
+from olmocr.train.core.config import TrainConfig
+from olmocr.train.core.loggers import get_logger
+from olmocr.train.core.paths import copy_dir, join_path
+from olmocr.train.core.state import BeakerState
 
 from .utils import (
     RunName,

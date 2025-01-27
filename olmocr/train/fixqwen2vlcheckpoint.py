@@ -9,7 +9,7 @@ import concurrent.futures
 from smart_open import smart_open
 
 from transformers import Qwen2VLForConditionalGeneration
-from pdelfin.s3_utils import parse_s3_path
+from olmocr.s3_utils import parse_s3_path
 
 s3_client = boto3.client('s3')
 

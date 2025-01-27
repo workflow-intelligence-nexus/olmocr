@@ -16,9 +16,9 @@ import boto3
 from datasets import Dataset, Features, Value, load_dataset, concatenate_datasets, DatasetDict
 from .core.config import DataConfig, SourceConfig
 
-from pdelfin.prompts.anchor import get_anchor_text
-from pdelfin.s3_utils import parse_custom_id, get_s3_bytes, parse_s3_path
-from pdelfin.data.renderpdf import get_pdf_media_box_width_height
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.s3_utils import parse_custom_id, get_s3_bytes, parse_s3_path
+from olmocr.data.renderpdf import get_pdf_media_box_width_height
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -143,7 +143,7 @@ def cache_s3_files(dataset: Dataset, pdf_cache_location: str, num_proc: int = 32
 
 def build_finetuning_dataset(response_glob_path: str, pdf_cache_location: Optional[str]=None, num_proc: int=32) -> Dataset:
     if pdf_cache_location is None:
-        pdf_cache_location = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin_pdfs')
+        pdf_cache_location = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr_pdfs')
 
     logger.info("Loading fine tuning dataset from OpenAI style batch responses")
     response_data = load_jsonl_into_ds(response_glob_path)

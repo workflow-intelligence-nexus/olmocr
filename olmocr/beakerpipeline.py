@@ -31,15 +31,15 @@ from typing import Optional, Tuple, List, Dict, Set
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
 
-from pdelfin.s3_queue import S3WorkQueue, WorkItem
-from pdelfin.s3_utils import expand_s3_glob, get_s3_bytes, get_s3_bytes_with_backoff, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
-from pdelfin.data.renderpdf import render_pdf_to_base64png
-from pdelfin.filter.filter import PdfFilter, Language
-from pdelfin.prompts import build_finetuning_prompt, PageResponse
-from pdelfin.prompts.anchor import get_anchor_text
-from pdelfin.check import check_poppler_version
-from pdelfin.metrics import MetricsKeeper, WorkerTracker
-from pdelfin.version import VERSION
+from olmocr.s3_queue import S3WorkQueue, WorkItem
+from olmocr.s3_utils import expand_s3_glob, get_s3_bytes, get_s3_bytes_with_backoff, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.filter.filter import PdfFilter, Language
+from olmocr.prompts import build_finetuning_prompt, PageResponse
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.check import check_poppler_version
+from olmocr.metrics import MetricsKeeper, WorkerTracker
+from olmocr.version import VERSION
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -380,7 +380,7 @@ def build_dolma_document(pdf_s3_path, page_results):
     # Build the Dolma document
     metadata = {
         "Source-File": pdf_s3_path,
-        "pdelfin-version": VERSION,
+        "olmocr-version": VERSION,
         "pdf-total-pages": len(page_results),
         "total-input-tokens": sum(page.input_tokens for page in page_results),
         "total-output-tokens": sum(page.output_tokens for page in page_results),
@@ -392,7 +392,7 @@ def build_dolma_document(pdf_s3_path, page_results):
     dolma_doc = {
         "id": id_,
         "text": document_text,
-        "source": "pdelfin",
+        "source": "olmocr",
         "added": datetime.datetime.now().strftime("%Y-%m-%d"),
         "created": datetime.datetime.now().strftime("%Y-%m-%d"),
         "metadata": metadata,
@@ -463,7 +463,7 @@ async def worker(args, work_queue: S3WorkQueue, semaphore, worker_id):
 
 
 async def sglang_server_task(args, semaphore):
-    model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
+    model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
     download_directory(args.model, model_cache_dir)
 
     # Check the rope config and make sure it's got the proper key
@@ -642,7 +642,7 @@ def submit_beaker_job(args):
     owner = account.name
     beaker_image = f"jakep/pdelfin-inference-{VERSION}"
 
-    task_name = f"pdelfin-{os.path.basename(args.workspace.rstrip('/'))}"
+    task_name = f"olmocr-{os.path.basename(args.workspace.rstrip('/'))}"
 
     # Take out --beaker flag so the workers will just run things
     args_list = [arg for arg in sys.argv[1:] if arg != "--beaker"]
@@ -695,7 +695,7 @@ def submit_beaker_job(args):
                     preemptible=True,
                 ),
                 image=ImageSource(beaker=beaker_image),
-                command=["python", "-m", "pdelfin.beakerpipeline"] + args_list,
+                command=["python", "-m", "olmocr.beakerpipeline"] + args_list,
                 env_vars=[
                     EnvVar(name="BEAKER_JOB_NAME", value=task_name),
                     EnvVar(name="OWNER", value=owner),
@@ -857,7 +857,7 @@ async def main():
 
     # Beaker/job running stuff
     parser.add_argument('--beaker', action='store_true', help='Submit this job to beaker instead of running locally')
-    parser.add_argument('--beaker_workspace', help='Beaker workspace to submit to', default='ai2/pdelfin')
+    parser.add_argument('--beaker_workspace', help='Beaker workspace to submit to', default='ai2/olmocr')
     parser.add_argument('--beaker_cluster', help='Beaker clusters you want to run on', default=["ai2/jupiter-cirrascale-2", "ai2/ceres-cirrascale", "ai2/neptune-cirrascale", "ai2/saturn-cirrascale", "ai2/augusta-google-1"])
     parser.add_argument('--beaker_gpus', type=int, default=1, help="Number of gpu replicas to run")
     parser.add_argument('--beaker_priority', type=str, default="normal", help="Beaker priority level for the job")

@@ -7,7 +7,7 @@ import hashlib
 from typing import List, Dict
 
 # Import the classes we're testing
-from pdelfin.s3_queue import S3WorkQueue, WorkItem
+from olmocr.s3_queue import S3WorkQueue, WorkItem
 
 class TestS3WorkQueue(unittest.TestCase):
     def setUp(self):
@@ -70,8 +70,8 @@ class TestS3WorkQueue(unittest.TestCase):
     async def test_populate_queue_new_items(self):
         """Test populating queue with new items"""
         # Mock empty existing index
-        with patch('pdelfin.s3_queue.download_zstd_csv', return_value=[]):
-            with patch('pdelfin.s3_queue.upload_zstd_csv') as mock_upload:
+        with patch('olmocr.s3_queue.download_zstd_csv', return_value=[]):
+            with patch('olmocr.s3_queue.upload_zstd_csv') as mock_upload:
                 await self.work_queue.populate_queue(self.sample_paths, items_per_group=2)
                 
                 # Verify upload was called with correct data
@@ -97,8 +97,8 @@ class TestS3WorkQueue(unittest.TestCase):
         existing_hash = S3WorkQueue._compute_workgroup_hash(existing_paths)
         existing_line = f"{existing_hash},{existing_paths[0]}"
         
-        with patch('pdelfin.s3_queue.download_zstd_csv', return_value=[existing_line]):
-            with patch('pdelfin.s3_queue.upload_zstd_csv') as mock_upload:
+        with patch('olmocr.s3_queue.download_zstd_csv', return_value=[existing_line]):
+            with patch('olmocr.s3_queue.upload_zstd_csv') as mock_upload:
                 await self.work_queue.populate_queue(existing_paths + new_paths, items_per_group=1)
                 
                 # Verify upload called with both existing and new items
@@ -116,8 +116,8 @@ class TestS3WorkQueue(unittest.TestCase):
         
         completed_items = [f"s3://test-bucket/workspace/results/output_{work_hash}.jsonl"]
         
-        with patch('pdelfin.s3_queue.download_zstd_csv', return_value=[work_line]):
-            with patch('pdelfin.s3_queue.expand_s3_glob', return_value=completed_items):
+        with patch('olmocr.s3_queue.download_zstd_csv', return_value=[work_line]):
+            with patch('olmocr.s3_queue.expand_s3_glob', return_value=completed_items):
                 await self.work_queue.initialize_queue()
                 
                 # Queue should be empty since all work is completed

@@ -7,11 +7,11 @@ import base64
 from PIL import Image
 
 # Adjust the import path to match where your code resides
-from pdelfin.birrpipeline import build_dolma_doc, DatabaseManager, build_finetuning_prompt, build_page_query
+from olmocr.birrpipeline import build_dolma_doc, DatabaseManager, build_finetuning_prompt, build_page_query
 
 class TestBuildDolmaDoc(unittest.TestCase):
-    @patch('pdelfin.birrpipeline.DatabaseManager')
-    @patch('pdelfin.birrpipeline.get_s3_bytes')
+    @patch('olmocr.birrpipeline.DatabaseManager')
+    @patch('olmocr.birrpipeline.get_s3_bytes')
     def test_build_dolma_doc_with_multiple_page_entries(self, mock_get_s3_bytes, mock_DatabaseManager):
         # Mock DatabaseManager instance
         mock_db_instance = MagicMock()

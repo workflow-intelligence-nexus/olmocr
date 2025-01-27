@@ -7,12 +7,12 @@ Toolkit for training language models to work with PDF documents in the wild.
 
 
 What is included:
- - A prompting strategy to get really good natural text parsing using ChatGPT 4o - [buildsilver.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/data/buildsilver.py)
- - An eval toolkit for comparing different pipeline versions - [runeval.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/eval/runeval.py)
- - Basic filtering by language and SEO spam removal - [filter.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/filter/filter.py)
- - Finetuning code for Qwen2-VL (and soon other VLMs) - [train.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/train/train.py)
- - Processing millions of PDFs through a finetuned model using Sglang - [beakerpipeline.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/beakerpipeline.py)
- - Viewing Dolma Docs created from PDFs - [dolmaviewer.py](https://github.com/allenai/pdelfin/blob/main/pdelfin/viewer/dolmaviewer.py)
+ - A prompting strategy to get really good natural text parsing using ChatGPT 4o - [buildsilver.py](https://github.com/allenai/olmocr/blob/main/olmocr/data/buildsilver.py)
+ - An eval toolkit for comparing different pipeline versions - [runeval.py](https://github.com/allenai/olmocr/blob/main/olmocr/eval/runeval.py)
+ - Basic filtering by language and SEO spam removal - [filter.py](https://github.com/allenai/olmocr/blob/main/olmocr/filter/filter.py)
+ - Finetuning code for Qwen2-VL (and soon other VLMs) - [train.py](https://github.com/allenai/olmocr/blob/main/olmocr/train/train.py)
+ - Processing millions of PDFs through a finetuned model using Sglang - [beakerpipeline.py](https://github.com/allenai/olmocr/blob/main/olmocr/beakerpipeline.py)
+ - Viewing Dolma Docs created from PDFs - [dolmaviewer.py](https://github.com/allenai/olmocr/blob/main/olmocr/viewer/dolmaviewer.py)
 
 ### Installation
 
@@ -22,10 +22,10 @@ You will need to install poppler-utils and then also some fonts on your computer
 sudo apt-get install poppler-utils ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 ```
 
-Then, clone and install the pdelfin package
+Then, clone and install the olmocr package
 ```bash
-git clone https://github.com/allenai/pdelfin.git
-cd pdelfin
+git clone https://github.com/allenai/olmocr.git
+cd olmocr
 pip install -e .
 ```
 
@@ -43,7 +43,7 @@ It also runs at 2,800+ tokens per second per H100 GPU.
 
 For example:
 ```bash
-python -m pdelfin.beakerpipeline s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename] --pdfs s3://ai2-oe-data/jakep/gnarly_pdfs/*.pdf --beaker
+python -m olmocr.beakerpipeline s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename] --pdfs s3://ai2-oe-data/jakep/gnarly_pdfs/*.pdf --beaker
 ```
 
 This will convert all the pdfs at `s3://ai2-oe-data/jakep/gnarly_pdfs/*.pdf` and output dolma formatted documents at `s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/results`
@@ -53,7 +53,7 @@ With default settings, it should work fine on any available GPUs.
 
 
 ```bash
-python -m pdelfin.beakerpipeline --help
+python -m olmocr.beakerpipeline --help
 usage: beakerpipeline.py [-h] [--pdfs PDFS] [--workspace_profile WORKSPACE_PROFILE] [--pdf_profile PDF_PROFILE] [--pages_per_group PAGES_PER_GROUP]
                          [--max_page_retries MAX_PAGE_RETRIES] [--max_page_error_rate MAX_PAGE_ERROR_RATE] [--workers WORKERS] [--stats]
                          [--model MODEL] [--model_max_context MODEL_MAX_CONTEXT] [--model_chat_template MODEL_CHAT_TEMPLATE]

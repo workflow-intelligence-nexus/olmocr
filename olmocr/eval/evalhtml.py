@@ -7,7 +7,7 @@ from jinja2 import Template
 from urllib.parse import urlparse
 from difflib import SequenceMatcher
 from tqdm import tqdm
-from pdelfin.data.renderpdf import render_pdf_to_base64png
+from olmocr.data.renderpdf import render_pdf_to_base64png
 
 session = boto3.Session(profile_name='s2')
 s3_client = session.client('s3')

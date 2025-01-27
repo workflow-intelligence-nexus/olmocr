@@ -97,7 +97,7 @@ jobs:
         if: always()
         run: |
           . .venv/bin/activate
-          pip uninstall -y pdelfin
+          pip uninstall -y olmocr
 
   release:
     name: Release

@@ -28,8 +28,8 @@ from .core.state import BeakerState
 
 T = TypeVar("T")
 
-from pdelfin.train.dataloader import build_finetuning_dataset, list_dataset_files
-from pdelfin.train.dataprep import batch_prepare_data_for_qwen2_training, batch_prepare_data_for_molmo_training
+from olmocr.train.dataloader import build_finetuning_dataset, list_dataset_files
+from olmocr.train.dataprep import batch_prepare_data_for_qwen2_training, batch_prepare_data_for_molmo_training
 
 
 def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:

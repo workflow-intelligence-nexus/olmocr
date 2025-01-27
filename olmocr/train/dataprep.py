@@ -6,9 +6,9 @@ import base64
 import random
 import torch  # Make sure to import torch as it's used in the DataCollator
 
-from pdelfin.prompts.anchor import get_anchor_text
-from pdelfin.prompts import build_finetuning_prompt
-from pdelfin.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.prompts import build_finetuning_prompt
+from olmocr.data.renderpdf import render_pdf_to_base64png
 
 
 def prepare_data_for_qwen2_training(example, processor, target_longest_image_dim: Union[int, list[int]], target_anchor_text_len: Union[int, list[int]]):

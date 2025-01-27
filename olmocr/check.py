@@ -14,7 +14,7 @@ def check_poppler_version():
             sys.exit(1)
     except FileNotFoundError:
         logger.error("pdftoppm is not installed.")
-        logger.error("Check the README in the https://github.com/allenai/pdelfin/blob/main/README.md for installation instructions")
+        logger.error("Check the README in the https://github.com/allenai/olmocr/blob/main/README.md for installation instructions")
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 # See https://setuptools.pypa.io/en/latest/userguide/quickstart.html for more project configuration options.
-name = "pdelfin"
+name = "olmocr"
 dynamic = ["version"]
 readme = "README.md"
 classifiers = [
@@ -42,10 +42,10 @@ dependencies = [
 license = {file = "LICENSE"}
 
 [project.urls]
-Homepage = "https://github.com/allenai/pdelfin"
-Repository = "https://github.com/allenai/pdelfin"
-Changelog = "https://github.com/allenai/pdelfin/blob/main/CHANGELOG.md"
-# Documentation = "https://pdelfin.readthedocs.io/"
+Homepage = "https://github.com/allenai/olmocr"
+Repository = "https://github.com/allenai/olmocr"
+Changelog = "https://github.com/allenai/olmocr/blob/main/CHANGELOG.md"
+# Documentation = "https://olmocr.readthedocs.io/"
 
 [project.optional-dependencies]
 dev = [
@@ -103,10 +103,10 @@ exclude = [
 include-package-data = true
 
 [tool.setuptools.package-data]
-pdelfin = ["py.typed"]
+olmocr = ["py.typed"]
 
 [tool.setuptools.dynamic]
-version = {attr = "pdelfin.version.VERSION"}
+version = {attr = "olmocr.version.VERSION"}
 
 [tool.black]
 line-length = 120

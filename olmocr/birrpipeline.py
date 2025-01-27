@@ -25,11 +25,11 @@ from urllib.parse import urlparse
 import concurrent.futures
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from pdelfin.data.renderpdf import render_pdf_to_base64png
-from pdelfin.prompts import build_finetuning_prompt, PageResponse
-from pdelfin.prompts.anchor import get_anchor_text
-from pdelfin.s3_utils import parse_custom_id, expand_s3_glob, get_s3_bytes, parse_s3_path
-from pdelfin.check import check_poppler_version
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts import build_finetuning_prompt, PageResponse
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.s3_utils import parse_custom_id, expand_s3_glob, get_s3_bytes, parse_s3_path
+from olmocr.check import check_poppler_version
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class DatabaseManager:
 
     def __init__(self, s3_workspace: str, skip_init: bool=False):
         cache_key = hashlib.sha256(s3_workspace.strip().lower().encode('utf-8')).hexdigest()
-        home_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', cache_key)
+        home_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', cache_key)
         os.makedirs(home_cache_dir, exist_ok=True)
         self.db_path = os.path.join(home_cache_dir, 'index.db')
         
@@ -618,7 +618,7 @@ def build_dolma_doc(s3_workspace: str, pdf: DatabaseManager.PDFRecord) -> Option
     dolma_doc = {
         "id": id_,
         "text": document_text,
-        "source": "pdelfin",
+        "source": "olmocr",
         "added": datetime.datetime.now().strftime("%Y-%m-%d"),
         "created": datetime.datetime.now().strftime("%Y-%m-%d"),
         "metadata": metadata,

@@ -12,10 +12,10 @@ from typing import Generator
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from urllib.parse import urlparse
 
-from pdelfin.data.renderpdf import render_pdf_to_base64png
-from pdelfin.prompts import build_openai_silver_data_prompt, openai_response_format_schema
-from pdelfin.prompts.anchor import get_anchor_text
-from pdelfin.filter import PdfFilter
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts import build_openai_silver_data_prompt, openai_response_format_schema
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.filter import PdfFilter
 
 TARGET_IMAGE_DIM = 2048
 

@@ -10,7 +10,7 @@ then
 fi
 
 
-EXTRA_ARGS="-c pdelfin/train/config/qwen2vl-7b.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/\${BEAKER_USER_ID}\""
+EXTRA_ARGS="-c olmocr/train/config/qwen2vl-7b.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/\${BEAKER_USER_ID}\""
 
 run_name=$(basename "$0" .sh)
 
@@ -44,4 +44,4 @@ gantry run \
     --env-secret WANDB_API_KEY=JAKE_WANDB_API_KEY \
     --shared-memory 10GiB \
     --yes \
-    -- /bin/bash -c "source scripts/beaker/${CLUSTER}-ib.sh && python -m pdelfin.train.loaddataset ${EXTRA_ARGS} && accelerate launch --use_fsdp --num_processes \${BEAKER_ASSIGNED_GPU_COUNT} --fsdp_offload_params false --fsdp_sharding_strategy FULL_SHARD --fsdp_auto_wrap_policy TRANSFORMER_BASED_WRAP --mixed_precision bf16 -m pdelfin.train.train ${EXTRA_ARGS}"
+    -- /bin/bash -c "source scripts/beaker/${CLUSTER}-ib.sh && python -m olmocr.train.loaddataset ${EXTRA_ARGS} && accelerate launch --use_fsdp --num_processes \${BEAKER_ASSIGNED_GPU_COUNT} --fsdp_offload_params false --fsdp_sharding_strategy FULL_SHARD --fsdp_auto_wrap_policy TRANSFORMER_BASED_WRAP --mixed_precision bf16 -m olmocr.train.train ${EXTRA_ARGS}"

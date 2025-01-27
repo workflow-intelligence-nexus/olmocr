@@ -3,8 +3,8 @@ from transformers import (
     DataCollatorForSeq2Seq
 )
 
-from pdelfin.train.core.cli import make_cli
-from pdelfin.train.core.config import TrainConfig
+from olmocr.train.core.cli import make_cli
+from olmocr.train.core.config import TrainConfig
 from tqdm import tqdm
 from .utils import (
     make_dataset, TruncatingCollator

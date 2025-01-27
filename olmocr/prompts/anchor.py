@@ -19,11 +19,11 @@ from functools import lru_cache
 import pypdfium2 as pdfium
 import pymupdf
 
-from pdelfin.filter.coherency import get_document_coherency
+from olmocr.filter.coherency import get_document_coherency
 
 from pypdf import PdfReader
 from pypdf.generic import RectangleObject
-from pdelfin.prompts._adv_anchor import mult
+from olmocr.prompts._adv_anchor import mult
 
 
 def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"], target_length: int=4000) -> str:

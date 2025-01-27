@@ -6,8 +6,8 @@ import glob
 
 from pypdf import PdfReader
 
-from pdelfin.prompts.anchor import _pdf_report, _linearize_pdf_report, get_anchor_text
-from pdelfin.data.renderpdf import get_pdf_media_box_width_height
+from olmocr.prompts.anchor import _pdf_report, _linearize_pdf_report, get_anchor_text
+from olmocr.data.renderpdf import get_pdf_media_box_width_height
 
 class AnchorTest(unittest.TestCase):
     def testExtractText(self):
@@ -168,11 +168,11 @@ class BuildSilverTest(unittest.TestCase):
     def testSmallPage(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "small_page_size.pdf")
 
-        from pdelfin.data.buildsilver import build_page_query
+        from olmocr.data.buildsilver import build_page_query
 
         result = build_page_query(local_pdf_path, "s3://test.pdf", 1)
 
-        from pdelfin.data.renderpdf import get_png_dimensions_from_base64
+        from olmocr.data.renderpdf import get_png_dimensions_from_base64
 
         base64data = result["body"]["messages"][0]["content"][1]["image_url"]["url"]
 

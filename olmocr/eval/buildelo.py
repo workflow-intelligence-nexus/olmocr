@@ -8,12 +8,12 @@ import functools
 
 from tqdm import tqdm
 from itertools import combinations
-from pdelfin.s3_utils import parse_s3_path, expand_s3_glob, get_s3_bytes
+from olmocr.s3_utils import parse_s3_path, expand_s3_glob, get_s3_bytes
 from dolma_refine.evaluate.metrics import DocumentEditSimilarity
 from dolma_refine.evaluate.segmenters import SpacySegmenter
 from dolma_refine.evaluate.aligners import HirschbergAligner
 
-from pdelfin.eval.evalhtml import create_review_html
+from olmocr.eval.evalhtml import create_review_html
 
 @dataclasses.dataclass
 class Comparison:

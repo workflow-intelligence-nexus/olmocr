@@ -17,8 +17,8 @@ from io import BytesIO
 from PIL import Image
 from transformers import AutoProcessor, AutoTokenizer, Qwen2VLForConditionalGeneration
 from pathlib import Path
-from pdelfin.beakerpipeline import sglang_server_task, sglang_server_ready, build_page_query, SGLANG_SERVER_PORT, render_pdf_to_base64png, get_anchor_text, download_directory
-from pdelfin.prompts import PageResponse
+from olmocr.beakerpipeline import sglang_server_task, sglang_server_ready, build_page_query, SGLANG_SERVER_PORT, render_pdf_to_base64png, get_anchor_text, download_directory
+from olmocr.prompts import PageResponse
 from httpx import AsyncClient
 import torch.nn.functional as F
 MODEL_FINETUNED_PATH = "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"
@@ -103,7 +103,7 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
 class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         # Set up the Hugging Face model and tokenizer
-        model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
+        model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
         download_directory([MODEL_FINETUNED_PATH], model_cache_dir)
 
         # Check the rope config and make sure it's got the proper key
@@ -249,7 +249,7 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
 class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         # Set up the Hugging Face model and tokenizer
-        model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'pdelfin', 'model')
+        model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
         download_directory([MODEL_FINETUNED_PATH], model_cache_dir)
 
         # Check the rope config and make sure it's got the proper key

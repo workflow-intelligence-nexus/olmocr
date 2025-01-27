@@ -4,15 +4,15 @@ from io import BytesIO
 from PIL import Image
 from transformers import AutoProcessor
 
-from pdelfin.data.renderpdf import render_pdf_to_base64png
-from pdelfin.train.dataprep import (
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.train.dataprep import (
     prepare_data_for_qwen2_training, build_finetuning_prompt
 )
 import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from pdelfin.train.utils import make_dataset
-from pdelfin.train.core.config import TrainConfig, DataConfig, SourceConfig
+from olmocr.train.utils import make_dataset
+from olmocr.train.core.config import TrainConfig, DataConfig, SourceConfig
 
 import math
 
@@ -138,7 +138,7 @@ class TestBirrTokenization(unittest.TestCase):
         from birr.core.config import FormatConfig, LLMModelConfig
         from birr.batch_inference.data_models import RawInputItem
 
-        from pdelfin.birrpipeline import build_page_query
+        from olmocr.birrpipeline import build_page_query
 
         original_query = build_page_query(os.path.join(
             os.path.dirname(__file__),

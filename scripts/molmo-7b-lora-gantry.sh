@@ -10,7 +10,7 @@ then
 fi
 
 
-EXTRA_ARGS="-c pdelfin/train/config/molmo-o-lora-8192.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/molmo-pdf/v1/models/\${BEAKER_USER_ID}\""
+EXTRA_ARGS="-c olmocr/train/config/molmo-o-lora-8192.yaml --num_proc 64 --save.path \"s3://ai2-oe-data/jakep/experiments/molmo-pdf/v1/models/\${BEAKER_USER_ID}\""
 
 run_name=$(basename "$0" .sh)
 
@@ -45,4 +45,4 @@ gantry run \
     --env-secret WANDB_API_KEY=JAKE_WANDB_API_KEY \
     --shared-memory 10GiB \
     --yes \
-    -- /bin/bash -c "source scripts/beaker/${CLUSTER}-ib.sh && python -m pdelfin.train.loaddataset ${EXTRA_ARGS} && accelerate launch --multi_gpu --num_processes \${BEAKER_ASSIGNED_GPU_COUNT} --mixed_precision bf16 -m pdelfin.train.train ${EXTRA_ARGS}"
+    -- /bin/bash -c "source scripts/beaker/${CLUSTER}-ib.sh && python -m olmocr.train.loaddataset ${EXTRA_ARGS} && accelerate launch --multi_gpu --num_processes \${BEAKER_ASSIGNED_GPU_COUNT} --mixed_precision bf16 -m olmocr.train.train ${EXTRA_ARGS}"

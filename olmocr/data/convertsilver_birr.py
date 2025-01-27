@@ -10,9 +10,9 @@ import os
 
 import smart_open
 import boto3
-from pdelfin.prompts import build_finetuning_prompt
-from pdelfin.prompts.anchor import get_anchor_text
-from pdelfin.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts import build_finetuning_prompt
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.data.renderpdf import render_pdf_to_base64png
 
 # Import Plotly for plotting
 import plotly.express as px

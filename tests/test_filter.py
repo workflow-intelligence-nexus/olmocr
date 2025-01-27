@@ -3,7 +3,7 @@ import unittest
 
 from pypdf import PdfReader
 
-from pdelfin.filter import PdfFilter
+from olmocr.filter import PdfFilter
 
 
 class PdfFilterTest(unittest.TestCase):

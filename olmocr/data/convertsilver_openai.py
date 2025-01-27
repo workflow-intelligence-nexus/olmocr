@@ -9,7 +9,7 @@ import logging
 
 import smart_open
 from cached_path import cached_path
-from pdelfin.prompts import build_finetuning_prompt
+from olmocr.prompts import build_finetuning_prompt
 
 
 def setup_logging():
@@ -73,12 +73,12 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                         # Save the pdf to a temporary cache folder
                         local_pdf_path = cached_path(s3_path, quiet=True)
 
-                        from pdelfin.prompts.anchor import get_anchor_text
-                        from pdelfin.data.buildsilver import build_page_query
+                        from olmocr.prompts.anchor import get_anchor_text
+                        from olmocr.data.buildsilver import build_page_query
                         obj = build_page_query(local_pdf_path, s3_path, page)
                         # raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
-                        # from pdelfin.prompts import build_openai_silver_data_prompt
+                        # from olmocr.prompts import build_openai_silver_data_prompt
                         # obj["body"]["messages"][0]["content"][0]["text"] = build_openai_silver_data_prompt(raw_page_text)
 
                 if obj is not None:

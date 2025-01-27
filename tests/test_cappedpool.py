@@ -4,7 +4,7 @@ import concurrent.futures
 from concurrent.futures import TimeoutError
 
 # Assuming the CappedProcessPoolExecutor code is in a module named 'capped_executor'
-from pdelfin.cappedpool import CappedProcessPoolExecutor
+from olmocr.cappedpool import CappedProcessPoolExecutor
 
 # Define functions at the top level to ensure they are picklable by multiprocessing
 

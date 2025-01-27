@@ -36,17 +36,17 @@ RUN /root/.local/bin/uv pip install --system flashinfer -i https://flashinfer.ai
 ENV PYTHONUNBUFFERED=1
 WORKDIR /root
 COPY pyproject.toml pyproject.toml
-COPY pdelfin/version.py pdelfin/version.py
+COPY olmocr/version.py olmocr/version.py
 
 RUN /root/.local/bin/uv pip install --system --no-cache -e .[inference]
 
-COPY pdelfin pdelfin
+COPY olmocr olmocr
 
 # TODO You can remove this once pypdf > 5.10 comes out
 RUN /root/.local/bin/uv pip install --system --no-cache git+https://github.com/py-pdf/pypdf.git@c6e43374ab002d76811ec85333fdc2c82c268251
 
 WORKDIR /root
-COPY pdelfin pdelfin
+COPY olmocr olmocr
 
 RUN python3 -m sglang.launch_server --help
-RUN python3 -m pdelfin.beakerpipeline --help
+RUN python3 -m olmocr.beakerpipeline --help

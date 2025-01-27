@@ -5,7 +5,7 @@ import os
 import boto3
 from datasets import Dataset
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
-from pdelfin.train.dataloader import build_batch_query_response_vision_dataset
+from olmocr.train.dataloader import build_batch_query_response_vision_dataset
 
 
 def save_dataset_in_parquet(dataset: Dataset, output_dir: str, rows_per_file: int = 10000, s3_endpoint_url: str = None):

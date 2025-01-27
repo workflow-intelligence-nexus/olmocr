@@ -1,4 +1,4 @@
-# **pdelfin**
+# **olmocr**
 
 ```{toctree}
 :maxdepth: 2
@@ -15,8 +15,8 @@ overview
 
 CHANGELOG
 CONTRIBUTING
-License <https://raw.githubusercontent.com/allenai/pdelfin/main/LICENSE>
-GitHub Repository <https://github.com/allenai/pdelfin>
+License <https://raw.githubusercontent.com/allenai/olmocr/main/LICENSE>
+GitHub Repository <https://github.com/allenai/olmocr>
 ```
 
 ## Indices and tables

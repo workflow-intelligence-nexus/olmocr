@@ -11,8 +11,8 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import markdown2
 
-from pdelfin.s3_utils import get_s3_bytes
-from pdelfin.data.renderpdf import render_pdf_to_base64webp
+from olmocr.s3_utils import get_s3_bytes
+from olmocr.data.renderpdf import render_pdf_to_base64webp
 
 def read_jsonl(path):
     with smart_open.smart_open(path, 'r', encoding='utf-8') as f:

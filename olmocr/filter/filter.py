@@ -125,7 +125,7 @@ class PdfFilter:
 if __name__ == "__main__":
     import tempfile
     import boto3
-    from pdelfin.s3_utils import parse_s3_path
+    from olmocr.s3_utils import parse_s3_path
     from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
     from tqdm import tqdm
 

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import asyncio
 from functools import partial
 
-from pdelfin.s3_utils import (
+from olmocr.s3_utils import (
     expand_s3_glob,
     download_zstd_csv,
     upload_zstd_csv,

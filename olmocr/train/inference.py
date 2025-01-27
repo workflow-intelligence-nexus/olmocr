@@ -29,11 +29,11 @@ from transformers import (
 )
 
 
-from pdelfin.data.renderpdf import render_pdf_to_base64png
-from pdelfin.prompts.anchor import get_anchor_text
-from pdelfin.prompts.prompts import build_finetuning_prompt
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.prompts.prompts import build_finetuning_prompt
 
-from pdelfin.train.dataprep import prepare_data_for_qwen2_inference
+from olmocr.train.dataprep import prepare_data_for_qwen2_inference
 
 def build_page_query(local_pdf_path: str, page: int) -> dict:
     image_base64 = render_pdf_to_base64png(local_pdf_path, page, 1024)
