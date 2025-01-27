@@ -31,7 +31,7 @@ from typing import Optional, Tuple, List, Dict, Set
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
 
-from olmocr.s3_queue import S3WorkQueue, WorkItem
+from olmocr.work_queue import S3WorkQueue, LocalWorkQueue
 from olmocr.s3_utils import expand_s3_glob, get_s3_bytes, get_s3_bytes_with_backoff, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.filter.filter import PdfFilter, Language
@@ -420,7 +420,7 @@ async def worker(args, work_queue: S3WorkQueue, semaphore, worker_id):
 
         try:    
             async with asyncio.TaskGroup() as tg:      
-                dolma_tasks = [tg.create_task(process_pdf(args, worker_id, pdf)) for pdf in work_item.s3_work_paths]
+                dolma_tasks = [tg.create_task(process_pdf(args, worker_id, pdf)) for pdf in work_item.work_paths]
                 logger.info(f"Created all tasks for {work_item.hash}")
 
             logger.info(f"Finished TaskGroup for worker on {work_item.hash}")
@@ -834,7 +834,7 @@ def print_stats(args):
 
 async def main():
     parser = argparse.ArgumentParser(description='Manager for running millions of PDFs through a batch inference pipeline')
-    parser.add_argument('workspace', help='The S3 path where work will be done e.g., s3://bucket/prefix/')
+    parser.add_argument('workspace', help='The filesystem path where work will be stored, can be a local folder, or an s3 path if coordinating work with many workers, s3://bucket/prefix/ ')
     parser.add_argument('--pdfs', help='Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths', default=None)
     parser.add_argument('--workspace_profile', help='S3 configuration profile for accessing the workspace', default=None)
     parser.add_argument('--pdf_profile', help='S3 configuration profile for accessing the raw pdf documents', default=None)
@@ -891,7 +891,10 @@ async def main():
     check_poppler_version()
 
     # Create work queue
-    work_queue = S3WorkQueue(workspace_s3, args.workspace)
+    if args.workspace.startswith("s3://"):
+        work_queue = S3WorkQueue(workspace_s3, args.workspace)
+    else:
+        work_queue = LocalWorkQueue(args.workspace)
 
     if args.pdfs:
         logger.info("Got --pdfs argument, going to add to the work queue")
