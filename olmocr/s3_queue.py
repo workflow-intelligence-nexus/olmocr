@@ -15,7 +15,7 @@ from olmocr.s3_utils import (
     upload_zstd_csv,
     parse_s3_path
 )
-from pypdf import PdfReader
+
 
 logger = logging.getLogger(__name__)
 

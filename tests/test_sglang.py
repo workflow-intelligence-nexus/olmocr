@@ -17,7 +17,7 @@ from io import BytesIO
 from PIL import Image
 from transformers import AutoProcessor, AutoTokenizer, Qwen2VLForConditionalGeneration
 from pathlib import Path
-from olmocr.beakerpipeline import sglang_server_task, sglang_server_ready, build_page_query, SGLANG_SERVER_PORT, render_pdf_to_base64png, get_anchor_text, download_directory
+from olmocr.pipeline import sglang_server_task, sglang_server_ready, build_page_query, SGLANG_SERVER_PORT, render_pdf_to_base64png, get_anchor_text, download_directory
 from olmocr.prompts import PageResponse
 from httpx import AsyncClient
 import torch.nn.functional as F
