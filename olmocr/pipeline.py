@@ -985,11 +985,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
-
-    # TODO
-    # - Figure out simple repro case for new sglang livelock case with indexerrors
-    # - It seems another case of deadlocks is when many requests are sent/pending to sglang, ex. 3k+ or 4k+ requests, probably hitting some internal limit
-    # - aiohttp repro and bug report
-    # - Get a solid benchmark on the stream vs non stream approach
-    
+    asyncio.run(main())    
