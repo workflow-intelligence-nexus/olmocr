@@ -1,7 +1,7 @@
 .PHONY : docs
 docs :
 	rm -rf docs/build/
-	sphinx-autobuild -b html --watch pdelfin/ docs/source/ docs/build/
+	sphinx-autobuild -b html --watch olmocr/ docs/source/ docs/build/
 
 .PHONY : run-checks
 run-checks :
@@ -9,7 +9,7 @@ run-checks :
 	black --check .
 	ruff check .
 	mypy .
-	CUDA_VISIBLE_DEVICES='' pytest -v --color=yes --doctest-modules tests/ pdelfin/
+	CUDA_VISIBLE_DEVICES='' pytest -v --color=yes --doctest-modules tests/ olmocr/
 
 .PHONY : build
 build :

@@ -29,10 +29,6 @@ cd olmocr
 pip install -e .
 ```
 
-You will also need to install the latest pypdf, which contains some fixes regarding processing PDF documents. Hopefully soon it will be included in the next full release.
-```bash
-pip install git+https://github.com/py-pdf/pypdf.git@9e0fce7b9810d3e09e2af66481ea3429c42e0d11
-```
 
 ### Beaker Usage
 
