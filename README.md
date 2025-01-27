@@ -1,8 +1,9 @@
-# pdelfin
+# olmOCR
 
 Toolkit for training language models to work with PDF documents in the wild.
 
-<img src="https://github.com/user-attachments/assets/984a645c-096d-4b9a-9c5b-44063004cd8c" alt="image" width="300"/>
+
+<img src="https://github.com/user-attachments/assets/d70c8644-3e64-4230-98c3-c52fddaeccb6" alt="olmOCR Logo" width="300"/>
 
 
 What is included:
