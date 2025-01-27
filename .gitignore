@@ -11,6 +11,7 @@ sample200_vllm/*
 sample200_sglang/*
 pdelfin_testset/*
 /*.html
+scoreelo.csv
 debug.log
 birrpipeline-debug.log
 beakerpipeline-debug.log

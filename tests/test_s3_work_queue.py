@@ -7,7 +7,7 @@ import hashlib
 from typing import List, Dict
 
 # Import the classes we're testing
-from olmocr.s3_queue import S3WorkQueue, WorkItem
+from olmocr.work_queue import S3WorkQueue, WorkItem
 
 class TestS3WorkQueue(unittest.TestCase):
     def setUp(self):
@@ -70,8 +70,8 @@ class TestS3WorkQueue(unittest.TestCase):
     async def test_populate_queue_new_items(self):
         """Test populating queue with new items"""
         # Mock empty existing index
-        with patch('olmocr.s3_queue.download_zstd_csv', return_value=[]):
-            with patch('olmocr.s3_queue.upload_zstd_csv') as mock_upload:
+        with patch('olmocr.work_queue.download_zstd_csv', return_value=[]):
+            with patch('olmocr.work_queue.upload_zstd_csv') as mock_upload:
                 await self.work_queue.populate_queue(self.sample_paths, items_per_group=2)
                 
                 # Verify upload was called with correct data
@@ -97,8 +97,8 @@ class TestS3WorkQueue(unittest.TestCase):
         existing_hash = S3WorkQueue._compute_workgroup_hash(existing_paths)
         existing_line = f"{existing_hash},{existing_paths[0]}"
         
-        with patch('olmocr.s3_queue.download_zstd_csv', return_value=[existing_line]):
-            with patch('olmocr.s3_queue.upload_zstd_csv') as mock_upload:
+        with patch('olmocr.work_queue.download_zstd_csv', return_value=[existing_line]):
+            with patch('olmocr.work_queue.upload_zstd_csv') as mock_upload:
                 await self.work_queue.populate_queue(existing_paths + new_paths, items_per_group=1)
                 
                 # Verify upload called with both existing and new items
@@ -116,8 +116,8 @@ class TestS3WorkQueue(unittest.TestCase):
         
         completed_items = [f"s3://test-bucket/workspace/results/output_{work_hash}.jsonl"]
         
-        with patch('olmocr.s3_queue.download_zstd_csv', return_value=[work_line]):
-            with patch('olmocr.s3_queue.expand_s3_glob', return_value=completed_items):
+        with patch('olmocr.work_queue.download_zstd_csv', return_value=[work_line]):
+            with patch('olmocr.work_queue.expand_s3_glob', return_value=completed_items):
                 await self.work_queue.initialize_queue()
                 
                 # Queue should be empty since all work is completed
@@ -143,7 +143,7 @@ class TestS3WorkQueue(unittest.TestCase):
     async def test_get_work(self):
         """Test getting work items"""
         # Setup test data
-        work_item = WorkItem(hash="testhash123", s3_work_paths=["s3://test/file1.pdf"])
+        work_item = WorkItem(hash="testhash123", work_paths=["s3://test/file1.pdf"])
         await self.work_queue._queue.put(work_item)
         
         # Test getting available work
@@ -162,7 +162,7 @@ class TestS3WorkQueue(unittest.TestCase):
     @async_test
     async def test_get_work_completed(self):
         """Test getting work that's already completed"""
-        work_item = WorkItem(hash="testhash123", s3_work_paths=["s3://test/file1.pdf"])
+        work_item = WorkItem(hash="testhash123", work_paths=["s3://test/file1.pdf"])
         await self.work_queue._queue.put(work_item)
         
         # Simulate completed work
@@ -174,7 +174,7 @@ class TestS3WorkQueue(unittest.TestCase):
     @async_test
     async def test_get_work_locked(self):
         """Test getting work that's locked by another worker"""
-        work_item = WorkItem(hash="testhash123", s3_work_paths=["s3://test/file1.pdf"])
+        work_item = WorkItem(hash="testhash123", work_paths=["s3://test/file1.pdf"])
         await self.work_queue._queue.put(work_item)
         
         # Simulate active lock
@@ -190,7 +190,7 @@ class TestS3WorkQueue(unittest.TestCase):
     @async_test
     async def test_get_work_stale_lock(self):
         """Test getting work with a stale lock"""
-        work_item = WorkItem(hash="testhash123", s3_work_paths=["s3://test/file1.pdf"])
+        work_item = WorkItem(hash="testhash123", work_paths=["s3://test/file1.pdf"])
         await self.work_queue._queue.put(work_item)
         
         # Simulate stale lock
@@ -206,7 +206,7 @@ class TestS3WorkQueue(unittest.TestCase):
     @async_test
     async def test_mark_done(self):
         """Test marking work as done"""
-        work_item = WorkItem(hash="testhash123", s3_work_paths=["s3://test/file1.pdf"])
+        work_item = WorkItem(hash="testhash123", work_paths=["s3://test/file1.pdf"])
         await self.work_queue._queue.put(work_item)
         
         await self.work_queue.mark_done(work_item)
@@ -223,10 +223,10 @@ class TestS3WorkQueue(unittest.TestCase):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         
-        self.loop.run_until_complete(self.work_queue._queue.put(WorkItem(hash="test1", s3_work_paths=["path1"])))
+        self.loop.run_until_complete(self.work_queue._queue.put(WorkItem(hash="test1", work_paths=["path1"])))
         self.assertEqual(self.work_queue.size, 1)
         
-        self.loop.run_until_complete(self.work_queue._queue.put(WorkItem(hash="test2", s3_work_paths=["path2"])))
+        self.loop.run_until_complete(self.work_queue._queue.put(WorkItem(hash="test2", work_paths=["path2"])))
         self.assertEqual(self.work_queue.size, 2)
         
         self.loop.close()
