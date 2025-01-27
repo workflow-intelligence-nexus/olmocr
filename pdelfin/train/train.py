@@ -122,7 +122,10 @@ def run_train(config: TrainConfig):
             _attn_implementation="flash_attention_2" if config.model.use_flash_attn else None
         )
     else:
-        model_config = AutoConfig.from_pretrained(config.model.name_or_path, trust_remote_code=True)
+        from .molmo.config_molmo import MolmoConfig
+        from .molmo.modeling_molmo import MolmoForCausalLM
+
+        model_config = MolmoConfig.from_pretrained(config.model.name_or_path, trust_remote_code=True)
 
         if model_config.max_position_embeddings < config.generate.max_length:
             logger.warning(f"ALERT, force adjusting model config max_position_embeddings upwards from {model_config.max_position_embeddings} to {config.generate.max_length}")
@@ -131,7 +134,7 @@ def run_train(config: TrainConfig):
         if config.model.use_flash_attn:
             model_config.attention_type = "flash"
 
-        model = AutoModelForCausalLM.from_pretrained(
+        model = MolmoForCausalLM.from_pretrained(
             config.model.name_or_path, torch_dtype=torch.bfloat16,
             config=model_config,
             trust_remote_code=True
