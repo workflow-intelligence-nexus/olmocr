@@ -93,18 +93,18 @@ class WorkQueue(abc.ABC):
         pass
 
     @staticmethod
-    def _compute_workgroup_hash(s3_work_paths: List[str]) -> str:
+    def _compute_workgroup_hash(work_paths: List[str]) -> str:
         """
         Compute a deterministic hash for a group of paths.
         
         Args:
-            s3_work_paths: List of paths (local or S3)
+            work_paths: List of paths (local or S3)
             
         Returns:
             SHA1 hash of the sorted paths
         """
         sha1 = hashlib.sha1()
-        for path in sorted(s3_work_paths):
+        for path in sorted(work_paths):
             sha1.update(path.encode('utf-8'))
         return sha1.hexdigest()
 
@@ -189,17 +189,17 @@ class LocalWorkQueue(WorkQueue):
         # Internal queue
         self._queue = asyncio.Queue()
 
-    async def populate_queue(self, s3_work_paths: List[str], items_per_group: int) -> None:
+    async def populate_queue(self, work_paths: List[str], items_per_group: int) -> None:
         """
         Add new items to the work queue (local version).
         
         Args:
-            s3_work_paths: Each individual path (local in this context) 
+            work_paths: Each individual path (local in this context) 
                            that we will process over
             items_per_group: Number of items to group together in a single work item
         """
         # Treat them as local paths, but keep variable name for consistency
-        all_paths = set(s3_work_paths)
+        all_paths = set(work_paths)
         logger.info(f"Found {len(all_paths):,} total paths")
 
         # Load existing work groups from local index
@@ -276,7 +276,7 @@ class LocalWorkQueue(WorkQueue):
         # 3) Filter out completed items
         remaining_work_hashes = set(work_queue) - done_work_hashes
         remaining_items = [
-            WorkItem(hash=hash_, s3_work_paths=work_queue[hash_])
+            WorkItem(hash=hash_, work_paths=work_queue[hash_])
             for hash_ in remaining_work_hashes
         ]
         random.shuffle(remaining_items)
@@ -415,15 +415,15 @@ class S3WorkQueue(WorkQueue):
         self._output_glob = os.path.join(self.workspace_path, "results", "*.jsonl")
         self._queue = asyncio.Queue()
 
-    async def populate_queue(self, s3_work_paths: List[str], items_per_group: int) -> None:
+    async def populate_queue(self, work_paths: List[str], items_per_group: int) -> None:
         """
         Add new items to the work queue.
         
         Args:
-            s3_work_paths: Each individual s3 path that we will process over
+            work_paths: Each individual s3 path that we will process over
             items_per_group: Number of items to group together in a single work item
         """
-        all_paths = set(s3_work_paths)
+        all_paths = set(work_paths)
         logger.info(f"Found {len(all_paths):,} total paths")
 
         # Load existing work groups
@@ -515,7 +515,7 @@ class S3WorkQueue(WorkQueue):
         # Find remaining work and shuffle
         remaining_work_hashes = set(work_queue) - done_work_hashes
         remaining_items = [
-            WorkItem(hash=hash_, s3_work_paths=work_queue[hash_])
+            WorkItem(hash=hash_, work_paths=work_queue[hash_])
             for hash_ in remaining_work_hashes
         ]
         random.shuffle(remaining_items)

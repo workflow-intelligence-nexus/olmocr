@@ -34,10 +34,11 @@ dependencies = [
   "orjson",
   "requests",
   "zstandard",
-  "aiohttp>=3.10,<3.11", # Specific timeout thing is causing issues
   "boto3",
-  "torch>=2.4.0",
+  "torch==2.5.1",
   "transformers>=4.46.2",
+  "sglang[all]==0.4.1",
+  "beaker-py",
 ]
 license = {file = "LICENSE"}
 
@@ -70,10 +71,6 @@ dev = [
     "necessary",
 ]
 
-inference = [
-    "sglang[all]>=0.3.6",
-    "beaker-py",
-]
 
 train = [
     "torch",

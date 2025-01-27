@@ -16,6 +16,7 @@ import datetime
 import tempfile
 import random
 import re
+import glob
 import torch
 import multiprocessing
 
@@ -463,19 +464,23 @@ async def worker(args, work_queue: S3WorkQueue, semaphore, worker_id):
 
 
 async def sglang_server_task(args, semaphore):
-    model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
-    download_directory(args.model, model_cache_dir)
+    model_name_or_path = args.model
 
-    # Check the rope config and make sure it's got the proper key
-    with open(os.path.join(model_cache_dir, "config.json"), "r") as cfin:
-        config_data = json.load(cfin)
+    # if "://" in model_name_or_path:
+    #     # TODO, Fix this code so that we support the multiple s3/weka paths, or else remove it
+    #     model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
+    #     download_directory(model_name_or_path, model_cache_dir)
 
-    if "rope_type" in config_data["rope_scaling"]:
-        del config_data["rope_scaling"]["rope_type"]
-        config_data["rope_scaling"]["type"] = "mrope"
+    #     # Check the rope config and make sure it's got the proper key
+    #     with open(os.path.join(model_cache_dir, "config.json"), "r") as cfin:
+    #         config_data = json.load(cfin)
 
-        with open(os.path.join(model_cache_dir, "config.json"), "w") as cfout:
-            json.dump(config_data, cfout)
+    #     if "rope_type" in config_data["rope_scaling"]:
+    #         del config_data["rope_scaling"]["rope_type"]
+    #         config_data["rope_scaling"]["type"] = "mrope"
+
+    #         with open(os.path.join(model_cache_dir, "config.json"), "w") as cfout:
+    #             json.dump(config_data, cfout)
 
     # Check GPU memory, lower mem devices need a bit less KV cache space because the VLM takes additional memory
     gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # Convert to GB
@@ -484,7 +489,7 @@ async def sglang_server_task(args, semaphore):
     cmd = [
         "python3",
         "-m", "sglang.launch_server",
-        "--model-path", model_cache_dir,
+        "--model-path", model_name_or_path,
         "--chat-template", args.model_chat_template,
         # "--context-length", str(args.model_max_context),  # Commented out due to crashes
         "--port", str(SGLANG_SERVER_PORT),
@@ -847,9 +852,7 @@ async def main():
 
     # Model parameters
     parser.add_argument('--model', help='List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access',
-                         default=["weka://oe-data-default/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/best_bf16/",
-                                  "gs://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/",
-                                  "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"])
+                                   default="allenai/olmocr-preview")
     parser.add_argument('--model_max_context', type=int, default="8192", help="Maximum context length that the model was fine tuned under")
     parser.add_argument('--model_chat_template', type=str, default="qwen2-vl", help="Chat template to pass to sglang server")
     parser.add_argument('--target_longest_image_dim', type=int, help='Dimension on longest side to use for rendering the pdf pages', default=1024)
@@ -903,6 +906,9 @@ async def main():
         if args.pdfs.startswith("s3://"):
             logger.info(f"Expanding s3 glob at {args.pdfs}")
             s3_work_paths = expand_s3_glob(pdf_s3, args.pdfs)
+        elif any(char in args.pdfs for char in {"*", "?", "[", "]"}):
+            logger.info(f"Expanding local glob at {args.pdfs}")
+            s3_work_paths = glob.glob(args.pdfs)
         elif os.path.exists(args.pdfs):
             logger.info(f"Loading file at {args.pdfs}")
             with open(args.pdfs, "r") as f:

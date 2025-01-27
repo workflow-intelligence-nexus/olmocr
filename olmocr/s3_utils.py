@@ -63,8 +63,6 @@ def expand_s3_glob(s3_client, s3_glob: str) -> dict[str, str]:
                 key = obj["Key"]
                 if glob.fnmatch.fnmatch(key, posixpath.join(prefix, pattern)):
                     matched[f"s3://{bucket}/{key}"] = obj["ETag"].strip('"')
-        if not matched:
-            raise ValueError(f"No objects found for pattern '{s3_glob}'. Check your path or pattern.")
         return matched
 
     # Case 2: No wildcard → single file or a bare prefix

@@ -15,57 +15,67 @@ from tqdm import tqdm
 import accelerate
 import torch
 import torch.distributed
-from datasets.utils import disable_progress_bars
-from datasets.utils.logging import set_verbosity
-from peft import LoraConfig, get_peft_model  # pyright: ignore
+
 from transformers import (
     AutoModelForCausalLM,
     Trainer,
     TrainerCallback,
     TrainingArguments,
     Qwen2VLForConditionalGeneration,
+    Qwen2_5_VLForConditionalGeneration,
     AutoProcessor,
-    Qwen2VLConfig
+    AutoConfig,
 )
 
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import build_finetuning_prompt
+from olmocr.prompts.prompts import build_finetuning_prompt, build_openai_silver_data_prompt
 
-from olmocr.train.dataprep import prepare_data_for_qwen2_inference
-
-def build_page_query(local_pdf_path: str, page: int) -> dict:
-    image_base64 = render_pdf_to_base64png(local_pdf_path, page, 1024)
-    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
-
-    return {
-        "input_prompt_text": build_finetuning_prompt(anchor_text),
-        "input_prompt_image_base64": image_base64
-    }
 
 
 @torch.no_grad()
 def run_inference(model_name: str):    
-    config = Qwen2VLConfig.from_pretrained(model_name)
+    config = AutoConfig.from_pretrained(model_name)
     processor = AutoProcessor.from_pretrained(model_name)
 
     # If it doesn't load, change the type:mrope key to "default"
 
-    model = Qwen2VLForConditionalGeneration.from_pretrained(model_name, device_map="auto", config=config)
+    #model = Qwen2VLForConditionalGeneration.from_pretrained(model_name, device_map="auto", config=config)
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model_name, device_map="auto", config=config)
     model.eval()
   
+    #local_pdf_path = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "gnarly_pdfs", "horribleocr.pdf")
+    local_pdf_path = "/root/brochure.pdf"
+    page = 1
 
-    query = build_page_query(os.path.join(os.path.dirname(__file__), "..", "..", "tests", "gnarly_pdfs", "overrun_on_pg8.pdf"), 8)
+    image_base64 = render_pdf_to_base64png(local_pdf_path, page, 1024)
+    anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
-    inputs = prepare_data_for_qwen2_inference(query, processor)
+    messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": build_openai_silver_data_prompt(anchor_text)},
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+                    ],
+                }
+            ]
 
-    print(inputs)
+    # Preparation for inference
+    text = processor.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
 
-    inputs = {
-        x: torch.from_numpy(y).unsqueeze(0).to("cuda")
-            for (x,y) in inputs.items()
-    }
+    main_image = Image.open(BytesIO(base64.b64decode(image_base64)))
+
+    inputs = processor(
+        text=[text],
+        images=[main_image],
+        padding=True,
+        return_tensors="pt",
+    )
+    inputs = inputs.to("cuda")
 
     output_ids = model.generate(**inputs, temperature=0.8, do_sample=True, max_new_tokens=1500)
     generated_ids = [
@@ -75,12 +85,12 @@ def run_inference(model_name: str):
     output_text = processor.batch_decode(
         generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True
     )
-    print(output_text)
+    print(output_text[0])
 
 
 
 def main():
-    run_inference(model_name="/root/model")
+    run_inference(model_name="Qwen/Qwen2.5-VL-7B-Instruct")
 
 
 if __name__ == "__main__":
