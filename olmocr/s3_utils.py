@@ -94,6 +94,12 @@ def expand_s3_glob(s3_client, s3_glob: str) -> dict[str, str]:
 
 
 def get_s3_bytes(s3_client, s3_path: str, start_index: Optional[int] = None, end_index: Optional[int] = None) -> bytes:
+    # Fall back for local files
+    if os.path.exists(s3_path):
+        assert start_index is None and end_index is None, "Range query not supported yet"
+        with open(s3_path, "rb") as f:
+            return f.read()
+    
     bucket, key = parse_s3_path(s3_path)
 
     # Build the range header if start_index and/or end_index are specified
