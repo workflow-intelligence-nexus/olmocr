@@ -731,6 +731,8 @@ def submit_beaker_job(args):
 def print_stats(args):    
     LONG_CONTEXT_THRESHOLD = 32768
 
+    assert args.workspace.startswith("s3://"), "Printing stats functionality only works with s3 workspaces for now."
+
     # Get total work items and completed items
     index_file_s3_path = os.path.join(args.workspace, "work_index_list.csv.zstd")
     output_glob = os.path.join(args.workspace, "results", "*.jsonl")
