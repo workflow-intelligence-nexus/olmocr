@@ -920,9 +920,13 @@ async def main():
             logger.info(f"Expanding local glob at {args.pdfs}")
             pdf_work_paths = glob.glob(args.pdfs)
         elif os.path.exists(args.pdfs):
-            logger.info(f"Loading file at {args.pdfs}")
-            with open(args.pdfs, "r") as f:
-                pdf_work_paths = list(filter(None, (line.strip() for line in f)))
+            if open(args.pdfs, 'rb').read(4) == b'%PDF':
+                logger.info(f"Loading file at {args.pdfs} as PDF document")
+                pdf_work_paths = [args.pdfs]
+            else:
+                logger.info(f"Loading file at {args.pdfs} as list of paths")
+                with open(args.pdfs, "r") as f:
+                    pdf_work_paths = list(filter(None, (line.strip() for line in f)))
         else:
             raise ValueError("pdfs argument needs to be either an s3 glob search path, or a local file contains pdf paths (one per line)")
 
