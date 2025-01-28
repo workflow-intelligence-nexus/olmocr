@@ -199,7 +199,7 @@ async def apost(url, json_data):
                 pass
 
 
-async def process_page(args, worker_id: int, pdf_s3_path: str, pdf_local_path: str, page_num: int) -> PageResult:
+async def process_page(args, worker_id: int, pdf_orig_path: str, pdf_local_path: str, page_num: int) -> PageResult:
     COMPLETION_URL = f"http://localhost:{SGLANG_SERVER_PORT}/v1/chat/completions"
     MAX_RETRIES = args.max_page_retries
     
@@ -207,7 +207,7 @@ async def process_page(args, worker_id: int, pdf_s3_path: str, pdf_local_path: s
     local_anchor_text_len = args.target_anchor_text_len
     local_image_rotation = 0
     attempt = 0
-    await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "started")
+    await tracker.track_work(worker_id, f"{pdf_orig_path}-{page_num}", "started")
 
     while attempt < MAX_RETRIES:
         query = await build_page_query(
@@ -218,7 +218,7 @@ async def process_page(args, worker_id: int, pdf_s3_path: str, pdf_local_path: s
             image_rotation=local_image_rotation
         )
 
-        logger.info(f"Built page query for {pdf_s3_path}-{page_num}")
+        logger.info(f"Built page query for {pdf_orig_path}-{page_num}")
 
         try:
             status_code, response_body = await apost(COMPLETION_URL, json_data=query)
@@ -234,7 +234,7 @@ async def process_page(args, worker_id: int, pdf_s3_path: str, pdf_local_path: s
      
             if base_response_data["usage"]["total_tokens"] > args.model_max_context:
                 local_anchor_text_len = max(1, local_anchor_text_len // 2)
-                logger.info(f"Reducing anchor text len to {local_anchor_text_len} for {pdf_s3_path}-{page_num}")
+                logger.info(f"Reducing anchor text len to {local_anchor_text_len} for {pdf_orig_path}-{page_num}")
                 raise ValueError(f"Response exceeded model_max_context, cannot use this response")
             
             metrics.add_metrics(sglang_input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
@@ -244,13 +244,13 @@ async def process_page(args, worker_id: int, pdf_s3_path: str, pdf_local_path: s
             page_response = PageResponse(**model_response_json)
 
             if not page_response.is_rotation_valid and attempt < MAX_RETRIES - 1:
-                logger.info(f"Got invalid_page rotation for {pdf_s3_path}-{page_num} attempt {attempt}, retrying with {page_response.rotation_correction} rotation")
+                logger.info(f"Got invalid_page rotation for {pdf_orig_path}-{page_num} attempt {attempt}, retrying with {page_response.rotation_correction} rotation")
                 local_image_rotation = page_response.rotation_correction
-                raise ValueError(f"invalid_page rotation for {pdf_s3_path}-{page_num}")
+                raise ValueError(f"invalid_page rotation for {pdf_orig_path}-{page_num}")
 
-            await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "finished")
+            await tracker.track_work(worker_id, f"{pdf_orig_path}-{page_num}", "finished")
             return PageResult(
-                pdf_s3_path,
+                pdf_orig_path,
                 page_num,
                 page_response,
                 input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
@@ -258,34 +258,34 @@ async def process_page(args, worker_id: int, pdf_s3_path: str, pdf_local_path: s
                 is_fallback=False,
             )
         except (ConnectionError, OSError, asyncio.TimeoutError) as e:
-            logger.warning(f"Client error on attempt {attempt} for {pdf_s3_path}-{page_num}: {type(e)} {e}")
+            logger.warning(f"Client error on attempt {attempt} for {pdf_orig_path}-{page_num}: {type(e)} {e}")
             
             # Now we want to do exponential backoff, and not count this as an actual page retry
             # Page retrys are supposed to be for fixing bad results from the model, but actual requests to sglang 
             # are supposed to work. Probably this means that the server is just restarting
             sleep_delay = 10 * (2 ** exponential_backoffs)
             exponential_backoffs += 1
-            logger.info(f"Sleeping for {sleep_delay} seconds on {pdf_s3_path}-{page_num} to allow server restart")
+            logger.info(f"Sleeping for {sleep_delay} seconds on {pdf_orig_path}-{page_num} to allow server restart")
             await asyncio.sleep(sleep_delay)
         except asyncio.CancelledError:
-            logger.info(f"Process page {pdf_s3_path}-{page_num} cancelled")
-            await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "cancelled")
+            logger.info(f"Process page {pdf_orig_path}-{page_num} cancelled")
+            await tracker.track_work(worker_id, f"{pdf_orig_path}-{page_num}", "cancelled")
             raise
         except json.JSONDecodeError as e:
-            logger.warning(f"JSON decode error on attempt {attempt} for {pdf_s3_path}-{page_num}: {e}")
+            logger.warning(f"JSON decode error on attempt {attempt} for {pdf_orig_path}-{page_num}: {e}")
             attempt += 1
         except ValueError as e:
-            logger.warning(f"ValueError on attempt {attempt} for {pdf_s3_path}-{page_num}: {type(e)} - {e}")
+            logger.warning(f"ValueError on attempt {attempt} for {pdf_orig_path}-{page_num}: {type(e)} - {e}")
             attempt += 1
         except Exception as e:
-            logger.exception(f"Unexpected error on attempt {attempt} for {pdf_s3_path}-{page_num}: {type(e)} - {e}")
+            logger.exception(f"Unexpected error on attempt {attempt} for {pdf_orig_path}-{page_num}: {type(e)} - {e}")
             attempt += 1
 
-    logger.error(f"Failed to process {pdf_s3_path}-{page_num} after {MAX_RETRIES} attempts.")
-    await tracker.track_work(worker_id, f"{pdf_s3_path}-{page_num}", "errored")
+    logger.error(f"Failed to process {pdf_orig_path}-{page_num} after {MAX_RETRIES} attempts.")
+    await tracker.track_work(worker_id, f"{pdf_orig_path}-{page_num}", "errored")
     
     return PageResult(
-        pdf_s3_path,
+        pdf_orig_path,
         page_num,
         PageResponse(natural_text=get_anchor_text(pdf_local_path, page_num, pdf_engine="pdftotext"),
                      primary_language=None, is_rotation_valid=True, rotation_correction=0, is_table=False, is_diagram=False),
@@ -295,15 +295,15 @@ async def process_page(args, worker_id: int, pdf_s3_path: str, pdf_local_path: s
     )
 
 
-async def process_pdf(args, worker_id: int, pdf_s3_path: str):
+async def process_pdf(args, worker_id: int, pdf_orig_path: str):
     with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
         try:
-            data = await asyncio.to_thread(lambda: get_s3_bytes_with_backoff(pdf_s3, pdf_s3_path))
+            data = await asyncio.to_thread(lambda: get_s3_bytes_with_backoff(pdf_s3, pdf_orig_path))
             tf.write(data)
             tf.flush()
         except ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchKey':
-                logger.info(f"S3 File Not found, skipping it completely {pdf_s3_path}")
+                logger.info(f"S3 File Not found, skipping it completely {pdf_orig_path}")
                 return None
             else:
                 raise
@@ -312,13 +312,13 @@ async def process_pdf(args, worker_id: int, pdf_s3_path: str):
             reader = PdfReader(tf.name)
             num_pages = reader.get_num_pages()
         except:
-            logger.exception(f"Could not count number of pages for {pdf_s3_path}, aborting document")
+            logger.exception(f"Could not count number of pages for {pdf_orig_path}, aborting document")
             return None
 
-        logger.info(f"Got {num_pages} pages to do for {pdf_s3_path} in worker {worker_id}")
+        logger.info(f"Got {num_pages} pages to do for {pdf_orig_path} in worker {worker_id}")
 
         if args.apply_filter and get_pdf_filter().filter_out_pdf(tf.name):
-            logger.info(f"Filtering out pdf {pdf_s3_path}")
+            logger.info(f"Filtering out pdf {pdf_orig_path}")
             return None
 
         # List to hold the tasks for processing each page
@@ -328,7 +328,7 @@ async def process_pdf(args, worker_id: int, pdf_s3_path: str):
         try:
             async with asyncio.TaskGroup() as tg:
                 for page_num in range(1, num_pages + 1):
-                    task = tg.create_task(process_page(args, worker_id, pdf_s3_path, tf.name, page_num))
+                    task = tg.create_task(process_page(args, worker_id, pdf_orig_path, tf.name, page_num))
                     page_tasks.append(task)
 
             # Collect the results from the entire task group, assuming no exceptions
@@ -337,12 +337,12 @@ async def process_pdf(args, worker_id: int, pdf_s3_path: str):
             num_fallback_pages = sum(page_result.is_fallback for page_result in page_results)
 
             if num_fallback_pages / num_pages > args.max_page_error_rate:
-                logger.error(f"Document {pdf_s3_path} has {num_fallback_pages} fallback pages out of {num_pages} exceeding max_page_error_rate of {args.max_page_error_rate}, discarding document.")
+                logger.error(f"Document {pdf_orig_path} has {num_fallback_pages} fallback pages out of {num_pages} exceeding max_page_error_rate of {args.max_page_error_rate}, discarding document.")
                 return None
             elif num_fallback_pages > 0:
-                logger.warning(f"Document {pdf_s3_path} processed with {num_fallback_pages} fallback pages out of {num_pages}, proceeding to build Dolma document.")
+                logger.warning(f"Document {pdf_orig_path} processed with {num_fallback_pages} fallback pages out of {num_pages}, proceeding to build Dolma document.")
 
-            return build_dolma_document(pdf_s3_path, page_results)
+            return build_dolma_document(pdf_orig_path, page_results)
         except Exception as e:
             # Check for ExceptionGroup with BrokenProcessPool
             if isinstance(e, ExceptionGroup):
@@ -351,13 +351,13 @@ async def process_pdf(args, worker_id: int, pdf_s3_path: str):
                     logger.critical("Encountered BrokenProcessPool, exiting process.")
                     sys.exit(1)
 
-            logger.exception(f"Exception in process_pdf for {pdf_s3_path}: {e}")
+            logger.exception(f"Exception in process_pdf for {pdf_orig_path}: {e}")
             # You can't build a dolma doc with even 1 failed page, so just get out of here
             # However, you don't want to propagate an exception higher up and cancel the entire work_group
             return None
 
 
-def build_dolma_document(pdf_s3_path, page_results):
+def build_dolma_document(pdf_orig_path, page_results):
     # Build the document text and page spans
     document_text = ""
     pdf_page_spans = []
@@ -375,12 +375,12 @@ def build_dolma_document(pdf_s3_path, page_results):
         pdf_page_spans.append([start_pos, current_char_pos, page_result.page_num])
 
     if not document_text:
-        logger.info(f"No document text for {pdf_s3_path}")
+        logger.info(f"No document text for {pdf_orig_path}")
         return None  # Return None if the document text is empty
 
     # Build the Dolma document
     metadata = {
-        "Source-File": pdf_s3_path,
+        "Source-File": pdf_orig_path,
         "olmocr-version": VERSION,
         "pdf-total-pages": len(page_results),
         "total-input-tokens": sum(page.input_tokens for page in page_results),
