@@ -1,6 +1,7 @@
 import sys
 import subprocess
 import logging
+import importlib.util
 
 logger = logging.getLogger(__name__)
 
@@ -17,5 +18,13 @@ def check_poppler_version():
         logger.error("Check the README in the https://github.com/allenai/olmocr/blob/main/README.md for installation instructions")
         sys.exit(1)
 
+def check_sglang_version():
+    if importlib.util.find_spec("sglang") is None:
+        logger.error(f"Please make sure sglang is installed according to the latest instructions here: https://docs.sglang.ai/start/install.html")
+        logger.error("Sglang needs to be installed with a separate command in order to find all dependencies properly.")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     check_poppler_version()
+    check_sglang_version()

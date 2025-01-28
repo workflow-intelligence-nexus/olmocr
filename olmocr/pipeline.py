@@ -38,7 +38,7 @@ from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.filter.filter import PdfFilter, Language
 from olmocr.prompts import build_finetuning_prompt, PageResponse
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.check import check_poppler_version
+from olmocr.check import check_poppler_version, check_sglang_version
 from olmocr.metrics import MetricsKeeper, WorkerTracker
 from olmocr.version import VERSION
 
@@ -50,7 +50,7 @@ logger.propagate = False
 sglang_logger = logging.getLogger("sglang")
 sglang_logger.propagate = False
 
-file_handler = logging.FileHandler('beakerpipeline-debug.log', mode='a')
+file_handler = logging.FileHandler('olmocr-pipeline-debug.log', mode='a')
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 
@@ -466,6 +466,7 @@ async def worker(args, work_queue: S3WorkQueue, semaphore, worker_id):
 async def sglang_server_task(args, semaphore):
     model_name_or_path = args.model
 
+
     # if "://" in model_name_or_path:
     #     # TODO, Fix this code so that we support the multiple s3/weka paths, or else remove it
     #     model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
@@ -589,7 +590,9 @@ async def sglang_server_host(args, semaphore):
         retry += 1
 
     if retry >= MAX_RETRIES:
-        logger.error(f"Ended up restarting the sglang server more than {retry} times, cancelling")
+        logger.error(f"Ended up starting the sglang server more than {retry} times, cancelling pipeline")
+        logger.error(f"")
+        logger.error(f"Please make sure sglang is installed according to the latest instructions here: https://docs.sglang.ai/start/install.html")
         sys.exit(1)
 
 
@@ -892,6 +895,7 @@ async def main():
         pdf_s3 = pdf_session.client("s3")
 
     check_poppler_version()
+    check_sglang_version()
 
     # Create work queue
     if args.workspace.startswith("s3://"):

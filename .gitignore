@@ -15,7 +15,7 @@ scoreelo.csv
 debug.log
 birrpipeline-debug.log
 beakerpipeline-debug.log
-
+olmocr-pipeline-debug.log
 
 # build artifacts
 
