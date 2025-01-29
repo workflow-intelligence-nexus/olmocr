@@ -18,7 +18,7 @@ What is included:
 
 ### Installation
 
-You will need to install poppler-utils and then also some fonts on your computer so that any pdfs you render come out looking nice.
+You will need to install poppler-utils and some additional fonts as a prerequisite. olmOCR uses poppler to render its PDF images.
 
 Linux Ubuntu/Debian
 ```bash
