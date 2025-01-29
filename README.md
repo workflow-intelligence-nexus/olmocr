@@ -77,7 +77,7 @@ python -m olmocr.viewer.dolmaviewer localworkspace/results/output_*.jsonl
 
 Now open `./dolma_previews/tests_gnarly_pdfs_horribleocr_pdf.html` in your favorite browser.
 
-<img width="1106" alt="Screenshot 2025-01-29 at 11 27 42 AM" src="https://github.com/user-attachments/assets/4a03f9fa-8661-4cb3-9de6-1603ca35ab4e" />
+![image](https://github.com/user-attachments/assets/128922d1-63e6-4d34-84f2-d7901237da1f)
 
 
 ### Multi-node / Cluster Usage
