@@ -580,7 +580,7 @@ async def sglang_server_task(args, semaphore):
     try:
         await proc.wait()
     except asyncio.CancelledError:
-        logger.warning("Got cancellation for sglang_server_task, terminating server")
+        logger.info("Got cancellation request for SGLang server")
         proc.terminate()
         raise
 
@@ -933,7 +933,7 @@ async def main():
                 with open(args.pdfs, "r") as f:
                     pdf_work_paths = list(filter(None, (line.strip() for line in f)))
         else:
-            raise ValueError("pdfs argument needs to be either an s3 glob search path, or a local file contains pdf paths (one per line)")
+            raise ValueError("pdfs argument needs to be either a local path, an s3 path, or a glob pattern...")
 
         pdf_work_paths = set(pdf_work_paths)
         logger.info(f"Found {len(pdf_work_paths):,} total pdf paths to add")
