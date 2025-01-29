@@ -4,8 +4,9 @@ Toolkit for training language models to work with PDF documents in the wild.
 
 
 <img src="https://github.com/user-attachments/assets/d70c8644-3e64-4230-98c3-c52fddaeccb6" alt="olmOCR Logo" width="300"/>
+<br/>
 
-View the online demo here: [https://olmocr.allen.ai/](https://olmocr.allen.ai/)
+Online demo: [https://olmocr.allen.ai/](https://olmocr.allen.ai/)
 
 What is included:
  - A prompting strategy to get really good natural text parsing using ChatGPT 4o - [buildsilver.py](https://github.com/allenai/olmocr/blob/main/olmocr/data/buildsilver.py)
@@ -37,6 +38,12 @@ pip install sgl-kernel --force-reinstall --no-deps
 pip install "sglang[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
 
+## BETA TESTER NOTE:
+If you are a beta tester, you will need to login using the hugging-face CLI
+to make sure you have access to https://huggingface.co/allenai/olmocr-preview
+ 
+`huggingface-cli login`
+
 ### Local Usage Example
 
 The easiest way to try out olmOCR on one or two PDFs is to check out the [web demo](https://olmocr.allen.ai/).
@@ -44,7 +51,7 @@ The easiest way to try out olmOCR on one or two PDFs is to check out the [web de
 Once you are ready to run locally, a local GPU is required, as inference is powered by [sglang](https://github.com/sgl-project/sglang) 
 under the hood.
 
-This command will convert one PDF into a local workspace:
+This command will convert one PDF into a directoey called `localworkspace`:
 ```bash
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf
 ```
@@ -53,6 +60,19 @@ You can also bulk convert many PDFS with a glob pattern:
 ```bash
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/*.pdf
 ```
+
+Once that finishes, output is stored as [Dolma](https://github.com/allenai/dolma)-style JSONL inside of the `./localworkspace/results` directory.
+
+```bash
+cat localworkspace/results/output_*.jsonl  
+```
+
+You can view your documents side-by-side with the original PDF renders using the `dolmaviewer` command.
+
+```python
+
+```
+
 
 ### Multi-node / Cluster Usage
 
