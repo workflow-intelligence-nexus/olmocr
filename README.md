@@ -161,10 +161,11 @@ options:
 ```
 
 
-### TODOs for future versions
- - Equations could be specified to be in a more specific format (they are "LaTeX" now)
+#### TODOs for future versions
  - Ask model to predict footnotes in a structured format separately
  - Add training data for complex tables
  - More training augmentations to improve performance
  - Fix pages which are all-references sometimes rendering as empty-text
+ - Automated benchmarking
+ - More efficient inference with 8-bit KV cache
  
