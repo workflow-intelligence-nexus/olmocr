@@ -25,8 +25,11 @@ Linux Ubuntu/Debian
 sudo apt-get install poppler-utils ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 ```
 
-Then, clone and install the olmocr package
+Set up a conda environment, then clone and install the olmocr package
 ```bash
+conda create -n olmocr python=3.11
+conda activate olmocr
+
 git clone https://github.com/allenai/olmocr.git
 cd olmocr
 pip install -e .
