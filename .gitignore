@@ -10,6 +10,7 @@ s2orc_previews_3200/*
 sample200_vllm/*
 sample200_sglang/*
 pdelfin_testset/*
+localworkspace/*
 /*.html
 scoreelo.csv
 debug.log
