@@ -14,7 +14,7 @@ What is included:
  - Basic filtering by language and SEO spam removal - [filter.py](https://github.com/allenai/olmocr/blob/main/olmocr/filter/filter.py)
  - Finetuning code for Qwen2-VL and Molmo-O - [train.py](https://github.com/allenai/olmocr/blob/main/olmocr/train/train.py)
  - Processing millions of PDFs through a finetuned model using Sglang - [pipeline.py](https://github.com/allenai/olmocr/blob/main/olmocr/pipeline.py)
- - Viewing Dolma Docs created from PDFs - [dolmaviewer.py](https://github.com/allenai/olmocr/blob/main/olmocr/viewer/dolmaviewer.py)
+ - Viewing [Dolma docs](https://github.com/allenai/dolma) created from PDFs - [dolmaviewer.py](https://github.com/allenai/olmocr/blob/main/olmocr/viewer/dolmaviewer.py)
 
 ### Installation
 
@@ -32,13 +32,14 @@ cd olmocr
 pip install -e .
 ```
 
-Finally, make sure you have sglang with flashinfer installed if you want to run inference on your own GPU.
+Finally, make sure you have sglang with [flashinfer](https://github.com/flashinfer-ai/flashinfer) installed if you want to run inference on your own GPU.
 ```bash
 pip install sgl-kernel --force-reinstall --no-deps
 pip install "sglang[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
 
 **BETA TESTER NOTE:**
+
 If you are a beta tester, you will need to login using the hugging-face CLI
 to make sure you have access to https://huggingface.co/allenai/olmocr-preview
  
@@ -51,7 +52,7 @@ The easiest way to try out olmOCR on one or two PDFs is to check out the [web de
 Once you are ready to run locally, a local GPU is required, as inference is powered by [sglang](https://github.com/sgl-project/sglang) 
 under the hood.
 
-This command will convert one PDF into a directoey called `localworkspace`:
+This command will convert one PDF into a directory called `localworkspace`:
 ```bash
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf
 ```
