@@ -1,11 +1,9 @@
 import argparse
-import base64
 import glob
 import json
 import os
 import random
-import subprocess
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Generator
 from urllib.parse import urlparse
 

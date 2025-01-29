@@ -4,7 +4,6 @@ Processor class for Molmo.
 
 from typing import Optional
 
-import PIL
 from PIL import ImageOps
 from PIL.Image import Image
 
@@ -30,10 +29,10 @@ from .image_preprocessing_molmo import MolmoImageProcessor, MolmoImagesKwargs
 logger = logging.get_logger(__name__)
 
 
-DEFAULT_IMAGE_PATCH_TOKEN = f"<im_patch>"
-DEFAULT_IM_START_TOKEN = f"<im_start>"
-DEFAULT_IM_END_TOKEN = f"<im_end>"
-DEFAULT_IM_COL_TOKEN = f"<im_col>"
+DEFAULT_IMAGE_PATCH_TOKEN = "<im_patch>"
+DEFAULT_IM_START_TOKEN = "<im_start>"
+DEFAULT_IM_END_TOKEN = "<im_end>"
+DEFAULT_IM_COL_TOKEN = "<im_col>"
 IMAGE_PROMPT = "<|image|>"
 
 EXTRA_TOKENS = (DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN, DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_COL_TOKEN, IMAGE_PROMPT)

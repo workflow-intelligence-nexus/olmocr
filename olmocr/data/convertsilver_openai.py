@@ -10,7 +10,6 @@ from pathlib import Path
 import smart_open
 from cached_path import cached_path
 
-from olmocr.prompts import build_finetuning_prompt
 
 
 def setup_logging():
@@ -66,7 +65,6 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                         local_pdf_path = cached_path(s3_path, quiet=True)
 
                         from olmocr.data.buildsilver import build_page_query
-                        from olmocr.prompts.anchor import get_anchor_text
 
                         obj = build_page_query(local_pdf_path, s3_path, page)
                         # raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")

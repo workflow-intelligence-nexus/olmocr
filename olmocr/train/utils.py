@@ -12,10 +12,9 @@ from tempfile import TemporaryDirectory
 from typing import Dict, Generator, List, Optional, TypeVar
 
 import torch
-import torch.nn.functional as F
 from accelerate import Accelerator
 from accelerate.utils import PrecisionType
-from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
+from datasets import Dataset, DatasetDict, concatenate_datasets
 from transformers import AutoProcessor
 
 from .core.cli import to_native_types
@@ -28,7 +27,7 @@ from .core.state import BeakerState
 
 T = TypeVar("T")
 
-from olmocr.train.dataloader import build_finetuning_dataset, list_dataset_files
+from olmocr.train.dataloader import build_finetuning_dataset
 from olmocr.train.dataprep import (
     batch_prepare_data_for_molmo_training,
     batch_prepare_data_for_qwen2_training,

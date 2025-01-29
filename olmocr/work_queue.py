@@ -5,10 +5,8 @@ import hashlib
 import logging
 import os
 import random
-import tempfile
 from dataclasses import dataclass
-from functools import partial
-from typing import Dict, List, Optional, Set
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 

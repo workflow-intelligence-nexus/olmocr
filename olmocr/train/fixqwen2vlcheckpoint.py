@@ -2,7 +2,6 @@ import argparse
 import concurrent.futures
 import json
 import os
-import tempfile
 
 import boto3
 import torch

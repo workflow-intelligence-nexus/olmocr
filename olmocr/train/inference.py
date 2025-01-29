@@ -1,35 +1,18 @@
 import base64
-import json
-import logging
-import os
-import time
-from functools import partial
 from io import BytesIO
-from logging import Logger
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import Optional
 
-import accelerate
 import torch
 import torch.distributed
 from PIL import Image
-from tqdm import tqdm
 from transformers import (
     AutoConfig,
-    AutoModelForCausalLM,
     AutoProcessor,
     Qwen2_5_VLForConditionalGeneration,
-    Qwen2VLForConditionalGeneration,
-    Trainer,
-    TrainerCallback,
-    TrainingArguments,
 )
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.prompts.anchor import get_anchor_text
 from olmocr.prompts.prompts import (
-    build_finetuning_prompt,
     build_openai_silver_data_prompt,
 )
 

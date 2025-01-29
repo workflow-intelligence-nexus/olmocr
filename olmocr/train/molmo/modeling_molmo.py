@@ -1,7 +1,7 @@
 import logging
 import math
 from copy import deepcopy
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import (
     Any,
@@ -17,7 +17,7 @@ from typing import (
 )
 
 import torch
-from einops import einops, einsum
+from einops import einops
 from torch import nn
 from torch.nn import functional as F
 from transformers import GenerationConfig, PreTrainedModel
@@ -1809,7 +1809,7 @@ class Molmo(nn.Module):
             subsegment_mask = subsegment_ids.unsqueeze(2) <= subsegment_ids.unsqueeze(1)
             attention_mask = subsegment_mask.to(attention_mask.dtype) * attention_mask.unsqueeze(2) * attention_mask.unsqueeze(1)
             if position_ids is None:
-                raise ValueError(f"Positioned ids must be given if using subsegment_ids")
+                raise ValueError("Positioned ids must be given if using subsegment_ids")
         else:
             if self.config.use_position_ids and position_ids is None:
                 position_ids = torch.clamp(

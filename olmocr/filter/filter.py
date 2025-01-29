@@ -5,7 +5,6 @@ from collections import Counter
 
 from lingua import Language, LanguageDetectorBuilder
 from pypdf import PdfReader
-from pypdf.errors import DependencyError, PyPdfError
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

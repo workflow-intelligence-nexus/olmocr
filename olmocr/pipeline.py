@@ -12,8 +12,6 @@ import os
 import random
 import re
 import shutil
-import signal
-import subprocess
 import sys
 import tempfile
 import time
@@ -22,7 +20,6 @@ from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from functools import cache, partial
 from io import BytesIO
-from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import boto3
@@ -44,13 +41,11 @@ from olmocr.metrics import MetricsKeeper, WorkerTracker
 from olmocr.prompts import PageResponse, build_finetuning_prompt
 from olmocr.prompts.anchor import get_anchor_text
 from olmocr.s3_utils import (
-    download_directory,
     download_zstd_csv,
     expand_s3_glob,
     get_s3_bytes,
     get_s3_bytes_with_backoff,
     parse_s3_path,
-    upload_zstd_csv,
 )
 from olmocr.version import VERSION
 from olmocr.work_queue import LocalWorkQueue, S3WorkQueue, WorkQueue
@@ -245,7 +240,7 @@ async def process_page(args, worker_id: int, pdf_orig_path: str, pdf_local_path:
             if base_response_data["usage"]["total_tokens"] > args.model_max_context:
                 local_anchor_text_len = max(1, local_anchor_text_len // 2)
                 logger.info(f"Reducing anchor text len to {local_anchor_text_len} for {pdf_orig_path}-{page_num}")
-                raise ValueError(f"Response exceeded model_max_context, cannot use this response")
+                raise ValueError("Response exceeded model_max_context, cannot use this response")
 
             metrics.add_metrics(
                 sglang_input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
@@ -627,8 +622,8 @@ async def sglang_server_host(args, semaphore):
 
     if retry >= MAX_RETRIES:
         logger.error(f"Ended up starting the sglang server more than {retry} times, cancelling pipeline")
-        logger.error(f"")
-        logger.error(f"Please make sure sglang is installed according to the latest instructions here: https://docs.sglang.ai/start/install.html")
+        logger.error("")
+        logger.error("Please make sure sglang is installed according to the latest instructions here: https://docs.sglang.ai/start/install.html")
         sys.exit(1)
 
 
@@ -668,8 +663,6 @@ def submit_beaker_job(args):
     from beaker import (
         Beaker,
         Constraints,
-        DataMount,
-        DataSource,
         EnvVar,
         ExperimentSpec,
         ImageSource,
@@ -712,7 +705,7 @@ def submit_beaker_job(args):
         b.secret.write(f"{owner}-AWS_CREDENTIALS_FILE", open(os.path.join(os.path.expanduser("~"), ".aws", "credentials")).read(), args.beaker_workspace)
 
     try:
-        b.secret.get(f"OE_DATA_GCS_SA_KEY", args.beaker_workspace)
+        b.secret.get("OE_DATA_GCS_SA_KEY", args.beaker_workspace)
     except SecretNotFound:
         print("Input the olmo-gcs SA key if you would like to load weights from gcs (end with a double newline):")
         lines = []
@@ -724,7 +717,7 @@ def submit_beaker_job(args):
             lines.append(line)
         gcs_sa_key = "\n".join(lines[:-1]).strip()  # Remove the last empty line
         if gcs_sa_key:
-            b.secret.write(f"OE_DATA_GCS_SA_KEY", gcs_sa_key, args.beaker_workspace)
+            b.secret.write("OE_DATA_GCS_SA_KEY", gcs_sa_key, args.beaker_workspace)
 
     # Create the experiment spec
     experiment_spec = ExperimentSpec(
@@ -748,7 +741,7 @@ def submit_beaker_job(args):
                     EnvVar(name="WEKA_ACCESS_KEY_ID", secret=f"{owner}-WEKA_ACCESS_KEY_ID"),
                     EnvVar(name="WEKA_SECRET_ACCESS_KEY", secret=f"{owner}-WEKA_SECRET_ACCESS_KEY"),
                     EnvVar(name="AWS_CREDENTIALS_FILE", secret=f"{owner}-AWS_CREDENTIALS_FILE"),
-                    EnvVar(name="GOOGLE_APPLICATION_CREDENTIALS_FILE", secret=f"OE_DATA_GCS_SA_KEY"),
+                    EnvVar(name="GOOGLE_APPLICATION_CREDENTIALS_FILE", secret="OE_DATA_GCS_SA_KEY"),
                 ],
                 resources=TaskResources(gpu_count=1),
                 constraints=Constraints(cluster=args.beaker_cluster if isinstance(args.beaker_cluster, list) else [args.beaker_cluster]),
@@ -860,12 +853,12 @@ def print_stats(args):
 
     skipped_paths = original_paths - all_processed_paths
 
-    print(f"\nWork Items Status:")
+    print("\nWork Items Status:")
     print(f"Total work items: {total_items:,}")
     print(f"Completed items: {completed_items:,}")
     print(f"Remaining items: {total_items - completed_items:,}")
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"Total documents processed: {docs_total:,}")
     print(f"Total documents skipped: {len(skipped_paths):,}")
     print(f"Total pages on fallback: {fallback_pages_total:,}")

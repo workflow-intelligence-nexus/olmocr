@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-from functools import partial
 
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError

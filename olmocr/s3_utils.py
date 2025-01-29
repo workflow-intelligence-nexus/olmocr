@@ -5,7 +5,6 @@ import hashlib
 import logging
 import os
 import posixpath
-import tempfile
 import time
 from io import BytesIO, TextIOWrapper
 from pathlib import Path
@@ -17,8 +16,7 @@ import requests
 import zstandard as zstd
 from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
-from botocore.exceptions import ClientError, NoCredentialsError
-from google.auth import compute_engine
+from botocore.exceptions import ClientError
 from google.cloud import storage
 from tqdm import tqdm
 

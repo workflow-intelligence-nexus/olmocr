@@ -3,23 +3,15 @@ from typing import (
     Any,
     Callable,
     Dict,
-    Iterable,
-    Iterator,
     List,
     Optional,
-    Sequence,
-    Set,
     Tuple,
     Union,
     cast,
-    overload,
 )
 
 from pypdf._cmap import build_char_map, unknown_char_map
-from pypdf.constants import AnnotationDictionaryAttributes as ADA
-from pypdf.constants import ImageAttributes as IA
 from pypdf.constants import PageAttributes as PG
-from pypdf.constants import Resources as RES
 from pypdf.generic import (
     ContentStream,
     DictionaryObject,

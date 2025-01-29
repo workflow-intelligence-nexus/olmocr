@@ -1,30 +1,17 @@
-import base64
-import json
 import logging
 import os
-import random
-import time
-from functools import partial
-from io import BytesIO
 from logging import Logger
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Optional
 
-import accelerate
 import torch
 import torch.distributed
 import wandb
-from datasets import DatasetDict, concatenate_datasets
 from datasets.utils import disable_progress_bars
 from datasets.utils.logging import set_verbosity
 from peft import LoraConfig, get_peft_model  # pyright: ignore
-from PIL import Image
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 from transformers import (
-    AutoConfig,
-    AutoModelForCausalLM,
     AutoProcessor,
     Qwen2VLForConditionalGeneration,
     Trainer,

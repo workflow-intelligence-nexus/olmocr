@@ -3,7 +3,6 @@ import io
 import subprocess
 
 from PIL import Image
-from pypdf import PdfReader
 
 
 def get_pdf_media_box_width_height(local_pdf_path: str, page_num: int) -> tuple[float, float]:

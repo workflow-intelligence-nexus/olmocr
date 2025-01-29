@@ -1,6 +1,6 @@
 """Image processor class for Molmo"""
 
-from typing import List, Mapping, Optional, Union
+from typing import List, Optional, Union
 
 import einops
 import numpy as np
@@ -13,7 +13,6 @@ from transformers.image_utils import (
     OPENAI_CLIP_MEAN,
     OPENAI_CLIP_STD,
     ImageInput,
-    is_valid_image,
 )
 from transformers.processing_utils import ImagesKwargs
 from transformers.utils import logging

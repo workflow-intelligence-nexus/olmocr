@@ -12,7 +12,7 @@ def check_poppler_version():
         if result.returncode == 0 and result.stderr.startswith("pdftoppm"):
             logger.info("pdftoppm is installed and working.")
         else:
-            logger.error(f"pdftoppm is installed but returned an error.")
+            logger.error("pdftoppm is installed but returned an error.")
             sys.exit(1)
     except FileNotFoundError:
         logger.error("pdftoppm is not installed.")
@@ -22,7 +22,7 @@ def check_poppler_version():
 
 def check_sglang_version():
     if importlib.util.find_spec("sglang") is None:
-        logger.error(f"Please make sure sglang is installed according to the latest instructions here: https://docs.sglang.ai/start/install.html")
+        logger.error("Please make sure sglang is installed according to the latest instructions here: https://docs.sglang.ai/start/install.html")
         logger.error("Sglang needs to be installed with a separate command in order to find all dependencies properly.")
         sys.exit(1)
 

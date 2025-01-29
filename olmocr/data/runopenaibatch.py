@@ -6,8 +6,6 @@ import datetime
 import json
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from enum import Enum
 
 from openai import OpenAI
 from tqdm import tqdm
