@@ -93,8 +93,8 @@ def get_png_dimensions_from_base64(base64_data) -> tuple[int, int]:
 
     # Positions in the binary data where width and height are stored
     width_start = 16  # Byte position where width starts (0-based indexing)
-    width_end = 20  # Byte position where width ends (exclusive)
-    height_start = 20
+    _width_end = 20  # Byte position where width ends (exclusive)
+    _height_start = 20
     height_end = 24
 
     # Compute the byte range needed (from width_start to height_end)

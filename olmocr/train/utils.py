@@ -23,16 +23,13 @@ from .core.loggers import get_logger
 from .core.paths import copy_dir, is_local
 from .core.state import BeakerState
 
-# from .tokenization import ModelTokenizer
-
-T = TypeVar("T")
-
 from olmocr.train.dataloader import build_finetuning_dataset
 from olmocr.train.dataprep import (
     batch_prepare_data_for_molmo_training,
     batch_prepare_data_for_qwen2_training,
 )
 
+T = TypeVar("T")
 
 def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
     pt = PrecisionType(accelerator.mixed_precision)

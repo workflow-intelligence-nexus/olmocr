@@ -130,8 +130,10 @@ multi_line_output = 3
 reportPrivateImportUsage = false
 
 [tool.ruff]
-line-length = 115
-target-version = "py39"
+line-length = 160
+target-version = "py311"
+exclude = ["olmocr/train/molmo", "tests/*"]
+ignore = ["E722"] #igore bare except
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]

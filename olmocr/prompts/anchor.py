@@ -150,8 +150,8 @@ def _pdf_report(local_pdf_path: str, page_num: int) -> PageReport:
             if xobject and xobject["/Subtype"] == "/Image":
                 # Compute image bbox
                 # The image is placed according to the CTM
-                width = xobject.get("/Width")
-                height = xobject.get("/Height")
+                _width = xobject.get("/Width")
+                _height = xobject.get("/Height")
                 x0, y0 = _transform_point(0, 0, cm)
                 x1, y1 = _transform_point(1, 1, cm)
                 image_elements.append(ImageElement(xobject_name, BoundingBox(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))))
@@ -332,7 +332,7 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
 
     # Calculate remaining length
     current_length = len(result) + sum(len(s) for _, _, s, _ in selected_elements)
-    remaining_length = max_length - current_length
+    _remaining_length = max_length - current_length
 
     # Exclude edge elements from the pool
     remaining_elements = [(elem_type, elem, s, position) for elem_type, elem, s, position in all_elements if id(elem) not in selected_element_ids]

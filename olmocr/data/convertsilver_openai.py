@@ -54,8 +54,6 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                     match = re.search(pattern, obj["body"]["messages"][0]["content"][0]["text"], re.DOTALL)
 
                     if match:
-                        raw_page_text = match.group(1).strip()
-
                         # Ok, now we want to try to see if it's better if we recalculate the anchor text
                         goldkey = obj["custom_id"]
                         s3_path = goldkey[: goldkey.rindex("-")]

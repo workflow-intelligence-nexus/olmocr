@@ -577,7 +577,7 @@ def extract_page(
                             font_size,
                         )
             except Exception:
-                logger_warning(
+                print(
                     f" impossible to decode XFormObject {operands[0]}",
                     __name__,
                 )

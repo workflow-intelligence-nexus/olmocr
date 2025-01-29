@@ -8,6 +8,13 @@ import random
 from dataclasses import dataclass
 from typing import List, Optional
 
+from olmocr.s3_utils import (
+    download_zstd_csv,
+    expand_s3_glob,
+    parse_s3_path,
+    upload_zstd_csv,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -355,15 +362,8 @@ class LocalWorkQueue(WorkQueue):
 
 
 # --------------------------------------------------------------------------------------
-# S3WorkQueue Implementation (Preserves Original Comments)
+# S3WorkQueue Implementation
 # --------------------------------------------------------------------------------------
-
-from olmocr.s3_utils import (
-    download_zstd_csv,
-    expand_s3_glob,
-    parse_s3_path,
-    upload_zstd_csv,
-)
 
 
 class S3WorkQueue(WorkQueue):
