@@ -44,12 +44,9 @@ def process_document(data, s3_client, template, output_dir):
     source_file = metadata.get('Source-File')
 
     # Generate base64 image of the corresponding PDF page
-    if source_file and source_file.startswith('s3://'):
-        local_pdf = tempfile.NamedTemporaryFile("wb+", suffix=".pdf")
-        local_pdf.write(get_s3_bytes(s3_client, source_file))
-        local_pdf.flush()
-    else:
-        raise ValueError("Expecting s3 files only")
+    local_pdf = tempfile.NamedTemporaryFile("wb+", suffix=".pdf")
+    local_pdf.write(get_s3_bytes(s3_client, source_file))
+    local_pdf.flush()
 
     pages = []
     for span in pdf_page_numbers:

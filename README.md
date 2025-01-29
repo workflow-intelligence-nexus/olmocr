@@ -69,9 +69,11 @@ cat localworkspace/results/output_*.jsonl
 
 You can view your documents side-by-side with the original PDF renders using the `dolmaviewer` command.
 
-```python
-
+```bash
+python -m olmocr.viewer.dolmaviewer localworkspace/results/output_*.jsonl
 ```
+
+Now open `./dolma_previews/tests_gnarly_pdfs_horribleocr_pdf.html` in your favorite browser.
 
 
 ### Multi-node / Cluster Usage
