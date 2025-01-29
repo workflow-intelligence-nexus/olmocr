@@ -106,6 +106,7 @@ For example:
 python -m olmocr.pipeline s3://my_s3_bucket/pdfworkspaces/exampleworkspace --pdfs s3://my_s3_bucket/jakep/gnarly_pdfs/*.pdf --beaker --beaker_gpus 4
 ```
 
+### Full documentation for the pipeline
 
 ```bash
 python -m olmocr.pipeline --help
