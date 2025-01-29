@@ -7,22 +7,22 @@
 # pymupdf
 # pypdf
 
+import random
+import re
+
 # coherency score best of these three
 import subprocess
-import re
-import random
-import ftfy
 from dataclasses import dataclass
-from typing import Literal, List
 from functools import lru_cache
+from typing import List, Literal
 
-import pypdfium2 as pdfium
+import ftfy
 import pymupdf
-
-from olmocr.filter.coherency import get_document_coherency
-
+import pypdfium2 as pdfium
 from pypdf import PdfReader
 from pypdf.generic import RectangleObject
+
+from olmocr.filter.coherency import get_document_coherency
 from olmocr.prompts._adv_anchor import mult
 
 

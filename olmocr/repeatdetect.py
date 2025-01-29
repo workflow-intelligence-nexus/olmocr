@@ -1,7 +1,8 @@
-import unittest
 import random
 import string
 import time
+import unittest
+
 
 class RepeatDetector:
     def __init__(self, max_ngram_size: int = 10):

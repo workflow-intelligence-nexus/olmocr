@@ -1,14 +1,16 @@
-import os
+import argparse
+import collections
 import csv
 import json
-import argparse
-import re
-import collections
+import os
 import random
+import re
 import sqlite3
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from urllib.parse import urlparse
+
 from tqdm import tqdm
+
 
 def parse_pdf_hash(pretty_pdf_path: str) -> str:
     pattern = r"s3://ai2-s2-pdfs/([a-f0-9]{4})/([a-f0-9]+)\.pdf-\d+"

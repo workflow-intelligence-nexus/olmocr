@@ -1,12 +1,14 @@
 import os
 import random
 import tempfile
-import boto3
 from concurrent.futures import ThreadPoolExecutor
-from jinja2 import Template
-from urllib.parse import urlparse
 from difflib import SequenceMatcher
+from urllib.parse import urlparse
+
+import boto3
+from jinja2 import Template
 from tqdm import tqdm
+
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
 session = boto3.Session(profile_name='s2')

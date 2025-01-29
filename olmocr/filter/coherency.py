@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 @lru_cache()
 def load_coherency_model(model_name: str = "HuggingFaceTB/SmolLM-135M"):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16)
+    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16)
     model.eval()  # Set the model to evaluation mode
 
     return tokenizer, model

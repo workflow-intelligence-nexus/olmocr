@@ -1,28 +1,31 @@
-import unittest
-import random
-import requests
 import base64
-import torch
 import os
+import random
 import re
+import unittest
 from io import BytesIO
-from PIL import Image
-from transformers import AutoProcessor
 from unittest.mock import patch
 
+import numpy as np
+import requests
+import torch
+from PIL import Image
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from transformers import AutoProcessor
+
+from olmocr.train.core.config import DataConfig, SourceConfig, TrainConfig
 from olmocr.train.dataloader import (
     build_finetuning_dataset,
 )
-
 from olmocr.train.dataprep import (
-    prepare_data_for_qwen2_training, build_finetuning_prompt,
-    prepare_data_for_molmo_training, batch_prepare_data_for_molmo_training
+    batch_prepare_data_for_molmo_training,
+    build_finetuning_prompt,
+    prepare_data_for_molmo_training,
+    prepare_data_for_qwen2_training,
 )
-import numpy as np
-from tqdm import tqdm
-from torch.utils.data import DataLoader
 from olmocr.train.utils import make_dataset
-from olmocr.train.core.config import TrainConfig, DataConfig, SourceConfig
+
 
 class TestDataprep(unittest.TestCase):
     def testFullDataloader(self):

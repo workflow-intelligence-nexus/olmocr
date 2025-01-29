@@ -1,16 +1,12 @@
-from transformers import (
-    AutoProcessor,
-    DataCollatorForSeq2Seq
-)
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from transformers import AutoProcessor, DataCollatorForSeq2Seq
 
 from olmocr.train.core.cli import make_cli
 from olmocr.train.core.config import TrainConfig
-from tqdm import tqdm
-from .utils import (
-    make_dataset, TruncatingCollator
-)
 
-from torch.utils.data import DataLoader
+from .utils import TruncatingCollator, make_dataset
+
 
 def main():
     train_config = make_cli(TrainConfig)  # pyright: ignore

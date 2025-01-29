@@ -1,14 +1,14 @@
 import argparse
-import os
-import json
-import torch
-import boto3
-import tempfile
 import concurrent.futures
+import json
+import os
+import tempfile
 
+import boto3
+import torch
 from smart_open import smart_open
-
 from transformers import Qwen2VLForConditionalGeneration
+
 from olmocr.s3_utils import parse_s3_path
 
 s3_client = boto3.client('s3')

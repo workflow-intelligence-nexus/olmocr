@@ -3,28 +3,27 @@
 # You might need to pip install git+https://github.com/allenai/refine.git@soldni/eval-m
 # in order to use some of the existing aligner scoring that was developed as part
 # of the refiner pipeline
-import boto3
-import os
-import json
-import hashlib
-import random
-import zstandard
-import sys
 import argparse
-
+import hashlib
+import json
+import logging
+import os
+import random
+import sys
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Optional, Tuple, Dict
-from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from pathlib import Path
-from smart_open import smart_open, register_compressor
+from typing import Dict, Optional, Tuple
+
+import boto3
+import zstandard
+from dolma_refine.evaluate.aligners import HirschbergAligner
 from dolma_refine.evaluate.metrics import DocumentEditSimilarity
 from dolma_refine.evaluate.segmenters import SpacySegmenter
-from dolma_refine.evaluate.aligners import HirschbergAligner
+from smart_open import register_compressor, smart_open
+from tqdm import tqdm
 
 from .evalhtml import create_review_html
-
-import logging
 
 logging.getLogger("pypdf").setLevel(logging.ERROR)
 

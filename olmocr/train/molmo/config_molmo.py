@@ -1,6 +1,6 @@
 from typing import List
 
-from transformers import PretrainedConfig, AutoTokenizer
+from transformers import AutoTokenizer, PretrainedConfig
 
 
 class MolmoConfig(PretrainedConfig):

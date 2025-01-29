@@ -1,47 +1,59 @@
-import logging
 import argparse
-import boto3
-import signal
-import os
-import sys
-import time
-import subprocess
+import asyncio
+import atexit
+import base64
+import datetime
+import glob
 import hashlib
 import json
-import base64
-import atexit
-import asyncio
-import httpx
-import datetime
-import tempfile
-import random
-import shutil
-import re
-import glob
-import torch
+import logging
 import multiprocessing
-
-from tqdm import tqdm
-from urllib.parse import urlparse
-from botocore.exceptions import ClientError
-from io import BytesIO
-from PIL import Image
-from pypdf import PdfReader
-from functools import partial, cache
-from dataclasses import dataclass
-from typing import Optional, Tuple, List, Dict, Set
+import os
+import random
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
+from dataclasses import dataclass
+from functools import cache, partial
+from io import BytesIO
+from typing import Dict, List, Optional, Set, Tuple
+from urllib.parse import urlparse
 
-from olmocr.work_queue import WorkQueue, S3WorkQueue, LocalWorkQueue
-from olmocr.s3_utils import expand_s3_glob, get_s3_bytes, get_s3_bytes_with_backoff, parse_s3_path, download_zstd_csv, upload_zstd_csv, download_directory
+import boto3
+import httpx
+import torch
+from botocore.exceptions import ClientError
+from PIL import Image
+from pypdf import PdfReader
+from tqdm import tqdm
+
+from olmocr.check import (
+    check_poppler_version,
+    check_sglang_version,
+    check_torch_gpu_available,
+)
 from olmocr.data.renderpdf import render_pdf_to_base64png
-from olmocr.filter.filter import PdfFilter, Language
-from olmocr.prompts import build_finetuning_prompt, PageResponse
-from olmocr.prompts.anchor import get_anchor_text
-from olmocr.check import check_poppler_version, check_sglang_version, check_torch_gpu_available
+from olmocr.filter.filter import Language, PdfFilter
 from olmocr.metrics import MetricsKeeper, WorkerTracker
+from olmocr.prompts import PageResponse, build_finetuning_prompt
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.s3_utils import (
+    download_directory,
+    download_zstd_csv,
+    expand_s3_glob,
+    get_s3_bytes,
+    get_s3_bytes_with_backoff,
+    parse_s3_path,
+    upload_zstd_csv,
+)
 from olmocr.version import VERSION
+from olmocr.work_queue import LocalWorkQueue, S3WorkQueue, WorkQueue
 
 # Initialize logger
 logger = logging.getLogger(__name__)

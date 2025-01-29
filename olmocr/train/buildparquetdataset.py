@@ -1,10 +1,12 @@
 import argparse
 import logging
-from functools import partial
 import os
+from functools import partial
+
 import boto3
-from datasets import Dataset
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from datasets import Dataset
+
 from olmocr.train.dataloader import build_batch_query_response_vision_dataset
 
 

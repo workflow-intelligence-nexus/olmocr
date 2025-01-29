@@ -1,13 +1,15 @@
-import unittest
 import asyncio
 import datetime
-from unittest.mock import Mock, patch, call
-from botocore.exceptions import ClientError
 import hashlib
-from typing import List, Dict
+import unittest
+from typing import Dict, List
+from unittest.mock import Mock, call, patch
+
+from botocore.exceptions import ClientError
 
 # Import the classes we're testing
 from olmocr.work_queue import S3WorkQueue, WorkItem
+
 
 class TestS3WorkQueue(unittest.TestCase):
     def setUp(self):

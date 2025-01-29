@@ -5,31 +5,34 @@ import random
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from hashlib import sha1
 from logging import Logger
 from tempfile import TemporaryDirectory
 from typing import Dict, Generator, List, Optional, TypeVar
 
-from functools import partial
-
 import torch
 import torch.nn.functional as F
-from transformers import AutoProcessor
 from accelerate import Accelerator
 from accelerate.utils import PrecisionType
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
+from transformers import AutoProcessor
 
 from .core.cli import to_native_types
-from .core.config import AwsConfig, TrainConfig, WandbConfig, DataConfig, SourceConfig
+from .core.config import AwsConfig, DataConfig, SourceConfig, TrainConfig, WandbConfig
 from .core.loggers import get_logger
 from .core.paths import copy_dir, is_local
 from .core.state import BeakerState
+
 # from .tokenization import ModelTokenizer
 
 T = TypeVar("T")
 
 from olmocr.train.dataloader import build_finetuning_dataset, list_dataset_files
-from olmocr.train.dataprep import batch_prepare_data_for_qwen2_training, batch_prepare_data_for_molmo_training
+from olmocr.train.dataprep import (
+    batch_prepare_data_for_molmo_training,
+    batch_prepare_data_for_qwen2_training,
+)
 
 
 def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:

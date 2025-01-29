@@ -1,13 +1,13 @@
 """Image processor class for Molmo"""
-from typing import List, Optional, Union, Mapping
+from typing import List, Mapping, Optional, Union
 
-import numpy as np
 import einops
+import numpy as np
 import torch
 import torchvision.transforms
 from torchvision.transforms import InterpolationMode
 from torchvision.transforms.functional import convert_image_dtype
-
+from transformers.image_processing_utils import BaseImageProcessor
 from transformers.image_utils import (
     OPENAI_CLIP_MEAN,
     OPENAI_CLIP_STD,
@@ -15,9 +15,7 @@ from transformers.image_utils import (
     is_valid_image,
 )
 from transformers.processing_utils import ImagesKwargs
-from transformers.image_processing_utils import BaseImageProcessor
 from transformers.utils import logging
-
 
 logger = logging.get_logger(__name__)
 

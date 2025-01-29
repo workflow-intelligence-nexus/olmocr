@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
+
 # This is the prompt we use for getting chat gpt 4o to convert documents into our silver training data
 def build_openai_silver_data_prompt(base_text: str) -> str:
     return (

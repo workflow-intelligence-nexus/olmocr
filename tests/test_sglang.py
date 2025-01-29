@@ -4,24 +4,33 @@
 # Compare that the temperature 0 sampled result is the same
 
 import asyncio
-import unittest
-from unittest.mock import patch, AsyncMock
-import os
-import json
-import tempfile
-import math
 import base64
-import torch
-import numpy as np
+import json
+import math
+import os
+import tempfile
+import unittest
 from io import BytesIO
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from httpx import AsyncClient
 from PIL import Image
 from transformers import AutoProcessor, AutoTokenizer, Qwen2VLForConditionalGeneration
-from pathlib import Path
-from olmocr.pipeline import sglang_server_task, sglang_server_ready, build_page_query, SGLANG_SERVER_PORT, render_pdf_to_base64png, get_anchor_text, download_directory
-from olmocr.prompts import PageResponse
-from httpx import AsyncClient
-import torch.nn.functional as F
 
+from olmocr.pipeline import (
+    SGLANG_SERVER_PORT,
+    build_page_query,
+    download_directory,
+    get_anchor_text,
+    render_pdf_to_base64png,
+    sglang_server_ready,
+    sglang_server_task,
+)
+from olmocr.prompts import PageResponse
 
 MODEL_FINETUNED_PATH = "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"
 
@@ -320,12 +329,12 @@ class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
         print("HF", hf_output, hf_output.shape)
 
         from sglang.srt.configs.model_config import ModelConfig
+        from sglang.srt.hf_transformers_utils import get_tokenizer
         from sglang.srt.managers.schedule_batch import Req, ScheduleBatch
         from sglang.srt.model_executor.forward_batch_info import ForwardBatch
         from sglang.srt.model_executor.model_runner import ModelRunner
         from sglang.srt.sampling.sampling_params import SamplingParams
-        from sglang.srt.hf_transformers_utils import get_tokenizer
-        from sglang.srt.server_args import ServerArgs, PortArgs
+        from sglang.srt.server_args import PortArgs, ServerArgs
 
         model_config = ModelConfig(
             self.model_cache_dir,

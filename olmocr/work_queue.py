@@ -1,15 +1,14 @@
+import abc
+import asyncio
+import datetime
+import hashlib
+import logging
 import os
 import random
-import logging
-import hashlib
 import tempfile
-import datetime
-import asyncio
-import abc
-from typing import Optional, List, Dict, Set
 from dataclasses import dataclass
-
 from functools import partial
+from typing import Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -373,11 +372,12 @@ class LocalWorkQueue(WorkQueue):
 # --------------------------------------------------------------------------------------
 
 from olmocr.s3_utils import (
-    expand_s3_glob,
     download_zstd_csv,
+    expand_s3_glob,
+    parse_s3_path,
     upload_zstd_csv,
-    parse_s3_path
 )
+
 
 class S3WorkQueue(WorkQueue):
     """

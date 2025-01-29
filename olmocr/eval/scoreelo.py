@@ -1,8 +1,10 @@
-import requests
-import re
-from urllib.parse import urlsplit, urlunsplit, parse_qs, urlencode
 import csv
+import re
 from collections import defaultdict
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+
+import requests
+
 
 def fetch_review_page_html(url):
     """

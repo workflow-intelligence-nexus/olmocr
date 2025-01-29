@@ -1,21 +1,22 @@
 import argparse
 import json
-import re
-from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import sys
 import logging
-import tempfile
 import os
+import re
+import sys
+import tempfile
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
 
-import smart_open
 import boto3
-from olmocr.prompts import build_finetuning_prompt
-from olmocr.prompts.anchor import get_anchor_text
-from olmocr.data.renderpdf import render_pdf_to_base64png
 
 # Import Plotly for plotting
 import plotly.express as px
+import smart_open
+
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts import build_finetuning_prompt
+from olmocr.prompts.anchor import get_anchor_text
 
 
 def setup_logging():

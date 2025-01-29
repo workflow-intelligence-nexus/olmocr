@@ -1,8 +1,14 @@
 import unittest
 
-from transformers import AutoModelForCausalLM, AutoProcessor, AutoTokenizer, GenerationConfig
-from PIL import Image
 import requests
+from PIL import Image
+from transformers import (
+    AutoModelForCausalLM,
+    AutoProcessor,
+    AutoTokenizer,
+    GenerationConfig,
+)
+
 
 class MolmoProcessorTest(unittest.TestCase):
     def test_molmo_demo(self):

@@ -1,14 +1,15 @@
 import glob
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial, reduce
 from hashlib import sha256
 from itertools import chain
 from pathlib import Path
+from shutil import copyfileobj
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
-from concurrent.futures import ThreadPoolExecutor
-from shutil import copyfileobj
+
 import platformdirs
 import smart_open
 from fsspec import AbstractFileSystem, get_filesystem_class

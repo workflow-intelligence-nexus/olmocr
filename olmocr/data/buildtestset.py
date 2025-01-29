@@ -1,14 +1,15 @@
-import os
-import glob
-import random
 import argparse
-import boto3
 import base64
+import glob
+import os
+import random
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import List
+from urllib.parse import urlparse
+
+import boto3
 from pypdf import PdfReader, PdfWriter
 from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from urllib.parse import urlparse
-from typing import List
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.filter import PdfFilter

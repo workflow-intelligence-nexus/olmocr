@@ -1,15 +1,16 @@
 # Sends list of batch files to OpenAI for processing
 # However, it also waits and gets the files when they are done, saves its state, and 
 # allows you to submit more than the 100GB of file request limits that the openaiAPI has
+import argparse
+import datetime
+import json
 import os
 import time
-import json
-import datetime
-import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
+
 from openai import OpenAI
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Set up OpenAI client (API key should be set in the environment)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))

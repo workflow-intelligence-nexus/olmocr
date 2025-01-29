@@ -1,11 +1,4 @@
 import math
-from pypdf.generic import (
-    DictionaryObject, 
-    FloatObject, 
-    TextStringObject, 
-    NumberObject, 
-    NameObject
-)
 from typing import (
     Any,
     Callable,
@@ -21,12 +14,21 @@ from typing import (
     cast,
     overload,
 )
+
+from pypdf._cmap import build_char_map, unknown_char_map
 from pypdf.constants import AnnotationDictionaryAttributes as ADA
 from pypdf.constants import ImageAttributes as IA
 from pypdf.constants import PageAttributes as PG
 from pypdf.constants import Resources as RES
-from pypdf.generic import ContentStream, encode_pdfdocencoding
-from pypdf._cmap import build_char_map, unknown_char_map
+from pypdf.generic import (
+    ContentStream,
+    DictionaryObject,
+    FloatObject,
+    NameObject,
+    NumberObject,
+    TextStringObject,
+    encode_pdfdocencoding,
+)
 
 CUSTOM_RTL_MIN: int = -1
 CUSTOM_RTL_MAX: int = -1

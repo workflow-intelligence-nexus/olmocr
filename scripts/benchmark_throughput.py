@@ -1,24 +1,27 @@
 """Benchmark offline inference throughput."""
 import argparse
+import base64
 import json
 import random
 import time
-import base64
-
-from typing import List, Optional, Tuple
-from PIL import Image
 from io import BytesIO
+from typing import List, Optional, Tuple
 
 import torch
 import uvloop
+from PIL import Image
 from tqdm import tqdm
-from transformers import (AutoModelForCausalLM, AutoTokenizer,
-                          PreTrainedTokenizerBase, AutoProcessor)
-
+from transformers import (
+    AutoModelForCausalLM,
+    AutoProcessor,
+    AutoTokenizer,
+    PreTrainedTokenizerBase,
+)
 from vllm import TokensPrompt
 from vllm.engine.arg_utils import DEVICE_OPTIONS, AsyncEngineArgs, EngineArgs
 from vllm.entrypoints.openai.api_server import (
-    build_async_engine_client_from_engine_args)
+    build_async_engine_client_from_engine_args,
+)
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 from vllm.sampling_params import BeamSearchParams
 from vllm.utils import FlexibleArgumentParser, merge_async_iterators

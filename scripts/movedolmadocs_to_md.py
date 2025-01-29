@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-import os
+import argparse
 import io
 import json
-import boto3
-import argparse
+import os
 from urllib.parse import urlparse
+
+import boto3
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Read JSONL files from an S3 prefix, extract text, and write to local .md files.")

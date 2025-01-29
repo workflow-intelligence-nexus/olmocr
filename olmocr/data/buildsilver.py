@@ -1,21 +1,25 @@
-import os
+import argparse
+import base64
 import glob
+import json
+import os
 import random
 import subprocess
-import base64
-import argparse
-import boto3
-import json
-from pypdf import PdfReader
-from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from typing import Generator
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from urllib.parse import urlparse
 
+import boto3
+from pypdf import PdfReader
+from tqdm import tqdm
+
 from olmocr.data.renderpdf import render_pdf_to_base64png
-from olmocr.prompts import build_openai_silver_data_prompt, openai_response_format_schema
-from olmocr.prompts.anchor import get_anchor_text
 from olmocr.filter import PdfFilter
+from olmocr.prompts import (
+    build_openai_silver_data_prompt,
+    openai_response_format_schema,
+)
+from olmocr.prompts.anchor import get_anchor_text
 
 TARGET_IMAGE_DIM = 2048
 

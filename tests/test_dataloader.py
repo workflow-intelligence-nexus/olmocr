@@ -1,17 +1,16 @@
 import unittest
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 from functools import partial
 
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 from transformers import AutoProcessor
 
 from olmocr.train.dataloader import (
     build_finetuning_dataset,
     extract_openai_batch_response,
+    list_dataset_files,
     load_jsonl_into_ds,
-    list_dataset_files
 )
-
 from olmocr.train.dataprep import batch_prepare_data_for_qwen2_training
 
 

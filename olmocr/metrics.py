@@ -1,8 +1,9 @@
-import time
 import asyncio
-from collections import deque, defaultdict
+import time
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Dict
+
 
 class MetricsKeeper:
     def __init__(self, window=60*5):

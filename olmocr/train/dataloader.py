@@ -1,24 +1,32 @@
-import json
-import logging
-import tempfile
-import re
-import os
 import base64
 import glob
-import pypdf, pypdf.errors
-
+import json
+import logging
+import os
+import re
+import tempfile
 from functools import partial
-from typing import Any, Dict, Optional
 from logging import Logger
-from filelock import FileLock
+from typing import Any, Dict, Optional
 
 import boto3
-from datasets import Dataset, Features, Value, load_dataset, concatenate_datasets, DatasetDict
-from .core.config import DataConfig, SourceConfig
+import pypdf
+import pypdf.errors
+from datasets import (
+    Dataset,
+    DatasetDict,
+    Features,
+    Value,
+    concatenate_datasets,
+    load_dataset,
+)
+from filelock import FileLock
 
-from olmocr.prompts.anchor import get_anchor_text
-from olmocr.s3_utils import parse_custom_id, get_s3_bytes, parse_s3_path
 from olmocr.data.renderpdf import get_pdf_media_box_width_height
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.s3_utils import get_s3_bytes, parse_custom_id, parse_s3_path
+
+from .core.config import DataConfig, SourceConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

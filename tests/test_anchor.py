@@ -1,13 +1,14 @@
-import unittest
-import os
-import json
-import io
 import glob
+import io
+import json
+import os
+import unittest
 
 from pypdf import PdfReader
 
-from olmocr.prompts.anchor import _pdf_report, _linearize_pdf_report, get_anchor_text
 from olmocr.data.renderpdf import get_pdf_media_box_width_height
+from olmocr.prompts.anchor import _linearize_pdf_report, _pdf_report, get_anchor_text
+
 
 class AnchorTest(unittest.TestCase):
     def testExtractText(self):
@@ -61,8 +62,8 @@ class AnchorTest(unittest.TestCase):
         })
 
         import pyarrow as pa
-        import pyarrow.json as paj
         import pyarrow.compute as pc
+        import pyarrow.json as paj
 
         buffer = io.BytesIO(jsondata.encode('utf-8'))
         paj.read_json(buffer, read_options=paj.ReadOptions(use_threads=False, block_size=len(jsondata)))

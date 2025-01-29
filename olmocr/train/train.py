@@ -1,40 +1,39 @@
-import os
-import json
 import base64
+import json
 import logging
-import time
+import os
 import random
-from io import BytesIO
-from PIL import Image
+import time
 from functools import partial
+from io import BytesIO
 from logging import Logger
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Optional
-from tqdm import tqdm
 
 import accelerate
 import torch
 import torch.distributed
+import wandb
 from datasets import DatasetDict, concatenate_datasets
 from datasets.utils import disable_progress_bars
 from datasets.utils.logging import set_verbosity
 from peft import LoraConfig, get_peft_model  # pyright: ignore
+from PIL import Image
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 from transformers import (
+    AutoConfig,
     AutoModelForCausalLM,
+    AutoProcessor,
+    Qwen2VLForConditionalGeneration,
     Trainer,
     TrainerCallback,
     TrainingArguments,
-    Qwen2VLForConditionalGeneration,
-    AutoProcessor,
-    AutoConfig,
 )
 from transformers.integrations import WandbCallback
 from transformers.trainer_callback import TrainerControl, TrainerState
 from transformers.trainer_utils import get_last_checkpoint
-from torch.utils.data import DataLoader
-
-import wandb
 
 from olmocr.train.core.cli import make_cli, save_config, to_native_types
 from olmocr.train.core.config import TrainConfig
@@ -44,12 +43,13 @@ from olmocr.train.core.state import BeakerState
 
 from .utils import (
     RunName,
+    TruncatingCollator,
     get_local_dir,
     log_trainable_parameters,
-    setup_environment,
     make_dataset,
-    TruncatingCollator
+    setup_environment,
 )
+
 
 class CheckpointUploadCallback(TrainerCallback):
     def __init__(self, save_path: str, logger: Optional[Logger] = None):

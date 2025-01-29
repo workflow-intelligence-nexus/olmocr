@@ -1,26 +1,25 @@
-import os
-import glob
-import posixpath
-import logging
-import tempfile
 import base64
-import boto3
-import time
-import requests
 import concurrent.futures
+import glob
 import hashlib
-
-from urllib.parse import urlparse
+import logging
+import os
+import posixpath
+import tempfile
+import time
+from io import BytesIO, TextIOWrapper
 from pathlib import Path
+from typing import List, Optional
+from urllib.parse import urlparse
+
+import boto3
+import requests
+import zstandard as zstd
+from boto3.s3.transfer import TransferConfig
+from botocore.config import Config
+from botocore.exceptions import ClientError, NoCredentialsError
 from google.auth import compute_engine
 from google.cloud import storage
-from botocore.config import Config
-from botocore.exceptions import NoCredentialsError, ClientError
-from boto3.s3.transfer import TransferConfig
-from typing import Optional, List
-from urllib.parse import urlparse
-import zstandard as zstd
-from io import BytesIO, TextIOWrapper
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)

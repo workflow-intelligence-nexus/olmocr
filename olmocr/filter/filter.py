@@ -124,10 +124,12 @@ class PdfFilter:
 
 if __name__ == "__main__":
     import tempfile
+    from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+
     import boto3
-    from olmocr.s3_utils import parse_s3_path
-    from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
     from tqdm import tqdm
+
+    from olmocr.s3_utils import parse_s3_path
 
     # Quiet logs from pypdf
     logging.getLogger("pypdf").setLevel(logging.ERROR)

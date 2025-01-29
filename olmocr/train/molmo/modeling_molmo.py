@@ -1,21 +1,31 @@
 import logging
 import math
 from copy import deepcopy
-from dataclasses import fields, dataclass, replace
+from dataclasses import dataclass, fields, replace
 from enum import Enum
-from typing import List, Optional, Tuple, Union, Dict, Any, Sequence, Callable, cast, MutableMapping
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import torch
-from einops import einsum, einops
-from transformers import PreTrainedModel, GenerationConfig
+from einops import einops, einsum
+from torch import nn
+from torch.nn import functional as F
+from transformers import GenerationConfig, PreTrainedModel
 from transformers.cache_utils import Cache
 from transformers.modeling_outputs import CausalLMOutputWithPast, ModelOutput
 from transformers.models.auto import AutoModelForCausalLM
-from torch import nn
 
 from .config_molmo import MolmoConfig
-from torch.nn import functional as F
-
 
 log = logging.getLogger(__name__)
 

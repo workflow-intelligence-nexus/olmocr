@@ -1,14 +1,15 @@
 import argparse
 import json
-import re
-from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import sys
-import os
 import logging
+import os
+import re
+import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
 
 import smart_open
 from cached_path import cached_path
+
 from olmocr.prompts import build_finetuning_prompt
 
 
@@ -73,8 +74,8 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                         # Save the pdf to a temporary cache folder
                         local_pdf_path = cached_path(s3_path, quiet=True)
 
-                        from olmocr.prompts.anchor import get_anchor_text
                         from olmocr.data.buildsilver import build_page_query
+                        from olmocr.prompts.anchor import get_anchor_text
                         obj = build_page_query(local_pdf_path, s3_path, page)
                         # raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
@@ -142,8 +143,9 @@ def list_input_files(input_dir):
     """
     if is_s3_path(input_dir):
         # Use smart_open's s3 functionality to list files
-        import boto3
         import fnmatch
+
+        import boto3
 
         # Parse bucket and prefix
         bucket_name = input_dir.split('s3://')[1].split('/')[0]

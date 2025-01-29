@@ -15,20 +15,17 @@ except ImportError:
 
 import numpy as np
 import torch
-
+from transformers import AutoTokenizer
 from transformers.image_utils import ImageInput
 from transformers.processing_utils import (
-    TextKwargs,
     ProcessingKwargs,
     ProcessorMixin,
+    TextKwargs,
 )
-
-from transformers.tokenization_utils_base import TextInput, PreTokenizedInput
+from transformers.tokenization_utils_base import PreTokenizedInput, TextInput
 from transformers.utils import logging
 
-from transformers import AutoTokenizer
-from .image_preprocessing_molmo import MolmoImagesKwargs, MolmoImageProcessor
-
+from .image_preprocessing_molmo import MolmoImageProcessor, MolmoImagesKwargs
 
 logger = logging.get_logger(__name__)
 

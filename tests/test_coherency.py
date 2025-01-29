@@ -4,10 +4,9 @@ import os
 import time
 import unittest
 
-
 from olmocr.filter.coherency import get_document_coherency
-
 from olmocr.prompts.anchor import get_anchor_text
+
 
 class TestCoherencyScores(unittest.TestCase):
     def testBadOcr1(self):
