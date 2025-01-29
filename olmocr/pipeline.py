@@ -39,7 +39,7 @@ from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.filter.filter import PdfFilter, Language
 from olmocr.prompts import build_finetuning_prompt, PageResponse
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.check import check_poppler_version, check_sglang_version
+from olmocr.check import check_poppler_version, check_sglang_version, check_torch_gpu_available
 from olmocr.metrics import MetricsKeeper, WorkerTracker
 from olmocr.version import VERSION
 
@@ -469,7 +469,6 @@ async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
 
 async def sglang_server_task(args, semaphore):
     model_name_or_path = args.model
-
 
     # if "://" in model_name_or_path:
     #     # TODO, Fix this code so that we support the multiple s3/weka paths, or else remove it
@@ -907,6 +906,7 @@ async def main():
 
     check_poppler_version()
     check_sglang_version()
+    check_torch_gpu_available()
 
     # Create work queue
     if args.workspace.startswith("s3://"):

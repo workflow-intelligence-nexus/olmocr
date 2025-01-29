@@ -18,15 +18,18 @@ What is included:
 
 ### Installation
 
-You will need to install poppler-utils and then also some fonts on your computer so that any pdfs you render come out looking nice.
+You will need to install poppler-utils and some additional fonts as a prerequisite. olmOCR uses poppler to render its PDF images.
 
 Linux Ubuntu/Debian
 ```bash
 sudo apt-get install poppler-utils ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 ```
 
-Then, clone and install the olmocr package
+Set up a conda environment, then clone and install the olmocr package
 ```bash
+conda create -n olmocr python=3.11
+conda activate olmocr
+
 git clone https://github.com/allenai/olmocr.git
 cd olmocr
 pip install -e .
