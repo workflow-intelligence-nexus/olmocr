@@ -5,19 +5,21 @@ Toolkit for training language models to work with PDF documents in the wild.
 
 <img src="https://github.com/user-attachments/assets/d70c8644-3e64-4230-98c3-c52fddaeccb6" alt="olmOCR Logo" width="300"/>
 
+View the online demo here: [https://olmocr.allen.ai/](https://olmocr.allen.ai/)
 
 What is included:
  - A prompting strategy to get really good natural text parsing using ChatGPT 4o - [buildsilver.py](https://github.com/allenai/olmocr/blob/main/olmocr/data/buildsilver.py)
- - An eval toolkit for comparing different pipeline versions - [runeval.py](https://github.com/allenai/olmocr/blob/main/olmocr/eval/runeval.py)
+ - An side-by-side eval toolkit for comparing different pipeline versions - [runeval.py](https://github.com/allenai/olmocr/blob/main/olmocr/eval/runeval.py)
  - Basic filtering by language and SEO spam removal - [filter.py](https://github.com/allenai/olmocr/blob/main/olmocr/filter/filter.py)
- - Finetuning code for Qwen2-VL (and soon other VLMs) - [train.py](https://github.com/allenai/olmocr/blob/main/olmocr/train/train.py)
- - Processing millions of PDFs through a finetuned model using Sglang - [beakerpipeline.py](https://github.com/allenai/olmocr/blob/main/olmocr/beakerpipeline.py)
+ - Finetuning code for Qwen2-VL and Molmo-O - [train.py](https://github.com/allenai/olmocr/blob/main/olmocr/train/train.py)
+ - Processing millions of PDFs through a finetuned model using Sglang - [pipeline.py](https://github.com/allenai/olmocr/blob/main/olmocr/pipeline.py)
  - Viewing Dolma Docs created from PDFs - [dolmaviewer.py](https://github.com/allenai/olmocr/blob/main/olmocr/viewer/dolmaviewer.py)
 
 ### Installation
 
 You will need to install poppler-utils and then also some fonts on your computer so that any pdfs you render come out looking nice.
 
+Linux Ubuntu/Debian
 ```bash
 sudo apt-get install poppler-utils ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 ```
@@ -29,44 +31,73 @@ cd olmocr
 pip install -e .
 ```
 
+Finally, make sure you have sglang with flashinfer installed if you want to do efficient inference
+```bash
+pip install sgl-kernel --force-reinstall --no-deps
+pip install "sglang[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
+```
 
-### Beaker Usage
+### Local Usage Example
 
-If you want to linearize millions of PDFs efficiently using [beaker](https://www.beaker.org), follow these instructions.
-This is the preferred method for best performance, and lets you get results quickly for iterating and debugging.
+The easiest way to try out olmOCR on one or two PDFs is to check out the [web demo](https://olmocr.allen.ai/).
 
-It also runs at 2,800+ tokens per second per H100 GPU.
+Once you are ready to run locally, a local GPU is required, as inference is powered by [sglang](https://github.com/sgl-project/sglang) 
+under the hood.
+
+This command will convert one PDF into a local workspace:
+```bash
+python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf
+```
+
+You can also bulk convert many PDFS with a glob pattern:
+```bash
+python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/*.pdf
+```
+
+### Multi-node / Cluster Usage
+
+If you want to convert millions of PDFs, using multiple nodes running in parallel, then olmOCR supports
+reading your PDFs from AWS S3, and coordinating work using an AWS S3 output bucket.
+
+For example, you can start this command on your first worker node, and it will set up
+a simple work queue in your AWS bucket and start converting PDFs.
+
+```bash
+python -m olmocr.pipeline s3://my_s3_bucket/pdfworkspaces/exampleworkspace --pdfs s3://my_s3_bucket/jakep/gnarly_pdfs/*.pdf
+```
+
+Now on any subsequent nodes, just run this and they will start grabbing items from the same workspace queue. 
+```bash
+python -m olmocr.pipeline s3://my_s3_bucket/pdfworkspaces/exampleworkspace
+```
+
+If you are at AI2 and want to linearize millions of PDFs efficiently using [beaker](https://www.beaker.org), just add the `--beaker`
+flag. This will prepare the workspace on your local machine, and then launch N GPU workers in the cluster to start
+converting PDFs.
 
 For example:
 ```bash
-python -m olmocr.beakerpipeline s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename] --pdfs s3://ai2-oe-data/jakep/gnarly_pdfs/*.pdf --beaker
+python -m olmocr.pipeline s3://my_s3_bucket/pdfworkspaces/exampleworkspace --pdfs s3://my_s3_bucket/jakep/gnarly_pdfs/*.pdf --beaker --beaker_gpus 4
 ```
-
-This will convert all the pdfs at `s3://ai2-oe-data/jakep/gnarly_pdfs/*.pdf` and output dolma formatted documents at `s3://ai2-oe-data/[your username]/pdfworkspaces/[workspacename]/results`
-
-You can specify more GPUs with `--beaker_gpus [int]` to get through the work faster. You can also specify your workspace, and allowed beaker clusters to use.
-With default settings, it should work fine on any available GPUs.
 
 
 ```bash
-python -m olmocr.beakerpipeline --help
-usage: beakerpipeline.py [-h] [--pdfs PDFS] [--workspace_profile WORKSPACE_PROFILE] [--pdf_profile PDF_PROFILE] [--pages_per_group PAGES_PER_GROUP]
-                         [--max_page_retries MAX_PAGE_RETRIES] [--max_page_error_rate MAX_PAGE_ERROR_RATE] [--workers WORKERS] [--stats]
-                         [--model MODEL] [--model_max_context MODEL_MAX_CONTEXT] [--model_chat_template MODEL_CHAT_TEMPLATE]
-                         [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM] [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--beaker]
-                         [--beaker_workspace BEAKER_WORKSPACE] [--beaker_cluster BEAKER_CLUSTER] [--beaker_gpus BEAKER_GPUS]
-                         [--beaker_priority BEAKER_PRIORITY]
-                         workspace
+python -m olmocr.pipeline --help
+usage: pipeline.py [-h] [--pdfs PDFS] [--workspace_profile WORKSPACE_PROFILE] [--pdf_profile PDF_PROFILE] [--pages_per_group PAGES_PER_GROUP]
+                   [--max_page_retries MAX_PAGE_RETRIES] [--max_page_error_rate MAX_PAGE_ERROR_RATE] [--workers WORKERS] [--apply_filter] [--stats] [--model MODEL]
+                   [--model_max_context MODEL_MAX_CONTEXT] [--model_chat_template MODEL_CHAT_TEMPLATE] [--target_longest_image_dim TARGET_LONGEST_IMAGE_DIM]
+                   [--target_anchor_text_len TARGET_ANCHOR_TEXT_LEN] [--beaker] [--beaker_workspace BEAKER_WORKSPACE] [--beaker_cluster BEAKER_CLUSTER]
+                   [--beaker_gpus BEAKER_GPUS] [--beaker_priority BEAKER_PRIORITY]
+                   workspace
 
 Manager for running millions of PDFs through a batch inference pipeline
 
 positional arguments:
-  workspace             The S3 path where work will be done e.g., s3://bucket/prefix/
+  workspace             The filesystem path where work will be stored, can be a local folder, or an s3 path if coordinating work with many workers, s3://bucket/prefix/
 
 options:
   -h, --help            show this help message and exit
-  --pdfs PDFS           Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list
-                        of pdf paths
+  --pdfs PDFS           Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths
   --workspace_profile WORKSPACE_PROFILE
                         S3 configuration profile for accessing the workspace
   --pdf_profile PDF_PROFILE
@@ -78,9 +109,10 @@ options:
   --max_page_error_rate MAX_PAGE_ERROR_RATE
                         Rate of allowable failed pages in a document, 1/250 by default
   --workers WORKERS     Number of workers to run at a time
+  --apply_filter        Apply basic filtering to English pdfs which are not forms, and not likely seo spam
   --stats               Instead of running any job, reports some statistics about the current workspace
-  --model MODEL         List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script
-                        will try to use the one which is fastest to access
+  --model MODEL         List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the
+                        one which is fastest to access
   --model_max_context MODEL_MAX_CONTEXT
                         Maximum context length that the model was fine tuned under
   --model_chat_template MODEL_CHAT_TEMPLATE
