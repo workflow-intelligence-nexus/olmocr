@@ -21,18 +21,12 @@ from olmocr.prompts.anchor import get_anchor_text
 
 def setup_logging():
     """Configure logging for the script."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='[%(asctime)s] %(levelname)s: %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+    logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s", handlers=[logging.StreamHandler(sys.stdout)])
 
 
 def is_s3_path(path):
     """Check if the given path is an S3 path."""
-    return str(path).startswith('s3://')
+    return str(path).startswith("s3://")
 
 
 def download_pdf_from_s3(s3_path: str, pdf_profile: str) -> str:
@@ -48,15 +42,15 @@ def download_pdf_from_s3(s3_path: str, pdf_profile: str) -> str:
     """
     # Parse the bucket and key from the s3_path
     # s3_path format: s3://bucket_name/some/folder/file.pdf
-    path_without_scheme = s3_path.split('s3://', 1)[1]
-    bucket_name, key = path_without_scheme.split('/', 1)
+    path_without_scheme = s3_path.split("s3://", 1)[1]
+    bucket_name, key = path_without_scheme.split("/", 1)
 
     # Create a session with the specified profile or default
     session = boto3.Session(profile_name=pdf_profile) if pdf_profile else boto3.Session()
-    s3_client = session.client('s3')
+    s3_client = session.client("s3")
 
     # Create a temporary local file
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     tmp_file.close()  # We only want the path and not keep it locked
 
     local_path = tmp_file.name
@@ -82,7 +76,7 @@ def transform_json_object(obj):
             "custom_id": obj["custom_id"],
             "chat_messages": obj["body"]["messages"],
             "temperature": obj["body"]["temperature"],
-            "max_tokens": obj["body"]["max_tokens"]
+            "max_tokens": obj["body"]["max_tokens"],
         }
         return transformed
     except KeyError as e:
@@ -105,8 +99,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool, pd
     prompt_lengths = []
 
     try:
-        with smart_open.open(input_file, 'r', encoding='utf-8') as infile, \
-             smart_open.open(output_file, 'w', encoding='utf-8') as outfile:
+        with smart_open.open(input_file, "r", encoding="utf-8") as infile, smart_open.open(output_file, "w", encoding="utf-8") as outfile:
 
             for line_number, line in enumerate(infile, 1):
                 line = line.strip()
@@ -133,8 +126,8 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool, pd
                         # s3_path = everything up to the last dash
                         # page = everything after the dash
                         try:
-                            s3_path = goldkey[:goldkey.rindex("-")]
-                            page = int(goldkey[goldkey.rindex("-") + 1:])
+                            s3_path = goldkey[: goldkey.rindex("-")]
+                            page = int(goldkey[goldkey.rindex("-") + 1 :])
                         except (ValueError, IndexError) as e:
                             logging.error(f"Could not parse the page number from custom_id {goldkey}: {e}")
                             error_count += 1
@@ -147,12 +140,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool, pd
                             local_pdf_path = s3_path
 
                         # Recalculate the anchor text
-                        raw_page_text = get_anchor_text(
-                            local_pdf_path,
-                            page,
-                            pdf_engine="pdfreport",
-                            target_length=6000
-                        )
+                        raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport", target_length=6000)
 
                         image_base64 = render_pdf_to_base64png(local_pdf_path, page, 1024)
 
@@ -175,7 +163,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool, pd
 
                     prompt_lengths.append(prompt_length)
 
-                    outfile.write(json.dumps(transformed) + '\n')
+                    outfile.write(json.dumps(transformed) + "\n")
                     processed_count += 1
                 else:
                     error_count += 1
@@ -205,15 +193,15 @@ def construct_output_file_path(input_file_path, input_dir, output_dir):
 
     if is_s3_path(input_dir):
         # For S3 paths, manually construct the relative path based on the input S3 path
-        input_prefix = input_dir.split('s3://')[1]
-        input_prefix = input_prefix.rstrip('*')  # Remove any glob patterns like *.jsonl
+        input_prefix = input_dir.split("s3://")[1]
+        input_prefix = input_prefix.rstrip("*")  # Remove any glob patterns like *.jsonl
 
         # Remove the 's3://' part from input_file_path and extract the relative part
-        input_file_key = input_file_path.split('s3://')[1]
-        relative_path = input_file_key[len(input_prefix):].lstrip('/')
+        input_file_key = input_file_path.split("s3://")[1]
+        relative_path = input_file_key[len(input_prefix) :].lstrip("/")
 
         # Construct the output S3 path by appending the relative part to the output S3 directory
-        output_file_path = output_dir.rstrip('/') + '/' + relative_path
+        output_file_path = output_dir.rstrip("/") + "/" + relative_path
 
     else:
         # For local paths, use the existing relative path logic
@@ -239,71 +227,51 @@ def list_input_files(input_dir):
         import fnmatch
 
         # Parse bucket and prefix
-        bucket_name = input_dir.split('s3://')[1].split('/')[0]
-        path_and_pattern = '/'.join(input_dir.split('s3://')[1].split('/')[1:])
+        bucket_name = input_dir.split("s3://")[1].split("/")[0]
+        path_and_pattern = "/".join(input_dir.split("s3://")[1].split("/")[1:])
 
         # Separate the prefix and pattern
-        if '/' in path_and_pattern:
-            prefix = path_and_pattern.rsplit('/', 1)[0] + '/'
-            pattern = path_and_pattern.rsplit('/', 1)[1]
+        if "/" in path_and_pattern:
+            prefix = path_and_pattern.rsplit("/", 1)[0] + "/"
+            pattern = path_and_pattern.rsplit("/", 1)[1]
         else:
-            prefix = ''
+            prefix = ""
             pattern = path_and_pattern
 
         # Use a Boto3 session (no specific PDF profile needed here if only listing)
         session = boto3.Session()
-        s3 = session.resource('s3')
+        s3 = session.resource("s3")
         bucket = s3.Bucket(bucket_name)
 
         files = []
         for obj in bucket.objects.filter(Prefix=prefix):
-            if fnmatch.fnmatch(obj.key, f'{prefix}{pattern}'):
-                files.append(f's3://{bucket_name}/{obj.key}')
+            if fnmatch.fnmatch(obj.key, f"{prefix}{pattern}"):
+                files.append(f"s3://{bucket_name}/{obj.key}")
 
         return files
     else:
         input_dir_path = Path(input_dir)
-        return [str(p) for p in input_dir_path.glob('*.jsonl')]
+        return [str(p) for p in input_dir_path.glob("*.jsonl")]
 
 
 def main():
     setup_logging()
-    parser = argparse.ArgumentParser(
-        description="Transform JSONL files by extracting and renaming specific fields."
-    )
+    parser = argparse.ArgumentParser(description="Transform JSONL files by extracting and renaming specific fields.")
     parser.add_argument(
-        '--rewrite_finetuning_prompt',
-        action='store_true',
+        "--rewrite_finetuning_prompt",
+        action="store_true",
         default=True,
-        help="Rewrite the input prompt from a standard OPENAI instruction format into a finetuned format."
+        help="Rewrite the input prompt from a standard OPENAI instruction format into a finetuned format.",
     )
-    parser.add_argument(
-        'input_dir',
-        type=str,
-        help='Path to the input directory containing JSONL files. Can be a local path or S3 URL.'
-    )
-    parser.add_argument(
-        'output_dir',
-        type=str,
-        help='Path to the output directory where transformed JSONL files will be saved. Can be a local path or S3 URL.'
-    )
-    parser.add_argument(
-        '--jobs', '-j',
-        type=int,
-        default=20,
-        help='Number of parallel jobs to run (default: 20).'
-    )
-    parser.add_argument(
-        '--pdf_profile',
-        type=str,
-        default=None,
-        help='Boto3 profile to use for downloading PDFs from S3. Defaults to the default session.'
-    )
+    parser.add_argument("input_dir", type=str, help="Path to the input directory containing JSONL files. Can be a local path or S3 URL.")
+    parser.add_argument("output_dir", type=str, help="Path to the output directory where transformed JSONL files will be saved. Can be a local path or S3 URL.")
+    parser.add_argument("--jobs", "-j", type=int, default=20, help="Number of parallel jobs to run (default: 20).")
+    parser.add_argument("--pdf_profile", type=str, default=None, help="Boto3 profile to use for downloading PDFs from S3. Defaults to the default session.")
 
     args = parser.parse_args()
 
-    input_dir = args.input_dir.rstrip('/')
-    output_dir = args.output_dir.rstrip('/')
+    input_dir = args.input_dir.rstrip("/")
+    output_dir = args.output_dir.rstrip("/")
     max_jobs = args.jobs
 
     # List input files
@@ -325,13 +293,7 @@ def main():
     all_prompt_lengths = []
     with ProcessPoolExecutor(max_workers=max_jobs) as executor:
         future_to_file = {
-            executor.submit(
-                process_file,
-                input_file,
-                output_file,
-                args.rewrite_finetuning_prompt,
-                args.pdf_profile
-            ): input_file
+            executor.submit(process_file, input_file, output_file, args.rewrite_finetuning_prompt, args.pdf_profile): input_file
             for input_file, output_file in tasks
         }
 

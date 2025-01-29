@@ -10,9 +10,7 @@ from olmocr.prompts.anchor import get_anchor_text
 
 class TestCoherencyScores(unittest.TestCase):
     def testBadOcr1(self):
-        good_text = get_anchor_text(
-            os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "instructions_and_schematics.pdf"), 1, pdf_engine="pdftotext"
-        )
+        good_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "instructions_and_schematics.pdf"), 1, pdf_engine="pdftotext")
         ocr1_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "handwriting_bad_ocr.pdf"), 1, pdf_engine="pdftotext")
         ocr2_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "some_ocr1.pdf"), 1, pdf_engine="pdftotext")
 

@@ -10,9 +10,7 @@ from .cli import field
 class ModelConfig:
     """Configuration for loading a model; includes model name and type."""
 
-    name_or_path: str = field(
-        help="The model name or path to load; must be compatible with huggingface transformers."
-    )
+    name_or_path: str = field(help="The model name or path to load; must be compatible with huggingface transformers.")
     arch: str = field(help="The model type to load; can be 'vllm', 'causal', or 'vllm'")
     dtype: str = field(help="The precision to use for the model", default="bfloat16")
     use_flash_attn: bool = field(help="Whether to use the flash attention for the model.", default=False)
@@ -54,7 +52,7 @@ class AwsConfig:
 class SourceConfig:
     name: str = field(help="The name of the source")
     response_glob_path: str = field(help="The s3 bucket pointing to the batch api response json's sent back from open ai")
-    target_longest_image_dim: list[int]= field(help="Dimensions to render the pdf page image to")
+    target_longest_image_dim: list[int] = field(help="Dimensions to render the pdf page image to")
     target_anchor_text_len: list[int] = field(help="Maximum amount of anchor text (aka prompt hint)")
 
 
@@ -69,9 +67,7 @@ class DataConfig:
 @dataclass
 class HyperparamConfig:
     batch_size: int = field(default=8, help="The batch size to use for training")
-    eval_batch_size: Optional[int] = field(
-        default=None, help="The batch size to use for evaluation; default is the same as the training batch size"
-    )
+    eval_batch_size: Optional[int] = field(default=None, help="The batch size to use for evaluation; default is the same as the training batch size")
     learning_rate: float = field(default=2e-5, help="The learning rate to use for training")
     max_steps: int = field(default=-1, help="The maximum number of steps to train the model")
     pad_multiple_of: int = field(default=16, help="The padding multiple to use for the model")
@@ -81,9 +77,7 @@ class HyperparamConfig:
     warmup_steps: int = field(default=0, help="The number of warmup steps to use for training")
     warmup_ratio: float = field(default=0.0, help="The ratio of warmup steps to use for training")
     lr_scheduler: str = field(default="linear", help="The learning rate scheduler to use for training")
-    gradient_accumulation_steps: int = field(
-        default=1, help="The number of gradient accumulation steps to use for training"
-    )
+    gradient_accumulation_steps: int = field(default=1, help="The number of gradient accumulation steps to use for training")
     gradient_checkpointing: bool = field(default=False, help="Whether to use gradient checkpointing for training")
     seed: int = field(default=42, help="The seed to use for training")
     reduce_loss: str = field(default="mean", help="The loss reduction to use for training")
@@ -96,9 +90,7 @@ class HyperparamConfig:
 class SaveConfig:
     path: str = field(default="./results", help="The output directory to save the model")
     limit: Optional[int] = field(default=None, help="The number of checkpoints to save")
-    save_every_steps: int = field(  # type: ignore
-        default="${hparams.eval_every_steps}", help="The number of steps to save the model"
-    )
+    save_every_steps: int = field(default="${hparams.eval_every_steps}", help="The number of steps to save the model")  # type: ignore
 
 
 @dataclass

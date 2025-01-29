@@ -161,9 +161,7 @@ def make_nested_dict(key: str, value: Any, d: Optional[Dict[str, Any]] = None) -
     return d
 
 
-def to_native_types(
-    obj: Any, resolve: bool = True, throw_on_missing: bool = True, enum_to_str: bool = True
-) -> Any:
+def to_native_types(obj: Any, resolve: bool = True, throw_on_missing: bool = True, enum_to_str: bool = True) -> Any:
     """Converts an OmegaConf object to native types (dicts, lists, etc.)"""
 
     # convert dataclass to structured config
@@ -299,9 +297,7 @@ def make_cli(config_cls: Type[D], _config_flag: str = "config", _dryrun_flag: st
         raise DolmaRefineError(f"`{_dryrun_flag}` is a reserved attribute; remove it from `{config_cls.__name__}`")
 
     parser = ArgumentParser()
-    parser.add_argument(
-        f"-{_config_flag[0]}", f"--{_config_flag}", help="Path to config file", default=None, type=str
-    )
+    parser.add_argument(f"-{_config_flag[0]}", f"--{_config_flag}", help="Path to config file", default=None, type=str)
     parser.add_argument(
         f"-{_dryrun_flag[0]}",
         f"--{_dryrun_flag}",

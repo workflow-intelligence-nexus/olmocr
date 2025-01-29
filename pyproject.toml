@@ -106,7 +106,7 @@ olmocr = ["py.typed"]
 version = {attr = "olmocr.version.VERSION"}
 
 [tool.black]
-line-length = 120
+line-length = 160
 include = '\.pyi?$'
 exclude = '''
 (

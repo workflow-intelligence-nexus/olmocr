@@ -15,19 +15,12 @@ from olmocr.prompts import build_finetuning_prompt
 
 def setup_logging():
     """Configure logging for the script."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='[%(asctime)s] %(levelname)s: %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+    logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s", handlers=[logging.StreamHandler(sys.stdout)])
 
 
 def is_s3_path(path):
     """Check if the given path is an S3 path."""
-    return str(path).startswith('s3://')
-
+    return str(path).startswith("s3://")
 
 
 def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
@@ -42,8 +35,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
     error_count = 0
 
     try:
-        with smart_open.open(input_file, 'r', encoding='utf-8') as infile, \
-                smart_open.open(output_file, 'w', encoding='utf-8') as outfile:
+        with smart_open.open(input_file, "r", encoding="utf-8") as infile, smart_open.open(output_file, "w", encoding="utf-8") as outfile:
 
             for line_number, line in enumerate(infile, 1):
                 line = line.strip()
@@ -56,7 +48,6 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                     error_count += 1
                     continue
 
-
                 if obj is not None and rewrite_prompt_str:
                     pattern = r"RAW_TEXT_START\s*\n(.*?)\nRAW_TEXT_END"
 
@@ -68,14 +59,15 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
 
                         # Ok, now we want to try to see if it's better if we recalculate the anchor text
                         goldkey = obj["custom_id"]
-                        s3_path = goldkey[:goldkey.rindex("-")]
-                        page = int(goldkey[goldkey.rindex("-") + 1:])
+                        s3_path = goldkey[: goldkey.rindex("-")]
+                        page = int(goldkey[goldkey.rindex("-") + 1 :])
 
                         # Save the pdf to a temporary cache folder
                         local_pdf_path = cached_path(s3_path, quiet=True)
 
                         from olmocr.data.buildsilver import build_page_query
                         from olmocr.prompts.anchor import get_anchor_text
+
                         obj = build_page_query(local_pdf_path, s3_path, page)
                         # raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
@@ -83,7 +75,7 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                         # obj["body"]["messages"][0]["content"][0]["text"] = build_openai_silver_data_prompt(raw_page_text)
 
                 if obj is not None:
-                    outfile.write(json.dumps(obj) + '\n')
+                    outfile.write(json.dumps(obj) + "\n")
                     processed_count += 1
                 else:
                     error_count += 1
@@ -111,15 +103,15 @@ def construct_output_file_path(input_file_path, input_dir, output_dir):
 
     if is_s3_path(input_dir):
         # For S3 paths, manually construct the relative path based on the input S3 path
-        input_prefix = input_dir.split('s3://')[1]
-        input_prefix = input_prefix.rstrip('*')  # Remove any glob patterns like *.jsonl
+        input_prefix = input_dir.split("s3://")[1]
+        input_prefix = input_prefix.rstrip("*")  # Remove any glob patterns like *.jsonl
 
         # Remove the 's3://' part from input_file_path and extract the relative part
-        input_file_key = input_file_path.split('s3://')[1]
-        relative_path = input_file_key[len(input_prefix):].lstrip('/')
+        input_file_key = input_file_path.split("s3://")[1]
+        relative_path = input_file_key[len(input_prefix) :].lstrip("/")
 
         # Construct the output S3 path by appending the relative part to the output S3 directory
-        output_file_path = output_dir.rstrip('/') + '/' + relative_path
+        output_file_path = output_dir.rstrip("/") + "/" + relative_path
 
     else:
         # For local paths, use the existing relative path logic
@@ -148,65 +140,45 @@ def list_input_files(input_dir):
         import boto3
 
         # Parse bucket and prefix
-        bucket_name = input_dir.split('s3://')[1].split('/')[0]
-        path_and_pattern = '/'.join(input_dir.split('s3://')[1].split('/')[1:])
+        bucket_name = input_dir.split("s3://")[1].split("/")[0]
+        path_and_pattern = "/".join(input_dir.split("s3://")[1].split("/")[1:])
 
         # Separate the prefix and pattern
-        if '/' in path_and_pattern:
-            prefix = path_and_pattern.rsplit('/', 1)[0] + '/'
-            pattern = path_and_pattern.rsplit('/', 1)[1]
+        if "/" in path_and_pattern:
+            prefix = path_and_pattern.rsplit("/", 1)[0] + "/"
+            pattern = path_and_pattern.rsplit("/", 1)[1]
         else:
-            prefix = ''
+            prefix = ""
             pattern = path_and_pattern
 
         # Set up S3 resource and bucket
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource("s3")
         bucket = s3.Bucket(bucket_name)
 
         # Get all objects and filter them manually based on the pattern
         files = []
         for obj in bucket.objects.filter(Prefix=prefix):
-            if fnmatch.fnmatch(obj.key, f'{prefix}{pattern}'):
-                files.append(f's3://{bucket_name}/{obj.key}')
+            if fnmatch.fnmatch(obj.key, f"{prefix}{pattern}"):
+                files.append(f"s3://{bucket_name}/{obj.key}")
 
         return files
     else:
         # Local path handling (with glob pattern)
         input_dir_path = Path(input_dir)
-        return [str(p) for p in input_dir_path.glob('*.jsonl')]
+        return [str(p) for p in input_dir_path.glob("*.jsonl")]
 
 
 def main():
     setup_logging()
-    parser = argparse.ArgumentParser(
-        description="Transform JSONL files by extracting and renaming specific fields."
-    )
-    parser.add_argument(
-        '--rewrite_prompt',
-        action='store_true',
-        default=False,
-        help="Rewrites the input prompt by reloading the pdf from source"
-    )
-    parser.add_argument(
-        'input_dir',
-        type=str,
-        help='Path to the input directory containing JSONL files. Can be a local path or S3 URL.'
-    )
-    parser.add_argument(
-        'output_dir',
-        type=str,
-        help='Path to the output directory where transformed JSONL files will be saved. Can be a local path or S3 URL.'
-    )
-    parser.add_argument(
-        '--jobs', '-j',
-        type=int,
-        default=20,
-        help='Number of parallel jobs to run (default: 20).'
-    )
+    parser = argparse.ArgumentParser(description="Transform JSONL files by extracting and renaming specific fields.")
+    parser.add_argument("--rewrite_prompt", action="store_true", default=False, help="Rewrites the input prompt by reloading the pdf from source")
+    parser.add_argument("input_dir", type=str, help="Path to the input directory containing JSONL files. Can be a local path or S3 URL.")
+    parser.add_argument("output_dir", type=str, help="Path to the output directory where transformed JSONL files will be saved. Can be a local path or S3 URL.")
+    parser.add_argument("--jobs", "-j", type=int, default=20, help="Number of parallel jobs to run (default: 20).")
     args = parser.parse_args()
 
-    input_dir = args.input_dir.rstrip('/')
-    output_dir = args.output_dir.rstrip('/')
+    input_dir = args.input_dir.rstrip("/")
+    output_dir = args.output_dir.rstrip("/")
     max_jobs = args.jobs
 
     if not output_dir.startswith("s3:"):
@@ -229,10 +201,7 @@ def main():
 
     # Process files in parallel
     with ProcessPoolExecutor(max_workers=max_jobs) as executor:
-        future_to_file = {
-            executor.submit(process_file, input_file, output_file, args.rewrite_prompt): input_file
-            for input_file, output_file in tasks
-        }
+        future_to_file = {executor.submit(process_file, input_file, output_file, args.rewrite_prompt): input_file for input_file, output_file in tasks}
 
         for future in as_completed(future_to_file):
             input_file = future_to_file[future]

@@ -36,7 +36,7 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
         print(ds[0])
 
     def testPlotSequenceLengthHistogram(self):
-        import plotly.express as px  
+        import plotly.express as px
 
         ds = build_finetuning_dataset(
             response_glob_path="s3://ai2-oe-data/jakep/pdfdata/openai_batch_done_v5_1_eval/*.json",
@@ -72,10 +72,7 @@ class TestBatchQueryResponseDataset(unittest.TestCase):
 
         # Plotting the histogram using Plotly
         fig = px.histogram(
-            sequence_lengths,
-            nbins=100,
-            title="Distribution of Input Sequence Lengths",
-            labels={'value': 'Sequence Length', 'count': 'Frequency'}
+            sequence_lengths, nbins=100, title="Distribution of Input Sequence Lengths", labels={"value": "Sequence Length", "count": "Frequency"}
         )
 
         fig.write_image("sequence_lengths_histogram.png")

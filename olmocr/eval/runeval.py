@@ -30,22 +30,26 @@ logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 CACHE_DIR = os.path.join(Path.home(), ".cache", "pdf_gold_data_cache")
 
-s3_client = boto3.client('s3')
+s3_client = boto3.client("s3")
 
 
 def _handle_zst(file_obj, mode):
     return zstandard.open(file_obj, mode)
 
+
 register_compressor(".zstd", _handle_zst)
 register_compressor(".zst", _handle_zst)
+
 
 # Helper function to download files from S3
 def download_from_s3(s3_path: str, local_path: str):
     bucket_name, key = s3_path.replace("s3://", "").split("/", 1)
     s3_client.download_file(bucket_name, key, local_path)
 
+
 def is_debugging():
     return sys.gettrace() is not None
+
 
 # Create a hash to store file contents and check for changes
 def compute_file_hash(file_path: str) -> str:
@@ -57,7 +61,7 @@ def compute_file_hash(file_path: str) -> str:
 
 
 # A single method which can take in any format json entry (openai regular, openai structured, birr)
-# and normalize it to a common structure for use later in the 
+# and normalize it to a common structure for use later in the
 @dataclass(frozen=True)
 class NormalizedEntry:
     s3_path: str
@@ -68,13 +72,14 @@ class NormalizedEntry:
 
     @staticmethod
     def from_goldkey(goldkey: str, **kwargs):
-        s3_path = goldkey[:goldkey.rindex("-")]
-        page_num = int(goldkey[goldkey.rindex("-") + 1:])
+        s3_path = goldkey[: goldkey.rindex("-")]
+        page_num = int(goldkey[goldkey.rindex("-") + 1 :])
         return NormalizedEntry(s3_path, page_num, **kwargs)
 
     @property
     def goldkey(self):
         return f"{self.s3_path}-{self.pagenum}"
+
 
 def normalize_json_entry(data: dict) -> NormalizedEntry:
     if "outputs" in data:
@@ -93,13 +98,8 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
                 text = parsed_content["natural_text"]
         except json.JSONDecodeError:
             pass
-        
-        return NormalizedEntry.from_goldkey(
-            goldkey=data["custom_id"],
-            text=text,
-            finish_reason=finish_reason,
-            error=data.get("completion_error", None)
-        )
+
+        return NormalizedEntry.from_goldkey(goldkey=data["custom_id"], text=text, finish_reason=finish_reason, error=data.get("completion_error", None))
     elif all(field in data for field in ["s3_path", "pagenum", "text", "error", "finish_reason"]):
         return NormalizedEntry(**data)
     elif "response" in data and "body" in data["response"] and "choices" in data["response"]["body"]:
@@ -108,16 +108,14 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
             # Attempt to parse the JSON content from OpenAI's response
             parsed_content = json.loads(data["response"]["body"]["choices"][0]["message"]["content"])
             return NormalizedEntry.from_goldkey(
-                goldkey=data["custom_id"],
-                text=parsed_content["natural_text"],
-                finish_reason=data["response"]["body"]["choices"][0]["finish_reason"]
+                goldkey=data["custom_id"], text=parsed_content["natural_text"], finish_reason=data["response"]["body"]["choices"][0]["finish_reason"]
             )
         except json.JSONDecodeError:
             # Fallback if content is not valid JSON
             return NormalizedEntry.from_goldkey(
                 goldkey=data["custom_id"],
                 text=data["response"]["body"]["choices"][0]["message"]["content"],
-                finish_reason=data["response"]["body"]["choices"][0]["finish_reason"]
+                finish_reason=data["response"]["body"]["choices"][0]["finish_reason"],
             )
     else:
         # SGLang case
@@ -125,17 +123,16 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
             # Attempt to parse the JSON content from OpenAI's response
             parsed_content = json.loads(data["response"]["choices"][0]["message"]["content"])
             return NormalizedEntry.from_goldkey(
-                goldkey=data["custom_id"],
-                text=parsed_content["natural_text"],
-                finish_reason=data["response"]["choices"][0]["finish_reason"]
+                goldkey=data["custom_id"], text=parsed_content["natural_text"], finish_reason=data["response"]["choices"][0]["finish_reason"]
             )
         except json.JSONDecodeError:
             # Fallback if content is not valid JSON
             return NormalizedEntry.from_goldkey(
                 goldkey=data["custom_id"],
                 text=data["response"]["choices"][0]["message"]["content"],
-                finish_reason=data["response"]["choices"][0]["finish_reason"]
+                finish_reason=data["response"]["choices"][0]["finish_reason"],
             )
+
 
 # Load every .json file from GOLD_DATA_S3_PATH (and saves it to some temp folder for quick loading next time)
 # returns map from  "custom_id" ex. "s3://ai2-s2-pdfs/39ce/3db4516cd6e7d7f8e580a494c7a665a6a16a.pdf-4" (where the -4 means page 4)
@@ -166,7 +163,7 @@ def load_gold_data(gold_data_path: str, max_workers: int = 8) -> dict:
         file_errors = 0
         file_overruns = 0
 
-        with smart_open(path, 'r') as f:
+        with smart_open(path, "r") as f:
             for line in f:
                 data = json.loads(line)
                 data = normalize_json_entry(data)
@@ -201,21 +198,22 @@ def load_gold_data(gold_data_path: str, max_workers: int = 8) -> dict:
 
     return gold_data
 
+
 # Helper function to list all .jsonl files from a directory or an S3 bucket
 def list_jsonl_files(path: str) -> list:
     valid_endings = [".json", ".jsonl", ".json.zstd", ".jsonl.zstd"]
     jsonl_files = []
-    
+
     if path.startswith("s3://"):
         bucket_name, prefix = path.replace("s3://", "").split("/", 1)
-        paginator = s3_client.get_paginator('list_objects_v2')
+        paginator = s3_client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
-        
+
         for page in pages:
-            for obj in page.get('Contents', []):
-                if any(obj['Key'].endswith(ending) for ending in valid_endings):
+            for obj in page.get("Contents", []):
+                if any(obj["Key"].endswith(ending) for ending in valid_endings):
                     jsonl_files.append(f"s3://{bucket_name}/{obj['Key']}")
-    
+
     else:
         # If it's a local directory, list all .jsonl files
         for root, _, files in os.walk(path):
@@ -224,6 +222,7 @@ def list_jsonl_files(path: str) -> list:
                     jsonl_files.append(os.path.join(root, file))
 
     return jsonl_files
+
 
 # Takes in a path to a local directory or s3://[bucket]/[prefix path] where your jsonl files are stored
 # This is most likely the output location of the refiner
@@ -238,7 +237,7 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
     total_errors = 0
     total_overruns = 0
 
-    with smart_open(jsonl_file, 'r') as f:
+    with smart_open(jsonl_file, "r") as f:
         for line in f:
             data = json.loads(line)
 
@@ -256,7 +255,7 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
             if data.error is not None:
                 total_errors += 1
                 eval_text = f"[Error processing this page: {data.error}]"
-            
+
             if data.error is None and data.finish_reason != "stop":
                 total_overruns += 1
                 eval_text += f"\n[Error processing this page: overrun {data.finish_reason}]"
@@ -266,13 +265,7 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
             else:
                 alignment = comparer.compute(gold_text, eval_text)
 
-            page_data[data.goldkey] = {
-                "s3_path": data.s3_path,
-                "page": data.pagenum,
-                "gold_text": gold_text,
-                "eval_text": eval_text,
-                "alignment": alignment
-            }
+            page_data[data.goldkey] = {"s3_path": data.s3_path, "page": data.pagenum, "gold_text": gold_text, "eval_text": eval_text, "alignment": alignment}
 
             total_alignment_score += alignment
             char_weighted_alignment_score += alignment * len(gold_text)
@@ -281,9 +274,10 @@ def process_jsonl_file(jsonl_file, gold_data, comparer):
 
     return total_alignment_score, char_weighted_alignment_score, total_chars, total_pages, total_errors, total_overruns, page_data
 
+
 def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, review_page_size: int) -> tuple[float, list[dict]]:
     gold_data = load_gold_data(gold_data_path)
-    
+
     total_alignment_score = 0
     total_char_alignment_score = 0
     total_weight = 0
@@ -291,13 +285,11 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, rev
     total_errors = 0
     total_overruns = 0
     total_pages_compared = set()
-    
+
     page_eval_data = []
 
     segmenter = SpacySegmenter("spacy")
-    aligner = HirschbergAligner(match_score=1,
-                                mismatch_score=-1,
-                                indel_score=-1)
+    aligner = HirschbergAligner(match_score=1, mismatch_score=-1, indel_score=-1)
     comparer = DocumentEditSimilarity(segmenter=segmenter, aligner=aligner)
 
     # List all .jsonl files in the directory or S3 bucket
@@ -305,7 +297,7 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, rev
 
     if not jsonl_files:
         raise ValueError("No .jsonl files found in the specified path.")
-    
+
     print(f"Found {len(jsonl_files):,} files to evaluate")
 
     with ProcessPoolExecutor() if not is_debugging() else ThreadPoolExecutor() as executor:
@@ -315,7 +307,7 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, rev
         # Process each future as it completes
         for future in tqdm(as_completed(futures), total=len(jsonl_files)):
             alignment_score, char_weighted_score, chars, pages, errors, overruns, page_data = future.result()  # Get the result of the completed task
-            
+
             # Aggregate statistics
             total_alignment_score += alignment_score
             total_char_alignment_score += char_weighted_score
@@ -345,7 +337,7 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, rev
     print("...creating review page")
 
     # TODO Temporary filter to see other stuff
-    #page_eval_data = [x for x in page_eval_data if "NO ENGLISH TEXT" not in x["gold_text"]]
+    # page_eval_data = [x for x in page_eval_data if "NO ENGLISH TEXT" not in x["gold_text"]]
 
     # Select the top 20 lowest alignments
     page_eval_data.sort(key=lambda x: x["alignment"])
@@ -355,34 +347,27 @@ def do_eval(gold_data_path: str, eval_data_path: str, review_page_name: str, rev
     page_eval_data = random.sample(page_eval_data, review_page_size)
     create_review_html(page_eval_data, filename=review_page_name + "_sample.html")
 
-
     return total_alignment_score / total_weight, page_eval_data
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Transform JSONL files by extracting and renaming specific fields."
-    )
+    parser = argparse.ArgumentParser(description="Transform JSONL files by extracting and renaming specific fields.")
+    parser.add_argument("--name", default="review_page", help="What name to give to this evaluation/comparison")
     parser.add_argument(
-        '--name',
-        default="review_page",
-        help="What name to give to this evaluation/comparison"
-    )
-    parser.add_argument(
-        '--review_size',
+        "--review_size",
         default=20,
         type=int,
         help="Number of entries to show on the generated review page",
     )
     parser.add_argument(
-        'gold_data_path',
+        "gold_data_path",
         type=str,
-        help='Path to the gold data directory containing JSONL files. Can be a local path or S3 URL. Can be openai "done" data, or birr "done" data'
+        help='Path to the gold data directory containing JSONL files. Can be a local path or S3 URL. Can be openai "done" data, or birr "done" data',
     )
     parser.add_argument(
-        'eval_data_path',
+        "eval_data_path",
         type=str,
-        help='Path to the eval data directory containing JSONL files. Can be a local path or S3 URL. Can be openai "done" data, or birr "done" data'
+        help='Path to the eval data directory containing JSONL files. Can be a local path or S3 URL. Can be openai "done" data, or birr "done" data',
     )
 
     args = parser.parse_args()

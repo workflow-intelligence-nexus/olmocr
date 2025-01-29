@@ -26,6 +26,7 @@ TARGET_IMAGE_DIM = 2048
 
 pdf_filter = PdfFilter()
 
+
 def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> dict:
     image_base64 = render_pdf_to_base64png(local_pdf_path, page, TARGET_IMAGE_DIM)
     anchor_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
@@ -72,7 +73,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
                     "role": "user",
                     "content": [
                         {"type": "text", "text": build_openai_silver_data_prompt(anchor_text)},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
                     ],
                 }
             ],
@@ -81,8 +82,9 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
             "logprobs": True,
             "top_logprobs": 5,
             "response_format": openai_response_format_schema(),
-        }
+        },
     }
+
 
 def sample_pdf_pages(num_pages: int, first_n_pages: int, max_sample_pages: int) -> list:
     if num_pages <= first_n_pages:
@@ -93,14 +95,16 @@ def sample_pdf_pages(num_pages: int, first_n_pages: int, max_sample_pages: int) 
         sample_pages += random.sample(remaining_pages, min(max_sample_pages - first_n_pages, len(remaining_pages)))
     return sample_pages
 
+
 def fetch_s3_file(s3_url: str, local_path: str) -> str:
     parsed = urlparse(s3_url)
     bucket_name = parsed.netloc
-    key = parsed.path.lstrip('/')
-    
-    s3 = boto3.client('s3')
+    key = parsed.path.lstrip("/")
+
+    s3 = boto3.client("s3")
     s3.download_file(bucket_name, key, local_path)
     return local_path
+
 
 def process_pdf(pdf_path: str, first_n_pages: int, max_sample_pages: int, no_filter: bool) -> Generator[dict, None, None]:
     if pdf_path.startswith("s3://"):
@@ -112,14 +116,14 @@ def process_pdf(pdf_path: str, first_n_pages: int, max_sample_pages: int, no_fil
     if (not no_filter) and pdf_filter.filter_out_pdf(local_pdf_path):
         print(f"Skipping {local_pdf_path} due to common filter")
         return []
-    
+
     pretty_pdf_path = pdf_path
 
     pdf = PdfReader(local_pdf_path)
     num_pages = len(pdf.pages)
-    
+
     sample_pages = sample_pdf_pages(num_pages, first_n_pages, max_sample_pages)
-    
+
     result = []
     for page in sample_pages:
         try:
@@ -130,6 +134,7 @@ def process_pdf(pdf_path: str, first_n_pages: int, max_sample_pages: int, no_fil
 
     return result
 
+
 def main():
     parser = argparse.ArgumentParser(description="Sample PDFs and create requests for GPT-4o.")
     parser.add_argument("--glob_path", type=str, help="Local or S3 path glob (e.g., *.pdf or s3://bucket/pdfs/*.pdf).")
@@ -139,8 +144,7 @@ def main():
     parser.add_argument("--first_n_pages", type=int, default=0, help="Always sample the first N pages of each PDF.")
     parser.add_argument("--max_sample_pages", type=int, default=15, help="Max number of pages to sample per PDF.")
     parser.add_argument("--output", type=str, default="openai_batch_data", help="Output destination")
-    parser.add_argument("--reservoir_size", type=int, default=None,
-                        help="Size of the reservoir for sampling paths. Defaults to 10x num_sample_docs.")
+    parser.add_argument("--reservoir_size", type=int, default=None, help="Size of the reservoir for sampling paths. Defaults to 10x num_sample_docs.")
     args = parser.parse_args()
 
     # Set default reservoir_size if not provided
@@ -156,15 +160,15 @@ def main():
         if args.glob_path.startswith("s3://"):
             # Handle S3 globbing using boto3 with pagination
             parsed = urlparse(args.glob_path)
-            s3 = boto3.client('s3')
+            s3 = boto3.client("s3")
             bucket_name = parsed.netloc
-            prefix = os.path.dirname(parsed.path.lstrip('/')) + "/"
-            paginator = s3.get_paginator('list_objects_v2')
+            prefix = os.path.dirname(parsed.path.lstrip("/")) + "/"
+            paginator = s3.get_paginator("list_objects_v2")
             page_iterator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
 
             for page in page_iterator:
-                for obj in page.get('Contents', []):
-                    if obj['Key'].endswith('.pdf'):
+                for obj in page.get("Contents", []):
+                    if obj["Key"].endswith(".pdf"):
                         n += 1
                         path = f"s3://{bucket_name}/{obj['Key']}"
                         if len(pdf_paths) < args.reservoir_size:
@@ -184,7 +188,7 @@ def main():
                     if s <= args.reservoir_size:
                         pdf_paths[s - 1] = path
     elif args.path_list:
-        with open(args.path_list, 'r') as f:
+        with open(args.path_list, "r") as f:
             for line in f:
                 n += 1
                 path = line.strip()
@@ -211,7 +215,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     # Open the first file for writing
-    cur_file = open(cur_file_path, 'w')
+    cur_file = open(cur_file_path, "w")
 
     # Counter to track PDFs that produce at least one output
     pdfs_with_output = 0
@@ -231,7 +235,7 @@ def main():
 
                     for request_obj in request_results:
                         request_json = json.dumps(request_obj)
-                        request_size = len(request_json.encode('utf-8'))  # Calculate size in bytes
+                        request_size = len(request_json.encode("utf-8"))  # Calculate size in bytes
 
                         # Check if the current request can fit in the current file
                         if cur_file_size + request_size > max_file_size:
@@ -239,7 +243,7 @@ def main():
                             cur_file.close()
                             cur_file_num += 1
                             cur_file_path = os.path.join(output_dir, f"output_{cur_file_num}.jsonl")
-                            cur_file = open(cur_file_path, 'w')
+                            cur_file = open(cur_file_path, "w")
                             cur_file_size = 0  # Reset file size
 
                         # Write the JSON entry to the file
@@ -265,6 +269,7 @@ def main():
 
     # Print or log the number of PDFs that resulted in at least one output
     print(f"Number of sampled PDFs that produced at least one output: {pdfs_with_output}")
+
 
 if __name__ == "__main__":
     main()

@@ -24,11 +24,11 @@ class MolmoConfig(PretrainedConfig):
         clip_qkv=None,
         qkv_bias: bool = False,
         weight_tying: bool = False,
-        use_position_ids: bool=True,
-        tie_word_embeddings: bool=True,
-        attention_layer_norm: bool=False,
+        use_position_ids: bool = True,
+        tie_word_embeddings: bool = True,
+        attention_layer_norm: bool = False,
         norm_after: bool = False,
-        layer_norm_type: str="rms",
+        layer_norm_type: str = "rms",
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -56,5 +56,6 @@ class MolmoConfig(PretrainedConfig):
             tie_word_embeddings=tie_word_embeddings,
             **kwargs,
         )
+
 
 MolmoConfig.register_for_auto_class()

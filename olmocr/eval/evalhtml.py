@@ -11,8 +11,9 @@ from tqdm import tqdm
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
-session = boto3.Session(profile_name='s2')
-s3_client = session.client('s3')
+session = boto3.Session(profile_name="s2")
+s3_client = session.client("s3")
+
 
 def generate_diff_html(a, b):
     """
@@ -22,15 +23,16 @@ def generate_diff_html(a, b):
     seq_matcher = SequenceMatcher(None, a, b)
     output_html = ""
     for opcode, a0, a1, b0, b1 in seq_matcher.get_opcodes():
-        if opcode == 'equal':
+        if opcode == "equal":
             output_html += a[a0:a1]
-        elif opcode == 'insert':
+        elif opcode == "insert":
             output_html += f"<span class='added'>{b[b0:b1]}</span>"
-        elif opcode == 'delete':
+        elif opcode == "delete":
             output_html += f"<span class='removed'>{a[a0:a1]}</span>"
-        elif opcode == 'replace':
+        elif opcode == "replace":
             output_html += f"<span class='removed'>{a[a0:a1]}</span><span class='added'>{b[b0:b1]}</span>"
     return output_html
+
 
 def process_entry(i, entry):
     # Randomly decide whether to display gold on the left or right
@@ -52,20 +54,14 @@ def process_entry(i, entry):
 
     parsed_url = urlparse(entry["s3_path"])
     bucket = parsed_url.netloc
-    s3_key = parsed_url.path.lstrip('/')
-    signed_pdf_link = s3_client.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": bucket, "Key": s3_key},
-        ExpiresIn=604800
-    )
+    s3_key = parsed_url.path.lstrip("/")
+    signed_pdf_link = s3_client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": s3_key}, ExpiresIn=604800)
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_pdf:
         pdf_path = tmp_pdf.name
-        bucket, key = entry["s3_path"].replace("s3://", "").split('/', 1)
+        bucket, key = entry["s3_path"].replace("s3://", "").split("/", 1)
         s3_client.download_file(bucket, key, pdf_path)
-        page_image_base64 = render_pdf_to_base64png(
-            tmp_pdf.name, entry["page"], target_longest_image_dim=1024
-        )
+        page_image_base64 = render_pdf_to_base64png(tmp_pdf.name, entry["page"], target_longest_image_dim=1024)
 
     return {
         "entry_id": i,
@@ -79,12 +75,13 @@ def process_entry(i, entry):
         "right_metadata": right_metadata,
         "left_text": left_text,
         "right_text": right_text,
-        "diff_text": diff_html, 
+        "diff_text": diff_html,
         "left_class": left_class,
         "right_class": right_class,
         "gold_class": "gold" if left_class == "gold" else "eval",
-        "eval_class": "eval" if right_class == "eval" else "gold"
+        "eval_class": "eval" if right_class == "eval" else "gold",
     }
+
 
 def create_review_html(data, filename="review_page.html"):
     # Load the Jinja2 template from the file

@@ -27,11 +27,11 @@ logging.basicConfig(level=logging.INFO)
 
 
 def parse_s3_path(s3_path: str) -> tuple[str, str]:
-    if not (s3_path.startswith('s3://') or s3_path.startswith('gs://') or s3_path.startswith('weka://')):
-        raise ValueError('s3_path must start with s3://, gs://, or weka://')
+    if not (s3_path.startswith("s3://") or s3_path.startswith("gs://") or s3_path.startswith("weka://")):
+        raise ValueError("s3_path must start with s3://, gs://, or weka://")
     parsed = urlparse(s3_path)
     bucket = parsed.netloc
-    key = parsed.path.lstrip('/')
+    key = parsed.path.lstrip("/")
 
     return bucket, key
 
@@ -70,10 +70,7 @@ def expand_s3_glob(s3_client, s3_glob: str) -> dict[str, str]:
         resp = s3_client.head_object(Bucket=bucket, Key=raw_path)
 
         if resp["ContentType"] == "application/x-directory":
-            raise ValueError(
-                        f"'{s3_glob}' appears to be a folder. "
-                        f"Use a wildcard (e.g., '{s3_glob.rstrip('/')}/*.pdf') to match files."
-                    )
+            raise ValueError(f"'{s3_glob}' appears to be a folder. " f"Use a wildcard (e.g., '{s3_glob.rstrip('/')}/*.pdf') to match files.")
 
         return {f"s3://{bucket}/{raw_path}": resp["ETag"].strip('"')}
     except ClientError as e:
@@ -83,10 +80,7 @@ def expand_s3_glob(s3_client, s3_glob: str) -> dict[str, str]:
             paginator = s3_client.get_paginator("list_objects_v2")
             for page in paginator.paginate(Bucket=bucket, Prefix=check_prefix):
                 if page.get("Contents"):
-                    raise ValueError(
-                        f"'{s3_glob}' appears to be a folder. "
-                        f"Use a wildcard (e.g., '{s3_glob.rstrip('/')}/*.pdf') to match files."
-                    )
+                    raise ValueError(f"'{s3_glob}' appears to be a folder. " f"Use a wildcard (e.g., '{s3_glob.rstrip('/')}/*.pdf') to match files.")
             raise ValueError(f"No object or prefix found at '{s3_glob}'. Check your path or add a wildcard.")
         else:
             raise
@@ -98,7 +92,7 @@ def get_s3_bytes(s3_client, s3_path: str, start_index: Optional[int] = None, end
         assert start_index is None and end_index is None, "Range query not supported yet"
         with open(s3_path, "rb") as f:
             return f.read()
-    
+
     bucket, key = parse_s3_path(s3_path)
 
     # Build the range header if start_index and/or end_index are specified
@@ -106,22 +100,22 @@ def get_s3_bytes(s3_client, s3_path: str, start_index: Optional[int] = None, end
     if start_index is not None and end_index is not None:
         # Range: bytes=start_index-end_index
         range_value = f"bytes={start_index}-{end_index}"
-        range_header = {'Range': range_value}
+        range_header = {"Range": range_value}
     elif start_index is not None and end_index is None:
         # Range: bytes=start_index-
         range_value = f"bytes={start_index}-"
-        range_header = {'Range': range_value}
+        range_header = {"Range": range_value}
     elif start_index is None and end_index is not None:
         # Range: bytes=-end_index (last end_index bytes)
         range_value = f"bytes=-{end_index}"
-        range_header = {'Range': range_value}
+        range_header = {"Range": range_value}
 
     if range_header:
-        obj = s3_client.get_object(Bucket=bucket, Key=key, Range=range_header['Range'])
+        obj = s3_client.get_object(Bucket=bucket, Key=key, Range=range_header["Range"])
     else:
         obj = s3_client.get_object(Bucket=bucket, Key=key)
 
-    return obj['Body'].read()
+    return obj["Body"].read()
 
 
 def get_s3_bytes_with_backoff(s3_client, pdf_s3_path, max_retries: int = 8, backoff_factor: int = 2):
@@ -132,16 +126,16 @@ def get_s3_bytes_with_backoff(s3_client, pdf_s3_path, max_retries: int = 8, back
             return get_s3_bytes(s3_client, pdf_s3_path)
         except ClientError as e:
             # Check for some error kinds AccessDenied error and raise immediately
-            if e.response['Error']['Code'] in ('AccessDenied', 'NoSuchKey'):
+            if e.response["Error"]["Code"] in ("AccessDenied", "NoSuchKey"):
                 logger.error(f"{e.response['Error']['Code']} error when trying to access {pdf_s3_path}: {e}")
                 raise
             else:
-                wait_time = backoff_factor ** attempt
+                wait_time = backoff_factor**attempt
                 logger.warning(f"Attempt {attempt+1} failed to get_s3_bytes for {pdf_s3_path}: {e}. Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
                 attempt += 1
         except Exception as e:
-            wait_time = backoff_factor ** attempt
+            wait_time = backoff_factor**attempt
             logger.warning(f"Attempt {attempt+1} failed to get_s3_bytes for {pdf_s3_path}: {e}. Retrying in {wait_time} seconds...")
             time.sleep(wait_time)
             attempt += 1
@@ -153,17 +147,12 @@ def get_s3_bytes_with_backoff(s3_client, pdf_s3_path, max_retries: int = 8, back
 def put_s3_bytes(s3_client, s3_path: str, data: bytes):
     bucket, key = parse_s3_path(s3_path)
 
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=data,
-        ContentType='text/plain; charset=utf-8'
-    )
+    s3_client.put_object(Bucket=bucket, Key=key, Body=data, ContentType="text/plain; charset=utf-8")
 
 
 def parse_custom_id(custom_id: str) -> tuple[str, int]:
-    s3_path = custom_id[:custom_id.rindex("-")]
-    page_num = int(custom_id[custom_id.rindex("-") + 1:])
+    s3_path = custom_id[: custom_id.rindex("-")]
+    page_num = int(custom_id[custom_id.rindex("-") + 1 :])
     return s3_path, page_num
 
 
@@ -173,7 +162,7 @@ def download_zstd_csv(s3_client, s3_path):
         compressed_data = get_s3_bytes(s3_client, s3_path)
         dctx = zstd.ZstdDecompressor()
         decompressed = dctx.decompress(compressed_data)
-        text_stream = TextIOWrapper(BytesIO(decompressed), encoding='utf-8')
+        text_stream = TextIOWrapper(BytesIO(decompressed), encoding="utf-8")
         lines = text_stream.readlines()
         logger.info(f"Downloaded and decompressed {s3_path}")
         return lines
@@ -186,7 +175,7 @@ def upload_zstd_csv(s3_client, s3_path, lines):
     """Compress and upload a list of lines as a .zstd CSV file to S3."""
     joined_text = "\n".join(lines)
     compressor = zstd.ZstdCompressor()
-    compressed = compressor.compress(joined_text.encode('utf-8'))
+    compressed = compressor.compress(joined_text.encode("utf-8"))
     put_s3_bytes(s3_client, s3_path, compressed)
     logger.info(f"Uploaded compressed {s3_path}")
 
@@ -196,9 +185,7 @@ def is_running_on_gcp():
     try:
         # GCP metadata server URL to check instance information
         response = requests.get(
-            "http://metadata.google.internal/computeMetadata/v1/instance/",
-            headers={"Metadata-Flavor": "Google"},
-            timeout=1  # Set a short timeout
+            "http://metadata.google.internal/computeMetadata/v1/instance/", headers={"Metadata-Flavor": "Google"}, timeout=1  # Set a short timeout
         )
         return response.status_code == 200
     except requests.RequestException:
@@ -236,18 +223,15 @@ def download_directory(model_choices: List[str], local_dir: str):
         logger.info(f"Attempting to download from: {model_path}")
         try:
             if model_path.startswith("weka://"):
-                download_dir_from_storage(
-                    model_path, str(local_path), storage_type='weka')
+                download_dir_from_storage(model_path, str(local_path), storage_type="weka")
                 logger.info(f"Successfully downloaded model from Weka: {model_path}")
                 return
             elif model_path.startswith("gs://"):
-                download_dir_from_storage(
-                    model_path, str(local_path), storage_type='gcs')
+                download_dir_from_storage(model_path, str(local_path), storage_type="gcs")
                 logger.info(f"Successfully downloaded model from Google Cloud Storage: {model_path}")
                 return
             elif model_path.startswith("s3://"):
-                download_dir_from_storage(
-                    model_path, str(local_path), storage_type='s3')
+                download_dir_from_storage(model_path, str(local_path), storage_type="s3")
                 logger.info(f"Successfully downloaded model from S3: {model_path}")
                 return
             else:
@@ -276,7 +260,7 @@ def download_dir_from_storage(storage_path: str, local_dir: str, storage_type: s
     total_files = 0
     objects = []
 
-    if storage_type == 'gcs':
+    if storage_type == "gcs":
         client = storage.Client()
         bucket = client.bucket(bucket_name)
         blobs = list(bucket.list_blobs(prefix=prefix))
@@ -295,43 +279,32 @@ def download_dir_from_storage(storage_path: str, local_dir: str, storage_type: s
                 raise
 
         items = blobs
-    elif storage_type in ('s3', 'weka'):
-        if storage_type == 'weka':
+    elif storage_type in ("s3", "weka"):
+        if storage_type == "weka":
             weka_access_key = os.getenv("WEKA_ACCESS_KEY_ID")
             weka_secret_key = os.getenv("WEKA_SECRET_ACCESS_KEY")
             if not weka_access_key or not weka_secret_key:
                 raise ValueError("WEKA_ACCESS_KEY_ID and WEKA_SECRET_ACCESS_KEY must be set for Weka access.")
             endpoint_url = "https://weka-aus.beaker.org:9000"
-            boto3_config = Config(
-                max_pool_connections=500,
-                signature_version='s3v4',
-                retries={'max_attempts': 10, 'mode': 'standard'}
-            )
+            boto3_config = Config(max_pool_connections=500, signature_version="s3v4", retries={"max_attempts": 10, "mode": "standard"})
             s3_client = boto3.client(
-                's3',
-                endpoint_url=endpoint_url,
-                aws_access_key_id=weka_access_key,
-                aws_secret_access_key=weka_secret_key,
-                config=boto3_config
+                "s3", endpoint_url=endpoint_url, aws_access_key_id=weka_access_key, aws_secret_access_key=weka_secret_key, config=boto3_config
             )
         else:
-            s3_client = boto3.client('s3', config=Config(max_pool_connections=500))
+            s3_client = boto3.client("s3", config=Config(max_pool_connections=500))
 
         paginator = s3_client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
         for page in pages:
-            if 'Contents' in page:
-                objects.extend(page['Contents'])
+            if "Contents" in page:
+                objects.extend(page["Contents"])
             else:
                 logger.warning(f"No contents found in page: {page}")
         total_files = len(objects)
         logger.info(f"Found {total_files} files in {'Weka' if storage_type == 'weka' else 'S3'} bucket '{bucket_name}' with prefix '{prefix}'.")
 
         transfer_config = TransferConfig(
-            multipart_threshold=8 * 1024 * 1024,
-            multipart_chunksize=8 * 1024 * 1024,
-            max_concurrency=10,  # Reduced for WekaFS compatibility
-            use_threads=True
+            multipart_threshold=8 * 1024 * 1024, multipart_chunksize=8 * 1024 * 1024, max_concurrency=10, use_threads=True  # Reduced for WekaFS compatibility
         )
 
         def should_download(obj, local_file_path):
@@ -340,8 +313,8 @@ def download_dir_from_storage(storage_path: str, local_dir: str, storage_type: s
         def download_blob(obj, local_file_path):
             logger.info(f"Starting download of {obj['Key']} to {local_file_path}")
             try:
-                with open(local_file_path, 'wb') as f:
-                    s3_client.download_fileobj(bucket_name, obj['Key'], f, Config=transfer_config)
+                with open(local_file_path, "wb") as f:
+                    s3_client.download_fileobj(bucket_name, obj["Key"], f, Config=transfer_config)
                 logger.info(f"Successfully downloaded {obj['Key']} to {local_file_path}")
             except Exception as e:
                 logger.error(f"Failed to download {obj['Key']} to {local_file_path}: {e}")
@@ -354,10 +327,10 @@ def download_dir_from_storage(storage_path: str, local_dir: str, storage_type: s
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
         for item in items:
-            if storage_type == 'gcs':
+            if storage_type == "gcs":
                 relative_path = os.path.relpath(item.name, prefix)
             else:
-                relative_path = os.path.relpath(item['Key'], prefix)
+                relative_path = os.path.relpath(item["Key"], prefix)
             local_file_path = os.path.join(local_dir, relative_path)
             os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
             if should_download(item, local_file_path):
@@ -401,13 +374,13 @@ def compare_hashes_gcs(blob, local_file_path: str) -> bool:
 def compare_hashes_s3(obj, local_file_path: str, storage_type: str) -> bool:
     """Compare MD5 hashes or sizes for S3 objects (including Weka)."""
     if os.path.exists(local_file_path):
-        if storage_type == 'weka':
+        if storage_type == "weka":
             return True
         else:
-            etag = obj['ETag'].strip('"')
-            if '-' in etag:
+            etag = obj["ETag"].strip('"')
+            if "-" in etag:
                 # Multipart upload, compare sizes
-                remote_size = obj['Size']
+                remote_size = obj["Size"]
                 local_size = os.path.getsize(local_file_path)
                 if remote_size == local_size:
                     logger.info(f"File '{local_file_path}' size matches remote multipart file. Skipping download.")

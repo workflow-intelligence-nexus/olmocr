@@ -19,6 +19,7 @@ def parse_pdf_hash(pretty_pdf_path: str) -> str:
         return match.group(1) + match.group(2)
     return None
 
+
 def cache_athena_csv_to_db(athena_csv_path: str) -> str:
     db_path = athena_csv_path + ".db"
 
@@ -56,6 +57,7 @@ def cache_athena_csv_to_db(athena_csv_path: str) -> str:
 
     return db_path
 
+
 def get_uri_from_db(db_path: str, pdf_hash: str) -> str:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -63,6 +65,7 @@ def get_uri_from_db(db_path: str, pdf_hash: str) -> str:
     result = cursor.fetchone()
     conn.close()
     return result[0] if result else None
+
 
 def process_file(filepath, db_path):
     results = []
@@ -94,6 +97,7 @@ def process_file(filepath, db_path):
 
             results.append((custom_id, uri, domain))
     return results
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -147,11 +151,11 @@ def main():
     with open(output_csv_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["custom_id", "uri", "domain"])
-        for (cid, uri, domain) in all_rows:
+        for cid, uri, domain in all_rows:
             writer.writerow([cid, uri if uri else "", domain if domain else ""])
 
     domain_counter = collections.Counter()
-    for (_, _, domain) in all_rows:
+    for _, _, domain in all_rows:
         if domain:
             domain_counter[domain] += 1
 
@@ -169,13 +173,14 @@ def main():
     with open(sample_csv_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["custom_id", "uri", "domain"])
-        for (cid, uri, domain) in sample_rows:
+        for cid, uri, domain in sample_rows:
             writer.writerow([cid, uri if uri else "", domain if domain else ""])
 
     print(f"Summary files written to: {args.output}")
     print(f" - Full mapping: {output_csv_path}")
     print(f" - Top domains: {domain_csv_path}")
     print(f" - Samples: {sample_csv_path}")
+
 
 if __name__ == "__main__":
     main()

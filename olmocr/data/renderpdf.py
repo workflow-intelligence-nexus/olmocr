@@ -15,29 +15,29 @@ def get_pdf_media_box_width_height(local_pdf_path: str, page_num: int) -> tuple[
     :return: A dictionary containing MediaBox dimensions or None if not found
     """
     # Construct the pdfinfo command to extract info for the specific page
-    command = ['pdfinfo', '-f', str(page_num), '-l', str(page_num), '-box', '-enc', 'UTF-8', local_pdf_path]
-    
+    command = ["pdfinfo", "-f", str(page_num), "-l", str(page_num), "-box", "-enc", "UTF-8", local_pdf_path]
+
     # Run the command using subprocess
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    
+
     # Check if there is any error in executing the command
     if result.returncode != 0:
         raise ValueError(f"Error running pdfinfo: {result.stderr}")
-    
+
     # Parse the output to find MediaBox
     output = result.stdout
     media_box = None
-    
+
     for line in output.splitlines():
-        if 'MediaBox' in line:
-            media_box = line.split(':')[1].strip().split()
+        if "MediaBox" in line:
+            media_box = line.split(":")[1].strip().split()
             media_box = [float(x) for x in media_box]
             return abs(media_box[0] - media_box[2]), abs(media_box[3] - media_box[1])
-    
-    raise ValueError("MediaBox not found in the PDF info.")
-    
 
-def render_pdf_to_base64png(local_pdf_path: str, page_num: int, target_longest_image_dim: int=2048):
+    raise ValueError("MediaBox not found in the PDF info.")
+
+
+def render_pdf_to_base64png(local_pdf_path: str, page_num: int, target_longest_image_dim: int = 2048):
     longest_dim = max(get_pdf_media_box_width_height(local_pdf_path, page_num))
 
     # Convert PDF page to PNG using pdftoppm
@@ -50,7 +50,7 @@ def render_pdf_to_base64png(local_pdf_path: str, page_num: int, target_longest_i
             "-l",
             str(page_num),
             "-r",
-            str(target_longest_image_dim * 72 / longest_dim), # 72 pixels per point is the conversion factor
+            str(target_longest_image_dim * 72 / longest_dim),  # 72 pixels per point is the conversion factor
             local_pdf_path,
         ],
         timeout=120,
@@ -61,13 +61,13 @@ def render_pdf_to_base64png(local_pdf_path: str, page_num: int, target_longest_i
     return base64.b64encode(pdftoppm_result.stdout).decode("utf-8")
 
 
-def render_pdf_to_base64webp(local_pdf_path: str, page: int, target_longest_image_dim: int=1024):
+def render_pdf_to_base64webp(local_pdf_path: str, page: int, target_longest_image_dim: int = 1024):
     base64_png = render_pdf_to_base64png(local_pdf_path, page, target_longest_image_dim)
-    
+
     png_image = Image.open(io.BytesIO(base64.b64decode(base64_png)))
     webp_output = io.BytesIO()
     png_image.save(webp_output, format="WEBP")
-        
+
     return base64.b64encode(webp_output.getvalue()).decode("utf-8")
 
 
@@ -88,13 +88,13 @@ def get_png_dimensions_from_base64(base64_data) -> tuple[int, int]:
     - ValueError: If the data is not a valid PNG image or the required bytes are not found.
     """
     # PNG signature is 8 bytes
-    png_signature_base64 = base64.b64encode(b'\x89PNG\r\n\x1a\n').decode('ascii')
+    png_signature_base64 = base64.b64encode(b"\x89PNG\r\n\x1a\n").decode("ascii")
     if not base64_data.startswith(png_signature_base64[:8]):
-        raise ValueError('Not a valid PNG file')
+        raise ValueError("Not a valid PNG file")
 
     # Positions in the binary data where width and height are stored
     width_start = 16  # Byte position where width starts (0-based indexing)
-    width_end = 20    # Byte position where width ends (exclusive)
+    width_end = 20  # Byte position where width ends (exclusive)
     height_start = 20
     height_end = 24
 
@@ -117,14 +117,14 @@ def get_png_dimensions_from_base64(base64_data) -> tuple[int, int]:
     offset = start_byte % 3
 
     # Extract width and height bytes
-    width_bytes = decoded_bytes[offset:offset+4]
-    height_bytes = decoded_bytes[offset+4:offset+8]
+    width_bytes = decoded_bytes[offset : offset + 4]
+    height_bytes = decoded_bytes[offset + 4 : offset + 8]
 
     if len(width_bytes) < 4 or len(height_bytes) < 4:
-        raise ValueError('Insufficient data to extract dimensions')
+        raise ValueError("Insufficient data to extract dimensions")
 
     # Convert bytes to integers
-    width = int.from_bytes(width_bytes, 'big')
-    height = int.from_bytes(height_bytes, 'big')
+    width = int.from_bytes(width_bytes, "big")
+    height = int.from_bytes(height_bytes, "big")
 
     return width, height

@@ -1,4 +1,5 @@
 """Image processor class for Molmo"""
+
 from typing import List, Mapping, Optional, Union
 
 import einops
@@ -20,18 +21,11 @@ from transformers.utils import logging
 logger = logging.get_logger(__name__)
 
 
-def pad_to_bounding_box(
-    image, offset_height, offset_width, target_height,
-    target_width, value=0
-):
+def pad_to_bounding_box(image, offset_height, offset_width, target_height, target_width, value=0):
     height, width = image.shape[:2]
     after_padding_width = target_width - offset_width - width
     after_padding_height = target_height - offset_height - height
-    return np.pad(image, [
-        [offset_height, after_padding_height],
-        [offset_width, after_padding_width],
-        [0, 0]
-    ], constant_values=value)
+    return np.pad(image, [[offset_height, after_padding_height], [offset_width, after_padding_width], [0, 0]], constant_values=value)
 
 
 def normalize_image(image, offset, scale):
@@ -64,6 +58,7 @@ def resize_and_pad(
         # This how the original training code did resizing, it can produce slightly different
         # results then using torch resize so we keep it just in case
         import tensorflow as tf
+
         image = tf.image.convert_image_dtype(tf.constant(image), dtype=tf.float32)
         image = tf.image.resize(
             image,
@@ -76,9 +71,7 @@ def resize_and_pad(
     elif resize_method == "torch-bilinear":
         image = torch.permute(torch.from_numpy(image), [2, 0, 1])
         image = convert_image_dtype(image)  # resize in float32 to match the training code
-        image = torchvision.transforms.Resize(
-            [scaled_height, scaled_width], InterpolationMode.BILINEAR, antialias=True
-        )(image)
+        image = torchvision.transforms.Resize([scaled_height, scaled_width], InterpolationMode.BILINEAR, antialias=True)(image)
         image = torch.clip(image, 0.0, 1.0)
         image = torch.permute(image, [1, 2, 0]).numpy()
     else:
@@ -86,11 +79,7 @@ def resize_and_pad(
 
     top_pad = (desired_height - scaled_height) // 2
     left_pad = (desired_width - scaled_width) // 2
-    padding = [
-        [top_pad, desired_height - scaled_height - top_pad],
-        [left_pad, desired_width - scaled_width - left_pad],
-        [0, 0]
-    ]
+    padding = [[top_pad, desired_height - scaled_height - top_pad], [left_pad, desired_width - scaled_width - left_pad], [0, 0]]
     image_mask = np.pad(np.ones_like(image[:, :, 0], dtype=bool), padding[:2])
     image = np.pad(image, padding, constant_values=pad_value)
     if normalize:
@@ -103,12 +92,12 @@ def select_tiling(h, w, patch_size, max_num_patches):
     original_size = np.stack([h, w])  # [1, 2]
     original_res = h * w
     tilings = []
-    for i in range(1, max_num_patches+1):
-        for j in range(1, max_num_patches+1):
-            if i*j <= max_num_patches:
+    for i in range(1, max_num_patches + 1):
+        for j in range(1, max_num_patches + 1):
+            if i * j <= max_num_patches:
                 tilings.append((i, j))
     # sort so argmin and argmax favour smaller tilings in the event of a tie
-    tilings.sort(key=lambda x: (x[0]*x[1], x[0]))
+    tilings.sort(key=lambda x: (x[0] * x[1], x[0]))
     candidate_tilings = np.array(tilings, dtype=np.int32)  # [n_resolutions, 2]
     candidate_resolutions = candidate_tilings * patch_size  # [n_resolutions, 2]
 
@@ -194,20 +183,12 @@ class MolmoImageProcessor(BaseImageProcessor):
         left_margin, right_margin = overlap_margins
         # left_margin, right_margin = 2, 2
         assert left_margin % 2 == 0  # Required for compatibility with 2x2 pooling
-        total_margin_pixels = base_image_input_d*(right_margin + left_margin)  # pixels removed per dim
+        total_margin_pixels = base_image_input_d * (right_margin + left_margin)  # pixels removed per dim
         crop_patches = base_image_input_size[0] // base_image_input_d  # patches per crop dim
         crop_window_patches = crop_patches - (right_margin + left_margin)  # usable patches
         crop_window_size = crop_window_patches * base_image_input_d
-        tiling = select_tiling(
-            original_image_h - total_margin_pixels,
-            original_image_w - total_margin_pixels,
-            crop_window_size,
-            max_crops
-        )
-        src, img_mask = resize_and_pad(
-            image,
-            [tiling[0]*crop_window_size+total_margin_pixels, tiling[1]*crop_window_size+total_margin_pixels]
-        )
+        tiling = select_tiling(original_image_h - total_margin_pixels, original_image_w - total_margin_pixels, crop_window_size, max_crops)
+        src, img_mask = resize_and_pad(image, [tiling[0] * crop_window_size + total_margin_pixels, tiling[1] * crop_window_size + total_margin_pixels])
 
         # Now we have to split the image into crops, while keeping track of how each patch in the
         # each crop should be ordered in the global image, this require a lot of tricky booking
@@ -218,12 +199,12 @@ class MolmoImageProcessor(BaseImageProcessor):
 
         # We assume 2x2 pooling, but can allow padding the right/bottom with extra
         # patches if the number of patches per side is not even
-        assert (crop_patches+1)//2 == image_token_length_h
-        assert (crop_patches+1)//2 == image_token_length_w
+        assert (crop_patches + 1) // 2 == image_token_length_h
+        assert (crop_patches + 1) // 2 == image_token_length_w
         on = 0
         on_patch = 0
         for i in range(tiling[0]):
-            y0 = i*crop_window_size
+            y0 = i * crop_window_size
             if i == 0:
                 crop_y0 = 0
             else:
@@ -232,10 +213,10 @@ class MolmoImageProcessor(BaseImageProcessor):
             crop_h = image_base_patch_h - (right_margin + left_margin)
             if i == 0:
                 crop_h += left_margin
-            if i == (tiling[0]-1):
+            if i == (tiling[0] - 1):
                 crop_h += right_margin
             for j in range(tiling[1]):
-                x0 = j*crop_window_size
+                x0 = j * crop_window_size
                 if j == 0:
                     crop_x0 = 0
                 else:
@@ -244,21 +225,25 @@ class MolmoImageProcessor(BaseImageProcessor):
                 crop_w = image_base_patch_w - (right_margin + left_margin)
                 if j == 0:
                     crop_w += left_margin
-                if j == (tiling[1]-1):
+                if j == (tiling[1] - 1):
                     crop_w += right_margin
 
                 pooled_w = (crop_w + 1) // 2
                 pooled_h = (crop_h + 1) // 2
                 patch_ordering_arr.append(
                     pad_to_bounding_box(
-                        np.reshape(np.arange(on, on+pooled_h*pooled_w, dtype=np.int32), (pooled_h, pooled_w, 1)),
-                        crop_y0, crop_x0, image_token_length_h, image_token_length_w, value=-1
+                        np.reshape(np.arange(on, on + pooled_h * pooled_w, dtype=np.int32), (pooled_h, pooled_w, 1)),
+                        crop_y0,
+                        crop_x0,
+                        image_token_length_h,
+                        image_token_length_w,
+                        value=-1,
                     )[:, :, 0]
                 )
-                patches_arr.append(src[y0:y0+crop_size, x0:x0+crop_size])
-                mask_arr.append(img_mask[y0:y0+crop_size, x0:x0+crop_size])
+                patches_arr.append(src[y0 : y0 + crop_size, x0 : x0 + crop_size])
+                mask_arr.append(img_mask[y0 : y0 + crop_size, x0 : x0 + crop_size])
 
-                on += pooled_h*pooled_w
+                on += pooled_h * pooled_w
                 on_patch += 1
         patches = np.stack(patches_arr)
         patch_ordering = np.stack(patch_ordering_arr)
@@ -267,18 +252,10 @@ class MolmoImageProcessor(BaseImageProcessor):
         # Switch to [n_crops, n_patches, pixels_per_patch] format
         image_layout_impatch_w, image_layout_impatch_h = tiling[0], tiling[1]
         patches = einops.rearrange(
-            patches, 'p (h dh) (w dw) c -> p (h w) (dh dw c)',
-            dh=base_image_input_d,
-            dw=base_image_input_d,
-            h=image_base_patch_h,
-            w=image_base_patch_w
+            patches, "p (h dh) (w dw) c -> p (h w) (dh dw c)", dh=base_image_input_d, dw=base_image_input_d, h=image_base_patch_h, w=image_base_patch_w
         )
         img_mask = einops.rearrange(
-            img_mask, 'p (h dh) (w dw) -> p (h w) (dh dw)',
-            dh=base_image_input_d,
-            dw=base_image_input_d,
-            h=image_base_patch_h,
-            w=image_base_patch_w
+            img_mask, "p (h dh) (w dw) -> p (h w) (dh dw)", dh=base_image_input_d, dw=base_image_input_d, h=image_base_patch_h, w=image_base_patch_w
         )
 
         img_mask = img_mask.astype(np.float32).mean(axis=-1)
@@ -286,10 +263,7 @@ class MolmoImageProcessor(BaseImageProcessor):
         valid = patch_ordering >= 0
 
         # Transpose order, to get left-to-right order instead of crop-by-crop order
-        patch_ordering_rh = np.reshape(
-            patch_ordering,
-            [tiling[0], tiling[1], image_token_length_h, image_token_length_w]
-        )
+        patch_ordering_rh = np.reshape(patch_ordering, [tiling[0], tiling[1], image_token_length_h, image_token_length_w])
         patch_ordering_rh = np.transpose(patch_ordering_rh, [0, 2, 1, 3])
         patch_ordering_rh = np.reshape(patch_ordering_rh, [-1])
 
@@ -298,38 +272,26 @@ class MolmoImageProcessor(BaseImageProcessor):
         patch_ordering[valid] = patch_ordering_rh[patch_ordering_rh >= 0]
 
         # Now build the output tokens
-        h = tiling[0] * crop_window_patches + (right_margin+left_margin)
-        w = tiling[1] * crop_window_patches + (right_margin+left_margin)
+        h = tiling[0] * crop_window_patches + (right_margin + left_margin)
+        w = tiling[1] * crop_window_patches + (right_margin + left_margin)
         per_row = np.full(
-            ((w+1)//2,),
+            ((w + 1) // 2,),
             image_patch_token_id,
         )
         per_row = np.concatenate([per_row, [image_col_token_id]], 0)
 
-        joint = np.tile(per_row, [(h+1)//2])
-        joint = [
-            [image_start_token_id],
-            joint,
-            [image_end_token_id]
-        ]
+        joint = np.tile(per_row, [(h + 1) // 2])
+        joint = [[image_start_token_id], joint, [image_end_token_id]]
 
         # Finally do the same for the global image
         resized, _ = resize_and_pad(image, base_image_input_size)
         resized = einops.rearrange(
-            resized, '(h dh) (w dw) c -> (h w) (dh dw c)',
-            dh=base_image_input_d,
-            dw=base_image_input_d,
-            h=image_base_patch_h,
-            w=image_base_patch_w
+            resized, "(h dh) (w dw) c -> (h w) (dh dw c)", dh=base_image_input_d, dw=base_image_input_d, h=image_base_patch_h, w=image_base_patch_w
         )
         patches = np.concatenate([np.expand_dims(resized, 0), patches], 0)
 
         # Global image goes first, so the order of patches in previous crops gets increased
-        patch_ordering = np.where(
-            patch_ordering >= 0,
-            patch_ordering + tokens_per_image,
-            -1
-        )
+        patch_ordering = np.where(patch_ordering >= 0, patch_ordering + tokens_per_image, -1)
         patch_ordering = np.concatenate([np.arange(0, tokens_per_image), patch_ordering], 0)
         per_row = np.full(
             (image_token_length_w,),
@@ -338,10 +300,10 @@ class MolmoImageProcessor(BaseImageProcessor):
         per_row = np.concatenate([per_row, [image_col_token_id]], 0)
         extra_tokens = np.tile(per_row, [image_token_length_h])
         joint = [
-                    [image_start_token_id],
-                    extra_tokens,
-                    [image_end_token_id],
-                ] + joint
+            [image_start_token_id],
+            extra_tokens,
+            [image_end_token_id],
+        ] + joint
 
         joint = np.concatenate(joint, 0)
         img_mask = np.pad(img_mask, [[0, 1], [0, 0]], constant_values=-1)
@@ -384,8 +346,8 @@ class MolmoImageProcessor(BaseImageProcessor):
 
             # Do the gather and then re-masked outputs that were masked in `sorted_patch_ixs`
             valid = (sorted_patch_ixs_ex >= 0).astype(np.int32)
-            image_input_idx = image_input_idx[sorted_patch_ixs_ex*valid]
-            image_input_idx = image_input_idx*valid - 100*(1 - valid)
+            image_input_idx = image_input_idx[sorted_patch_ixs_ex * valid]
+            image_input_idx = image_input_idx * valid - 100 * (1 - valid)
             image_input_idx = np.reshape(image_input_idx, [-1, tokens_per_image])
         return image_input_idx
 
@@ -511,7 +473,7 @@ class MolmoImageProcessor(BaseImageProcessor):
                     token_ix = 0
                     end = 0
                 else:
-                    start = 0 if ix == 0 else image_idx[ix-1] + 1
+                    start = 0 if ix == 0 else image_idx[ix - 1] + 1
                     end = token_ix + 1
 
                 all_image_idx.append(patch_idx + token_ix)
@@ -531,11 +493,7 @@ class MolmoImageProcessor(BaseImageProcessor):
             else:
                 image_masks = None
 
-        out = {
-            "input_ids": input_ids,
-            "images": images,
-            "image_input_idx": image_input_idx
-        }
+        out = {"input_ids": input_ids, "images": images, "image_input_idx": image_input_idx}
         if image_masks is not None:
             out["image_masks"] = image_masks
         return out

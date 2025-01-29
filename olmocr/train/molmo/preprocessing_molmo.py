@@ -82,7 +82,7 @@ class MolmoProcessor(ProcessorMixin):
     image_processor_class = "AutoImageProcessor"
     tokenizer_class = ("GPT2Tokenizer", "GPT2TokenizerFast")
 
-    def __init__(self, image_processor: MolmoImageProcessor = None, tokenizer : AutoTokenizer = None, **kwargs):
+    def __init__(self, image_processor: MolmoImageProcessor = None, tokenizer: AutoTokenizer = None, **kwargs):
         # self.image_processor = image_processor
         # self.tokenizer = tokenizer
         super().__init__(image_processor, tokenizer)
@@ -148,7 +148,7 @@ class MolmoProcessor(ProcessorMixin):
                     image_arrays.append(image.astype(np.uint8))
             images = image_arrays
             # For now only support inserting images at the start
-            image_idx = [-1]*len(images)
+            image_idx = [-1] * len(images)
         else:
             image_idx = None
 
@@ -167,7 +167,7 @@ class MolmoProcessor(ProcessorMixin):
             image_col_token_id=image_col_token_id,
             image_start_token_id=image_start_token_id,
             image_end_token_id=image_end_token_id,
-            **output_kwargs["images_kwargs"]
+            **output_kwargs["images_kwargs"],
         )
 
         # Prepend BOS

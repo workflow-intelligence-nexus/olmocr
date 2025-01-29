@@ -16,6 +16,7 @@ def build_openai_silver_data_prompt(base_text: str) -> str:
         f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
     )
 
+
 @dataclass(frozen=True)
 class PageResponse:
     primary_language: Optional[str]
@@ -43,6 +44,7 @@ class PageResponse:
             raise TypeError("is_diagram must be of type bool.")
         if not isinstance(self.natural_text, (str, type(None))):
             raise TypeError("natural_text must be of type Optional[str].")
+
 
 def openai_response_format_schema() -> dict:
     return {
@@ -89,7 +91,7 @@ def openai_response_format_schema() -> dict:
                     "natural_text",
                 ],
             },
-            "strict": True
+            "strict": True,
         },
     }
 

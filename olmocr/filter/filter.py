@@ -20,14 +20,8 @@ class PdfFilter:
         download_spam_threshold=0.004,
     ):
         super().__init__()
-        self.language_detector = (
-            LanguageDetectorBuilder.from_all_languages()
-            .with_preloaded_language_models()
-            .build()
-        )
-        self.languages_to_keep = (
-            languages_to_keep if languages_to_keep is not None else [Language.ENGLISH]
-        )
+        self.language_detector = LanguageDetectorBuilder.from_all_languages().with_preloaded_language_models().build()
+        self.languages_to_keep = languages_to_keep if languages_to_keep is not None else [Language.ENGLISH]
         self.apply_form_check = apply_form_check
         self.apply_download_spam_check = apply_download_spam_check
         self.download_spam_threshold = download_spam_threshold
@@ -89,9 +83,7 @@ class PdfFilter:
             stderr=subprocess.PIPE,
         )
         if pdftotext_result.returncode != 0:
-            logger.warning(
-                f"pdftotext returned {pdftotext_result.returncode} on {local_pdf_path}"
-            )
+            logger.warning(f"pdftotext returned {pdftotext_result.returncode} on {local_pdf_path}")
             return True  # Filter out
 
         base_text = pdftotext_result.stdout.decode("utf-8")
@@ -100,18 +92,16 @@ class PdfFilter:
 
         if len(base_text) < 200:
             logger.info(f"Keeping {local_pdf_path} on the safe side because not enough text exists in it to analyze")
-            return False # keep the pdf
+            return False  # keep the pdf
 
-        if alpha_count/len(base_text) < 0.50:
+        if alpha_count / len(base_text) < 0.50:
             logger.info(f"Keeping {local_pdf_path} on the safe side because it's text does not contain many letters so it might be OCRed badly")
-            return False # keep the pdf
+            return False  # keep the pdf
 
         # Language check
         language = self.language_detector.detect_language_of(base_text)
         if language not in self.languages_to_keep:
-            logger.info(
-                f"Filtering out {local_pdf_path} because language was {language}"
-            )
+            logger.info(f"Filtering out {local_pdf_path} because language was {language}")
             return True  # Filter out
 
         # Download spam check
@@ -157,7 +147,7 @@ if __name__ == "__main__":
 
     # Initialize the PDF filter
     filter = PdfFilter(
-        languages_to_keep={Language.ENGLISH, None}, # none means could not detect language, that's okay keep it, might be an OCR
+        languages_to_keep={Language.ENGLISH, None},  # none means could not detect language, that's okay keep it, might be an OCR
         apply_download_spam_check=True,
         apply_form_check=True,
     )

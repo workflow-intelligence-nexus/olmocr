@@ -6,7 +6,7 @@ from typing import Dict
 
 
 class MetricsKeeper:
-    def __init__(self, window=60*5):
+    def __init__(self, window=60 * 5):
         """
         Initializes the MetricsKeeper.
 
@@ -33,7 +33,7 @@ class MetricsKeeper:
 
         # Append current metrics with timestamp to the deque
         self.window_metrics.append((current_time, kwargs))
-        
+
         # Update window sums
         for key, value in kwargs.items():
             self.window_sum[key] += value
@@ -131,7 +131,7 @@ class WorkerTracker:
 
             # Create the table header
             header_line = " | ".join(header.ljust(col_widths[idx]) for idx, header in enumerate(headers))
-            separator = "-+-".join('-' * col_widths[idx] for idx in range(len(headers)))
+            separator = "-+-".join("-" * col_widths[idx] for idx in range(len(headers)))
 
             # Create the table rows
             row_lines = [" | ".join(cell.ljust(col_widths[idx]) for idx, cell in enumerate(row)) for row in rows]

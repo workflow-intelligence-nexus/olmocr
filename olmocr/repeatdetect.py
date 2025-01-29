@@ -14,30 +14,30 @@ class RepeatDetector:
 
     def ngram_repeats(self) -> list[int]:
         result = [0] * self.max_ngram_size
-        
+
         if not self.data:
             return result
-            
+
         # For each n-gram size
         for size in range(1, self.max_ngram_size + 1):
             if len(self.data) < size:
                 continue
-                
+
             # Get the last n-gram
             target = self.data[-size:]
-            
+
             # Count backwards from the end to find repeats
             count = 0
             pos = len(self.data) - size  # Start position for previous n-gram
-            
+
             while pos >= 0:
-                if self.data[pos:pos + size] == target:
+                if self.data[pos : pos + size] == target:
                     count += 1
                     pos -= size  # Move back by the size of the n-gram
                 else:
                     break
-                    
-            result[size-1] = count
+
+            result[size - 1] = count
 
         return result
 
@@ -117,7 +117,7 @@ class RepeatDetectorTest(unittest.TestCase):
     def test_random_data(self):
         random.seed(42)
         d = RepeatDetector(max_ngram_size=5)
-        data = ''.join(random.choices(string.ascii_letters, k=10000))
+        data = "".join(random.choices(string.ascii_letters, k=10000))
         d.add_letters(data)
         counts = d.ngram_repeats()
         for count in counts:
@@ -153,7 +153,7 @@ class BenchmarkRepeatDetect(unittest.TestCase):
         all_data = []
 
         for iter in range(1000):
-            all_data.append(''.join(random.choices("a", k=10000)))
+            all_data.append("".join(random.choices("a", k=10000)))
 
         start = time.perf_counter()
 

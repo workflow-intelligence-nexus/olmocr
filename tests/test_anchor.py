@@ -20,7 +20,7 @@ class AnchorTest(unittest.TestCase):
             print(repr(text), cm, tm, font_size)
 
         def visitor_op(op, args, cm, tm):
-            #print(op, args, cm, tm)
+            # print(op, args, cm, tm)
             pass
 
         page.extract_text(visitor_text=visitor_body, visitor_operand_before=visitor_op)
@@ -57,15 +57,13 @@ class AnchorTest(unittest.TestCase):
 
         anchor_text = get_anchor_text(local_pdf_path, 4, pdf_engine="pdfreport")
 
-        jsondata = json.dumps({
-            "text": anchor_text
-        })
+        jsondata = json.dumps({"text": anchor_text})
 
         import pyarrow as pa
         import pyarrow.compute as pc
         import pyarrow.json as paj
 
-        buffer = io.BytesIO(jsondata.encode('utf-8'))
+        buffer = io.BytesIO(jsondata.encode("utf-8"))
         paj.read_json(buffer, read_options=paj.ReadOptions(use_threads=False, block_size=len(jsondata)))
 
     def testLargePromptHint1(self):
@@ -165,6 +163,7 @@ class AnchorTest(unittest.TestCase):
         print(len(anchor_text))
         self.assertLess(len(anchor_text), 4000)
 
+
 class BuildSilverTest(unittest.TestCase):
     def testSmallPage(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "small_page_size.pdf")
@@ -186,12 +185,13 @@ class BuildSilverTest(unittest.TestCase):
 
         assert max(width, height) == 2048
 
+
 class TestRenderPdf(unittest.TestCase):
     def testFastMediaBoxMatchesPyPdf(self):
         for file in glob.glob(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "*.pdf")):
             reader = PdfReader(file)
             print("checking", file)
-            
+
             for page_num in range(1, len(reader.pages) + 1):
                 w1, h1 = get_pdf_media_box_width_height(file, page_num)
                 pypdfpage = reader.pages[page_num - 1]
@@ -199,10 +199,11 @@ class TestRenderPdf(unittest.TestCase):
                 self.assertAlmostEqual(w1, pypdfpage.mediabox.width, places=3)
                 self.assertAlmostEqual(h1, pypdfpage.mediabox.height, places=3)
 
+
 class TestOutputSamplePage(unittest.TestCase):
     def testTobaccoPaper(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
-        anchor_text = get_anchor_text(local_pdf_path, 1, 'pdfreport', target_length=6000)
+        anchor_text = get_anchor_text(local_pdf_path, 1, "pdfreport", target_length=6000)
 
         print("")
         print(anchor_text)

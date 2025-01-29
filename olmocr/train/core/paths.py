@@ -133,8 +133,8 @@ def copy_file(src: str, dest: str) -> None:
     with smart_open.open(src, "rb") as src_file, smart_open.open(dest, "wb") as dest_file:
         copyfileobj(src_file, dest_file)
 
-def copy_dir(
-    src: str, dst: str, src_fs: Optional[AbstractFileSystem] = None, dst_fs: Optional[AbstractFileSystem] = None):
+
+def copy_dir(src: str, dst: str, src_fs: Optional[AbstractFileSystem] = None, dst_fs: Optional[AbstractFileSystem] = None):
     """Copy a directory using a ThreadPoolExecutor for parallel file copying."""
     src_fs = src_fs or get_fs(src)
     dst_fs = dst_fs or get_fs(dst)
@@ -235,9 +235,7 @@ def join_path(protocol: Union[str, None], *parts: Union[str, Iterable[str]]) -> 
     """
     Join a path from its protocol and path components.
     """
-    all_prots, all_parts = zip(
-        *(_pathify(p) for p in chain.from_iterable([p] if isinstance(p, str) else p for p in parts))
-    )
+    all_prots, all_parts = zip(*(_pathify(p) for p in chain.from_iterable([p] if isinstance(p, str) else p for p in parts)))
     path = str(Path(*all_parts)).rstrip("/")
     protocol = protocol or str(all_prots[0])
 

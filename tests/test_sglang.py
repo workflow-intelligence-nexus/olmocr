@@ -32,7 +32,9 @@ from olmocr.pipeline import (
 )
 from olmocr.prompts import PageResponse
 
-MODEL_FINETUNED_PATH = "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"
+MODEL_FINETUNED_PATH = (
+    "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"
+)
 
 
 class TestSglangServer(unittest.IsolatedAsyncioTestCase):
@@ -55,7 +57,7 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
 
         # # Start the sglang server
         # self.my_server_task = asyncio.create_task(sglang_server_task(self.args, self.semaphore))
-        
+
         # # Wait for the server to become ready
         # await sglang_server_ready()
 
@@ -86,15 +88,12 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
         self.assertIn("choices", response_data)
         self.assertGreater(len(response_data["choices"]), 0)
 
-      
-
         model_response_json = json.loads(response_data["choices"][0]["message"]["content"])
         page_response = PageResponse(**model_response_json)
 
         print(page_response)
 
         self.assertEqual(page_response.natural_text, EDGAR_TEXT)
-
 
     async def asyncTearDown(self):
         pass
@@ -114,7 +113,7 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
 class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         # Set up the Hugging Face model and tokenizer
-        model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
+        model_cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "olmocr", "model")
         download_directory([MODEL_FINETUNED_PATH], model_cache_dir)
 
         # Check the rope config and make sure it's got the proper key
@@ -131,7 +130,6 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         self.tokenizer = AutoTokenizer.from_pretrained(model_cache_dir, trust_remote_code=True)
         self.image_token_id = self.tokenizer.encode("<|image_pad|>")[0]
 
-
         self.model = Qwen2VLForConditionalGeneration.from_pretrained(model_cache_dir, torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
         self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -143,18 +141,16 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
 
     async def test_hugging_face_generation(self):
         query = await build_page_query(
-                str(self.test_pdf_path),
-                page=1,
-                target_longest_image_dim=1024,
-                target_anchor_text_len=6000,
-            )
+            str(self.test_pdf_path),
+            page=1,
+            target_longest_image_dim=1024,
+            target_anchor_text_len=6000,
+        )
 
         messages = query["messages"]
-  
-       # Apply chat template to get the text
-        text = self.processor.apply_chat_template(
-            query["messages"], tokenize=False, add_generation_prompt=True
-        )
+
+        # Apply chat template to get the text
+        text = self.processor.apply_chat_template(query["messages"], tokenize=False, add_generation_prompt=True)
 
         image_url = query["messages"][0]["content"][1]["image_url"]["url"]
 
@@ -175,17 +171,13 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
             return_tensors="pt",
         )
 
-        image_indices = [
-            idx
-            for idx, token in enumerate(inputs["input_ids"][0])
-            if token.item() == self.image_token_id
-        ]
+        image_indices = [idx for idx, token in enumerate(inputs["input_ids"][0]) if token.item() == self.image_token_id]
 
         print("IMAGE INDICES", image_indices)
 
         print(f"image_grid_thw - {inputs['image_grid_thw'].shape} {inputs['image_grid_thw']}")
         print(f"pixel_values - {inputs['pixel_values'].shape} {inputs['pixel_values'].detach().cpu().numpy()}")
-        np.save('/root/pixel_values.npy', inputs['pixel_values'].detach().cpu().numpy())
+        np.save("/root/pixel_values.npy", inputs["pixel_values"].detach().cpu().numpy())
 
         inputs = {key: value.to(self.device) for (key, value) in inputs.items()}
 
@@ -200,13 +192,12 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
                 **inputs,
                 temperature=0.0,
                 max_new_tokens=1,
-                #max_length=8192,
+                # max_length=8192,
                 num_return_sequences=1,
                 do_sample=False,
                 output_scores=True,
                 return_dict_in_generate=True,
             )
-
 
             # Extract the generated token's log probabilities
             scores = generation_output.scores  # Tuple of length 1
@@ -217,7 +208,6 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
             topk_log_probs, topk_indices = torch.topk(log_probs[0], k=5)
             topk_tokens = self.tokenizer.convert_ids_to_tokens(topk_indices.tolist())
 
-
             top_logprobs_hf.append((topk_tokens, topk_log_probs.tolist()))
 
             # Pick the top token
@@ -227,17 +217,15 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
             generated_tokens.append(next_token_id.item())
 
             # Append the next token to input_ids and update attention_mask
-            inputs['input_ids'] = torch.cat([inputs['input_ids'], next_token_id], dim=-1)
-            inputs['attention_mask'] = torch.cat(
-                [inputs['attention_mask'], torch.ones((1, 1), dtype=inputs['attention_mask'].dtype).to(self.device)], dim=-1
-            )
+            inputs["input_ids"] = torch.cat([inputs["input_ids"], next_token_id], dim=-1)
+            inputs["attention_mask"] = torch.cat([inputs["attention_mask"], torch.ones((1, 1), dtype=inputs["attention_mask"].dtype).to(self.device)], dim=-1)
 
         print(self.tokenizer.decode(generated_tokens))
 
         # Now take all the input ids and run them through sglang as a comparison
         async with AsyncClient(timeout=600) as session:
             query["temperature"] = 0.0
-            query["max_tokens"] = max_steps 
+            query["max_tokens"] = max_steps
             query["logprobs"] = True
             query["top_logprobs"] = 5
             COMPLETION_URL = f"http://localhost:{30000}/v1/chat/completions"
@@ -249,7 +237,9 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
                 print("\nTop 5 tokens and their log probabilities:")
                 (topk_tokens, topk_log_probs) = top_logprobs_hf[step]
                 for token, log_prob, lptokcur in zip(topk_tokens, topk_log_probs, lptok["top_logprobs"]):
-                    print(f"HF Token: {token} Log Prob: {log_prob:.2f} Prob {math.exp(log_prob)*100:.2f}%  SGLANG Token {lptokcur['token']} Logprob {lptokcur['logprob']:.2f} Prob {math.exp(lptokcur['logprob'])*100:.2f}%")
+                    print(
+                        f"HF Token: {token} Log Prob: {log_prob:.2f} Prob {math.exp(log_prob)*100:.2f}%  SGLANG Token {lptokcur['token']} Logprob {lptokcur['logprob']:.2f} Prob {math.exp(lptokcur['logprob'])*100:.2f}%"
+                    )
 
     async def asyncTearDown(self):
         # Clean up the model and tokenizer
@@ -257,10 +247,11 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         del self.tokenizer
         torch.cuda.empty_cache()
 
+
 class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         # Set up the Hugging Face model and tokenizer
-        model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
+        model_cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "olmocr", "model")
         download_directory([MODEL_FINETUNED_PATH], model_cache_dir)
 
         # Check the rope config and make sure it's got the proper key
@@ -290,18 +281,16 @@ class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_vision_encoder(self):
         query = await build_page_query(
-                str(self.test_pdf_path),
-                page=1,
-                target_longest_image_dim=1024,
-                target_anchor_text_len=6000,
-            )
+            str(self.test_pdf_path),
+            page=1,
+            target_longest_image_dim=1024,
+            target_anchor_text_len=6000,
+        )
 
         messages = query["messages"]
-  
+
         # Apply chat template to get the text
-        text = self.processor.apply_chat_template(
-            query["messages"], tokenize=False, add_generation_prompt=True
-        )
+        text = self.processor.apply_chat_template(query["messages"], tokenize=False, add_generation_prompt=True)
 
         image_url = query["messages"][0]["content"][1]["image_url"]["url"]
 
@@ -325,7 +314,6 @@ class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
         with torch.no_grad():
             hf_output = self.model.visual(inputs["pixel_values"].to(self.device), grid_thw=inputs["image_grid_thw"].to(self.device))
 
-
         print("HF", hf_output, hf_output.shape)
 
         from sglang.srt.configs.model_config import ModelConfig
@@ -336,11 +324,8 @@ class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
         from sglang.srt.sampling.sampling_params import SamplingParams
         from sglang.srt.server_args import PortArgs, ServerArgs
 
-        model_config = ModelConfig(
-            self.model_cache_dir,
-            model_override_args="{}"
-        )
-        
+        model_config = ModelConfig(self.model_cache_dir, model_override_args="{}")
+
         server_args = ServerArgs(model_path=self.model_cache_dir)
         # Initialize model runner
         model_runner = ModelRunner(
@@ -362,24 +347,24 @@ class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
         # Convert to float32 for numerical stability if needed
         hf = hf_output.float()
         sg = sglang_output.float()
-        
+
         # Basic shape and dtype comparison
         print("\n=== Basic Properties ===")
         print(f"Shapes match: {hf.shape == sg.shape}")
         print(f"HF shape: {hf.shape}, SGLang shape: {sg.shape}")
         print(f"HF dtype: {hf.dtype}, SGLang dtype: {sg.dtype}")
-        
+
         # Move tensors to CPU for numpy operations
         hf_np = hf.cpu().numpy()
         sg_np = sg.cpu().numpy()
-        
+
         # Statistical metrics
         print("\n=== Statistical Metrics ===")
         print(f"Mean absolute difference: {torch.mean(torch.abs(hf - sg)).item():.6f}")
         print(f"Max absolute difference: {torch.max(torch.abs(hf - sg)).item():.6f}")
         print(f"Mean squared error: {torch.mean((hf - sg) ** 2).item():.6f}")
         print(f"Root mean squared error: {torch.sqrt(torch.mean((hf - sg) ** 2)).item():.6f}")
-        
+
         # Cosine similarity (across feature dimension)
         cos_sim = F.cosine_similarity(hf, sg)
         print(f"Mean cosine similarity: {torch.mean(cos_sim).item():.6f}")
@@ -389,25 +374,25 @@ class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
         print("\n=== Largest Absolute Differences ===")
         diffs = torch.abs(hf - sg)
         flat_diffs = diffs.flatten()
-        
+
         # Get indices of top 10 differences
         top_k = 10
         top_values, top_flat_indices = torch.topk(flat_diffs, top_k)
-        
+
         # Convert flat indices to multidimensional indices
         top_indices = np.unravel_index(top_flat_indices.cpu().numpy(), diffs.shape)
-        
+
         print(f"\nTop {top_k} largest absolute differences:")
         print("Index".ljust(30) + "Difference".ljust(15) + "HF Value".ljust(15) + "SGLang Value")
         print("-" * 75)
-        
+
         for i in range(top_k):
             # Get the index tuple for this difference
             idx = tuple(dim[i] for dim in top_indices)
             diff_val = top_values[i].item()
             hf_val = hf[idx].item()
             sg_val = sg[idx].item()
-            
+
             # Format the index tuple and values
             idx_str = str(idx)
             print(f"{idx_str:<30}{diff_val:<15.6f}{hf_val:<15.6f}{sg_val:.6f}")

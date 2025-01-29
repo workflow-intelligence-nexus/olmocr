@@ -45,8 +45,10 @@ def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
         return torch.float8_e4m3fn
     return torch.float32
 
+
 def get_rawdataset_from_source(data_config: DataConfig, source: SourceConfig) -> Dataset:
     return build_finetuning_dataset(source.response_glob_path, pdf_cache_location=data_config.cache_location)
+
 
 def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset, Dataset]:
     random.seed(config.train_data.seed)
@@ -70,14 +72,8 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
         if source.target_anchor_text_len != target_anchor_text_len:
             raise ValueError(f"Inconsistent target_anchor_text_len found in source {source}")
 
-
     # Concatenate datasets first, unfortunately you can't apply the transform before concatenation due to the library
-    train_dataset = concatenate_datasets(
-        [
-            get_rawdataset_from_source(config.train_data, source)
-            for source in config.train_data.sources
-        ]
-    )
+    train_dataset = concatenate_datasets([get_rawdataset_from_source(config.train_data, source) for source in config.train_data.sources])
 
     # Apply the transform to the concatenated dataset
     train_dataset = train_dataset.with_transform(
@@ -107,9 +103,7 @@ def make_dataset(config: TrainConfig, processor: AutoProcessor) -> tuple[Dataset
     return train_dataset, valid_dataset
 
 
-def setup_environment(
-    aws_config: Optional[AwsConfig] = None, wandb_config: Optional[WandbConfig] = None, **kwargs: str
-):
+def setup_environment(aws_config: Optional[AwsConfig] = None, wandb_config: Optional[WandbConfig] = None, **kwargs: str):
     multiprocessing.set_start_method("spawn", force=True)
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "false"
@@ -202,36 +196,34 @@ class TruncatingCollator:
 
         if "pixel_values" in batch[0]:
             # Qwen2 case
-            truncated_input_ids = torch.tensor(batch[0]["input_ids"][:self.max_length]).unsqueeze(0)
-            truncated_attention_mask = torch.tensor(batch[0]["attention_mask"][:self.max_length]).unsqueeze(0)
-            truncated_labels = torch.tensor(batch[0]["labels"][:self.max_length]).unsqueeze(0)
+            truncated_input_ids = torch.tensor(batch[0]["input_ids"][: self.max_length]).unsqueeze(0)
+            truncated_attention_mask = torch.tensor(batch[0]["attention_mask"][: self.max_length]).unsqueeze(0)
+            truncated_labels = torch.tensor(batch[0]["labels"][: self.max_length]).unsqueeze(0)
 
             return {
                 "input_ids": truncated_input_ids,
                 "attention_mask": truncated_attention_mask,
                 "labels": truncated_labels,
-
                 "pixel_values": torch.tensor(batch[0]["pixel_values"]).unsqueeze(0),
                 "image_grid_thw": torch.tensor(batch[0]["image_grid_thw"]).unsqueeze(0),
             }
         elif "image_input_idx" in batch[0]:
             # molmo case
-            truncated_input_ids = batch[0]["input_ids"][:self.max_length].unsqueeze(0)
-            truncated_attention_mask = batch[0]["attention_mask"][:self.max_length].unsqueeze(0)
-            truncated_labels = batch[0]["labels"][:self.max_length].unsqueeze(0)
+            truncated_input_ids = batch[0]["input_ids"][: self.max_length].unsqueeze(0)
+            truncated_attention_mask = batch[0]["attention_mask"][: self.max_length].unsqueeze(0)
+            truncated_labels = batch[0]["labels"][: self.max_length].unsqueeze(0)
 
             return {
                 "input_ids": truncated_input_ids,
                 "attention_mask": truncated_attention_mask,
                 "labels": truncated_labels,
-
                 "images": batch[0]["images"].unsqueeze(0),
                 "image_input_idx": batch[0]["image_input_idx"].unsqueeze(0),
                 "image_masks": batch[0]["image_masks"].unsqueeze(0),
-            } 
+            }
         else:
             raise NotImplementedError()
-        
+
 
 @contextmanager
 def get_local_dir(output_dir: str):

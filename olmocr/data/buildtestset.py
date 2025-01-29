@@ -16,6 +16,7 @@ from olmocr.filter import PdfFilter
 
 pdf_filter = PdfFilter()
 
+
 def sample_pdf_pages(num_pages: int, first_n_pages: int, max_sample_pages: int) -> List[int]:
     """
     Returns a list of sampled page indices (1-based).
@@ -32,20 +33,22 @@ def sample_pdf_pages(num_pages: int, first_n_pages: int, max_sample_pages: int) 
         sample_pages += random.sample(remaining_pages, random_pick)
     return sample_pages
 
+
 def fetch_s3_file(s3_url: str, local_path: str) -> str:
     """
     Download a file from an S3 URI (s3://bucket/key) to local_path.
     """
     parsed = urlparse(s3_url)
     bucket_name = parsed.netloc
-    key = parsed.path.lstrip('/')
-    s3 = boto3.client('s3')
+    key = parsed.path.lstrip("/")
+    s3 = boto3.client("s3")
     s3.download_file(bucket_name, key, local_path)
     return local_path
 
+
 def extract_single_page_pdf(input_pdf_path: str, page_number: int, output_pdf_path: str) -> None:
     """
-    Extracts exactly one page (page_number, 1-based) from input_pdf_path 
+    Extracts exactly one page (page_number, 1-based) from input_pdf_path
     and writes to output_pdf_path.
     """
     reader = PdfReader(input_pdf_path)
@@ -56,14 +59,7 @@ def extract_single_page_pdf(input_pdf_path: str, page_number: int, output_pdf_pa
         writer.write(f)
 
 
-
-def process_pdf(
-    pdf_path: str,
-    first_n_pages: int,
-    max_sample_pages: int,
-    no_filter: bool,
-    output_dir: str
-):
+def process_pdf(pdf_path: str, first_n_pages: int, max_sample_pages: int, no_filter: bool, output_dir: str):
     """
     - Download the PDF locally if it's in S3.
     - Optionally filter the PDF (if no_filter=False).
@@ -96,7 +92,6 @@ def process_pdf(
         single_pdf_path = os.path.join(output_dir, single_pdf_name)
         single_png_path = os.path.join(output_dir, single_png_name)
 
-
         try:
             # 1) Extract single-page PDF
             extract_single_page_pdf(local_pdf_path, page_num, single_pdf_path)
@@ -112,6 +107,7 @@ def process_pdf(
 
     return True
 
+
 def main():
     parser = argparse.ArgumentParser(description="Sample PDFs, extract single-page PDFs, and render them as PNG.")
     parser.add_argument("--glob_path", type=str, help="Local or S3 path glob (e.g., *.pdf or s3://bucket/pdfs/*.pdf).")
@@ -121,8 +117,7 @@ def main():
     parser.add_argument("--first_n_pages", type=int, default=0, help="Always sample the first N pages of each PDF.")
     parser.add_argument("--max_sample_pages", type=int, default=1, help="Max number of pages to sample per PDF.")
     parser.add_argument("--output_dir", type=str, default="sampled_pages_output", help="Output directory for the extracted PDFs and PNGs.")
-    parser.add_argument("--reservoir_size", type=int, default=None,
-                        help="Size of the reservoir for sampling paths. Defaults to 10x num_sample_docs.")
+    parser.add_argument("--reservoir_size", type=int, default=None, help="Size of the reservoir for sampling paths. Defaults to 10x num_sample_docs.")
     args = parser.parse_args()
 
     # Set default reservoir_size if not provided
@@ -140,15 +135,15 @@ def main():
         if args.glob_path.startswith("s3://"):
             # Handle S3 globbing
             parsed = urlparse(args.glob_path)
-            s3 = boto3.client('s3')
+            s3 = boto3.client("s3")
             bucket_name = parsed.netloc
-            prefix = os.path.dirname(parsed.path.lstrip('/')) + "/"
-            paginator = s3.get_paginator('list_objects_v2')
+            prefix = os.path.dirname(parsed.path.lstrip("/")) + "/"
+            paginator = s3.get_paginator("list_objects_v2")
             page_iterator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
 
             for page in page_iterator:
-                for obj in page.get('Contents', []):
-                    if obj['Key'].endswith('.pdf'):
+                for obj in page.get("Contents", []):
+                    if obj["Key"].endswith(".pdf"):
                         n += 1
                         path = f"s3://{bucket_name}/{obj['Key']}"
                         if len(pdf_paths) < args.reservoir_size:
@@ -168,7 +163,7 @@ def main():
                     if s <= args.reservoir_size:
                         pdf_paths[s - 1] = path
     elif args.path_list:
-        with open(args.path_list, 'r') as f:
+        with open(args.path_list, "r") as f:
             for line in f:
                 path = line.strip()
                 if not path:
@@ -193,14 +188,7 @@ def main():
         futures = {}
         # Submit tasks
         for pdf_path in pdf_paths:
-            future = executor.submit(
-                process_pdf,
-                pdf_path,
-                args.first_n_pages,
-                args.max_sample_pages,
-                args.no_filter,
-                args.output_dir
-            )
+            future = executor.submit(process_pdf, pdf_path, args.first_n_pages, args.max_sample_pages, args.no_filter, args.output_dir)
             futures[future] = pdf_path
 
         # Track completion
@@ -213,6 +201,7 @@ def main():
                 break
 
     print(f"Done. Processed or attempted to process {pdfs_with_output} PDFs. Output is in: {args.output_dir}")
+
 
 if __name__ == "__main__":
     main()

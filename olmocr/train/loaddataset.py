@@ -10,16 +10,16 @@ from .utils import TruncatingCollator, make_dataset
 
 def main():
     train_config = make_cli(TrainConfig)  # pyright: ignore
-    
+
     processor = AutoProcessor.from_pretrained(train_config.model.name_or_path, trust_remote_code=True)
-    train_dataset, valid_dataset = make_dataset(train_config, processor)    
+    train_dataset, valid_dataset = make_dataset(train_config, processor)
 
     print("Training dataset........")
     print(train_dataset)
 
     train_example = train_dataset[0]
     print(train_example)
-    print({(x, y.shape) for x,y in train_example.items()})
+    print({(x, y.shape) for x, y in train_example.items()})
     print("\nTokens")
     print(processor.tokenizer.batch_decode(train_example["input_ids"]))
 
@@ -41,11 +41,12 @@ def main():
     # for index, entry in tqdm(enumerate(train_dataloader)):
     #     if index == 0:
     #         print(entry)
-        
+
     #     num_input_tokens = entry["input_ids"].shape[1]
     #     max_seen_len = max(max_seen_len, num_input_tokens)
 
     #     print(max_seen_len)
+
 
 if __name__ == "__main__":
     main()

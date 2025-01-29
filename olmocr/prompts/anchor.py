@@ -26,7 +26,9 @@ from olmocr.filter.coherency import get_document_coherency
 from olmocr.prompts._adv_anchor import mult
 
 
-def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"], target_length: int=4000) -> str:
+def get_anchor_text(
+    local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"], target_length: int = 4000
+) -> str:
     assert page > 0, "Pages are 1-indexed in pdf-land"
 
     if pdf_engine == "pdftotext":
@@ -42,7 +44,7 @@ def get_anchor_text(local_pdf_path: str, page: int, pdf_engine: Literal["pdftote
             "pdftotext": _get_pdftotext(local_pdf_path, page),
             "pymupdf": _get_pymupdf(local_pdf_path, page),
             "pdfium": _get_pdfium(local_pdf_path, page),
-            "pypdf_raw": _get_pypdf_raw(local_pdf_path, page)
+            "pypdf_raw": _get_pypdf_raw(local_pdf_path, page),
         }
 
         scores = {label: get_document_coherency(text) for label, text in options.items()}
@@ -69,9 +71,11 @@ def _get_pdftotext(local_pdf_path: str, page: int) -> str:
     assert pdftotext_result.returncode == 0
     return pdftotext_result.stdout.decode("utf-8")
 
+
 def _get_pymupdf(local_pdf_path: str, page: int) -> str:
     pm_doc = pymupdf.open(local_pdf_path)
     return pm_doc[page - 1].get_text()
+
 
 def _get_pypdf_raw(local_pdf_path: str, page: int) -> str:
     reader = PdfReader(local_pdf_path)
@@ -79,19 +83,23 @@ def _get_pypdf_raw(local_pdf_path: str, page: int) -> str:
 
     return pypage.extract_text()
 
+
 def _get_pdfium(local_pdf_path: str, page: int) -> str:
     pdf = pdfium.PdfDocument(local_pdf_path)
     textpage = pdf[page - 1].get_textpage()
     return textpage.get_text_bounded()
 
+
 def _transform_point(x, y, m):
-    x_new = m[0]*x + m[2]*y + m[4]
-    y_new = m[1]*x + m[3]*y + m[5]
+    x_new = m[0] * x + m[2] * y + m[4]
+    y_new = m[1] * x + m[3] * y + m[5]
     return x_new, y_new
+
 
 @dataclass(frozen=True)
 class Element:
     pass
+
 
 @dataclass(frozen=True)
 class BoundingBox:
@@ -104,16 +112,19 @@ class BoundingBox:
     def from_rectangle(rect: RectangleObject) -> "BoundingBox":
         return BoundingBox(rect[0], rect[1], rect[2], rect[3])
 
+
 @dataclass(frozen=True)
 class TextElement(Element):
     text: str
     x: float
     y: float
 
+
 @dataclass(frozen=True)
 class ImageElement(Element):
     name: str
     bbox: BoundingBox
+
 
 @dataclass(frozen=True)
 class PageReport:
@@ -121,13 +132,13 @@ class PageReport:
     text_elements: List[TextElement]
     image_elements: List[ImageElement]
 
+
 def _pdf_report(local_pdf_path: str, page_num: int) -> PageReport:
     reader = PdfReader(local_pdf_path)
     page = reader.pages[page_num - 1]
     resources = page.get("/Resources", {})
     xobjects = resources.get("/XObject", {})
     text_elements, image_elements = [], []
-    
 
     def visitor_body(text, cm, tm, font_dict, font_size):
         txt2user = mult(tm, cm)
@@ -155,7 +166,7 @@ def _pdf_report(local_pdf_path: str, page_num: int) -> PageReport:
     )
 
 
-def _merge_image_elements(images: List[ImageElement], tolerance: float=0.5) -> List[ImageElement]:
+def _merge_image_elements(images: List[ImageElement], tolerance: float = 0.5) -> List[ImageElement]:
     n = len(images)
     parent = list(range(n))  # Initialize Union-Find parent pointers
 
@@ -220,6 +231,7 @@ def _merge_image_elements(images: List[ImageElement], tolerance: float=0.5) -> L
     # Return the merged images along with other elements
     return merged_images
 
+
 def _cap_split_string(text: str, max_length: int) -> str:
     if len(text) <= max_length:
         return text
@@ -227,28 +239,24 @@ def _cap_split_string(text: str, max_length: int) -> str:
     head_length = max_length // 2 - 3
     tail_length = head_length
 
-    head = text[:head_length].rsplit(' ', 1)[0] or text[:head_length]
-    tail = text[-tail_length:].split(' ', 1)[-1] or text[-tail_length:]
+    head = text[:head_length].rsplit(" ", 1)[0] or text[:head_length]
+    tail = text[-tail_length:].split(" ", 1)[-1] or text[-tail_length:]
 
     return f"{head} ... {tail}"
 
+
 def _cleanup_element_text(element_text: str) -> str:
     MAX_TEXT_ELEMENT_LENGTH = 250
-    TEXT_REPLACEMENTS = {
-            "[": "\\[",
-            "]": "\\]",
-            "\n": "\\n",
-            "\r": "\\r",
-            "\t": "\\t"
-        }
+    TEXT_REPLACEMENTS = {"[": "\\[", "]": "\\]", "\n": "\\n", "\r": "\\r", "\t": "\\t"}
     text_replacement_pattern = re.compile("|".join(re.escape(key) for key in TEXT_REPLACEMENTS.keys()))
-    
+
     element_text = ftfy.fix_text(element_text).strip()
 
     # Replace square brackets with escaped brackets and other escaped chars
     element_text = text_replacement_pattern.sub(lambda match: TEXT_REPLACEMENTS[match.group(0)], element_text)
 
     return _cap_split_string(element_text, MAX_TEXT_ELEMENT_LENGTH)
+
 
 def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     result = ""
@@ -271,7 +279,7 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     for element in report.text_elements:
         if len(element.text.strip()) == 0:
             continue
-        
+
         element_text = _cleanup_element_text(element.text)
         text_str = f"[{element.x:.0f}x{element.y:.0f}]{element_text}\n"
         text_strings.append((element, text_str))
@@ -280,10 +288,10 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     all_elements = []
     for elem, s in image_strings:
         position = (elem.bbox.x0, elem.bbox.y0)
-        all_elements.append(('image', elem, s, position))
+        all_elements.append(("image", elem, s, position))
     for elem, s in text_strings:
         position = (elem.x, elem.y)
-        all_elements.append(('text', elem, s, position))
+        all_elements.append(("text", elem, s, position))
 
     # Calculate total length
     total_length = len(result) + sum(len(s) for _, _, s, _ in all_elements)
@@ -328,10 +336,7 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
     remaining_length = max_length - current_length
 
     # Exclude edge elements from the pool
-    remaining_elements = [
-        (elem_type, elem, s, position) for elem_type, elem, s, position in all_elements
-        if id(elem) not in selected_element_ids
-    ]
+    remaining_elements = [(elem_type, elem, s, position) for elem_type, elem, s, position in all_elements if id(elem) not in selected_element_ids]
 
     # Sort remaining elements by their positions (e.g., x-coordinate and then y-coordinate)
     # remaining_elements.sort(key=lambda x: (x[3][0], x[3][1]))
@@ -355,4 +360,3 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
         result += s
 
     return result
-

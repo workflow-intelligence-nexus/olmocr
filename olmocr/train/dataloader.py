@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger("pypdf").setLevel(logging.ERROR)
 logging.getLogger("smart_open").setLevel(logging.ERROR)
 
+
 def list_dataset_files(s3_glob_path: str):
     """
     Lists files in the specified S3 path that match the glob pattern.
@@ -103,6 +104,7 @@ def extract_openai_batch_response(example):
 
     return {"s3_path": s3_path, "page_num": page_num, "response": response, "finish_reason": finish_reason}
 
+
 def _cache_s3_file(s3_path: str, local_cache_dir: str):
     """
     Downloads an S3 object to a local cache directory, ensuring no two writers corrupt the same file.
@@ -118,22 +120,20 @@ def _cache_s3_file(s3_path: str, local_cache_dir: str):
     with FileLock(lock_file):
         if not os.path.exists(local_file_path):
             logger.info(f"Downloading {s3_path} to {local_file_path}")
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=os.getenv('DS_AWS_ACCESS_KEY_ID'),
-                aws_secret_access_key=os.getenv('DS_AWS_SECRET_ACCESS_KEY')
-            )
+            s3_client = boto3.client("s3", aws_access_key_id=os.getenv("DS_AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.getenv("DS_AWS_SECRET_ACCESS_KEY"))
             s3_client.download_file(bucket, key, local_file_path)
         else:
             pass
-            #logger.info(f"File {local_file_path} already exists, skipping download.")
+            # logger.info(f"File {local_file_path} already exists, skipping download.")
 
     return local_file_path
+
 
 def cache_s3_files(dataset: Dataset, pdf_cache_location: str, num_proc: int = 32) -> Dataset:
     """
     Caches all S3 paths in the dataset to the local cache directory.
     """
+
     # Define the download function to use in parallel processing
     def cache_file(example):
         s3_path = example["s3_path"]
@@ -149,9 +149,9 @@ def cache_s3_files(dataset: Dataset, pdf_cache_location: str, num_proc: int = 32
     return dataset
 
 
-def build_finetuning_dataset(response_glob_path: str, pdf_cache_location: Optional[str]=None, num_proc: int=32) -> Dataset:
+def build_finetuning_dataset(response_glob_path: str, pdf_cache_location: Optional[str] = None, num_proc: int = 32) -> Dataset:
     if pdf_cache_location is None:
-        pdf_cache_location = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr_pdfs')
+        pdf_cache_location = os.path.join(os.path.expanduser("~"), ".cache", "olmocr_pdfs")
 
     logger.info("Loading fine tuning dataset from OpenAI style batch responses")
     response_data = load_jsonl_into_ds(response_glob_path)
@@ -175,7 +175,7 @@ def build_finetuning_dataset(response_glob_path: str, pdf_cache_location: Option
         except:
             logger.exception("Could not generate anchor text for file, be sure you have all dependencies installed")
             return False
-        
+
     final_dataset = final_dataset.filter(_can_create_anchor_text, num_proc=num_proc)
 
     return final_dataset

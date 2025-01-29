@@ -10,17 +10,18 @@ import boto3
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Read JSONL files from an S3 prefix, extract text, and write to local .md files.")
-    parser.add_argument("--s3-prefix",
-                        default="s3://ai2-oe-data/jakep/pdfworkspaces/pdelfin_testset/results/",
-                        help="S3 prefix containing the JSONL files (default: s3://ai2-oe-data/jakep/pdfworkspaces/pdelfin_testset/results/)")
-    parser.add_argument("--output-dir",
-                        default="output_md",
-                        help="Local directory to store output .md files (default: output_md)")
+    parser.add_argument(
+        "--s3-prefix",
+        default="s3://ai2-oe-data/jakep/pdfworkspaces/pdelfin_testset/results/",
+        help="S3 prefix containing the JSONL files (default: s3://ai2-oe-data/jakep/pdfworkspaces/pdelfin_testset/results/)",
+    )
+    parser.add_argument("--output-dir", default="output_md", help="Local directory to store output .md files (default: output_md)")
     return parser.parse_args()
+
 
 def main():
     args = parse_args()
-    
+
     # Parse the s3-prefix into bucket and prefix
     parsed_s3 = urlparse(args.s3_prefix)
     # e.g. netloc = 'ai2-oe-data', path = '/jakep/pdfworkspaces/pdelfin_testset/results/'
@@ -30,7 +31,7 @@ def main():
 
     # Ensure local output directory exists
     os.makedirs(args.output_dir, exist_ok=True)
-    
+
     # Initialize S3 client
     s3 = boto3.client("s3")
 
@@ -41,13 +42,13 @@ def main():
     for page in pages:
         if "Contents" not in page:
             continue
-        
+
         for obj in page["Contents"]:
             key = obj["Key"]
             # Skip non-jsonl files
             if not key.endswith(".jsonl"):
                 continue
-            
+
             print(f"Processing S3 object: s3://{bucket_name}/{key}")
 
             # Read the S3 object
@@ -97,6 +98,7 @@ def main():
                 # print(f"Appended text to {output_path}")
 
     print("Done processing all JSONL files.")
+
 
 if __name__ == "__main__":
     main()
