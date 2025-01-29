@@ -32,13 +32,13 @@ cd olmocr
 pip install -e .
 ```
 
-Finally, make sure you have sglang with flashinfer installed if you want to do efficient inference
+Finally, make sure you have sglang with flashinfer installed if you want to run inference on your own GPU.
 ```bash
 pip install sgl-kernel --force-reinstall --no-deps
 pip install "sglang[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
 
-## BETA TESTER NOTE:
+**BETA TESTER NOTE:**
 If you are a beta tester, you will need to login using the hugging-face CLI
 to make sure you have access to https://huggingface.co/allenai/olmocr-preview
  
