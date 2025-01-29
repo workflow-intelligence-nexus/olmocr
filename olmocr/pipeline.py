@@ -523,6 +523,11 @@ async def sglang_server_task(args, semaphore):
         nonlocal last_running_req, last_queue_req, last_semaphore_release, server_printed_ready_message
         sglang_logger.info(line)
 
+        # if the server hasn't initialized yet, log all the lines to the main logger also, so that the user
+        # can see any warnings/errors more easily
+        if not server_printed_ready_message:
+            logger.info(line)
+
         if "Detected errors during sampling" in line:
             logger.error("Cannot continue, sampling errors detected, model is probably corrupt")
             sys.exit(1)
