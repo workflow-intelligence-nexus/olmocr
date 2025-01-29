@@ -18,6 +18,7 @@ class TestCoherencyScores(unittest.TestCase):
         print("Bad1", get_document_coherency(ocr1_text))
         print("Bad2", get_document_coherency(ocr2_text))
 
+    @unittest.skip("This test is not necessary, it's just a helpful benchmark")
     def testHugeBookCoherencySpeed(self):
         base_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "ti89_guidebook.pdf"), 1, pdf_engine="pdftotext")
         print(f"ti89 book length: {len(base_text):,}")
