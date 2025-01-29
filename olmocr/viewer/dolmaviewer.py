@@ -11,19 +11,13 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import markdown2
 
-from olmocr.s3_utils import get_s3_bytes
+from olmocr.s3_utils import get_s3_bytes, parse_s3_path
 from olmocr.data.renderpdf import render_pdf_to_base64webp
 
 def read_jsonl(path):
     with smart_open.smart_open(path, 'r', encoding='utf-8') as f:
         for line in f:
             yield line.strip()
-
-def parse_s3_path(path):
-    # s3://bucket_name/key_name
-    path = path[5:]  # Remove 's3://'
-    bucket_name, key_name = path.split('/', 1)
-    return bucket_name, key_name
 
 def generate_presigned_url(s3_client, bucket_name, key_name):
     try:

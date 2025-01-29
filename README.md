@@ -61,6 +61,8 @@ You can also bulk convert many PDFS with a glob pattern:
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/*.pdf
 ```
 
+#### Viewing Results
+
 Once that finishes, output is stored as [Dolma](https://github.com/allenai/dolma)-style JSONL inside of the `./localworkspace/results` directory.
 
 ```bash
