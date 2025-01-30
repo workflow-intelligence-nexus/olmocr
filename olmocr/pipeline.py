@@ -3,7 +3,6 @@ import asyncio
 import atexit
 import base64
 import datetime
-import glob
 import hashlib
 import json
 import logging

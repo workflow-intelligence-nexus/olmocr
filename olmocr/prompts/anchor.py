@@ -22,7 +22,6 @@ from pypdf import PdfReader
 from pypdf.generic import RectangleObject
 
 from olmocr.filter.coherency import get_document_coherency
-from olmocr.prompts._adv_anchor import mult
 
 
 def get_anchor_text(
@@ -95,6 +94,17 @@ def _transform_point(x, y, m):
     return x_new, y_new
 
 
+def _mult(m: List[float], n: List[float]) -> List[float]:
+    return [
+        m[0] * n[0] + m[1] * n[2],
+        m[0] * n[1] + m[1] * n[3],
+        m[2] * n[0] + m[3] * n[2],
+        m[2] * n[1] + m[3] * n[3],
+        m[4] * n[0] + m[5] * n[2] + n[4],
+        m[4] * n[1] + m[5] * n[3] + n[5],
+    ]
+
+
 @dataclass(frozen=True)
 class Element:
     pass
@@ -140,7 +150,7 @@ def _pdf_report(local_pdf_path: str, page_num: int) -> PageReport:
     text_elements, image_elements = [], []
 
     def visitor_body(text, cm, tm, font_dict, font_size):
-        txt2user = mult(tm, cm)
+        txt2user = _mult(tm, cm)
         text_elements.append(TextElement(text, txt2user[4], txt2user[5]))
 
     def visitor_op(op, args, cm, tm):

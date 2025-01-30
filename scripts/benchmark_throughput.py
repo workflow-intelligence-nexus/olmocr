@@ -89,12 +89,12 @@ def sample_mm_requests_qwen2vl(
         text = processor.apply_chat_template(data["chat_messages"], tokenize=False, add_generation_prompt=True)
 
         raw_b64 = data["chat_messages"][0]["content"][1]["image_url"]["url"]
-        main_image = Image.open(BytesIO(base64.b64decode(raw_b64[raw_b64.find(",") + 1 :])))
+        _main_image = Image.open(BytesIO(base64.b64decode(raw_b64[raw_b64.find(",") + 1 :])))
 
         # Process inputs using processor
         inputs = processor(
             text=[text],
-            # images=[main_image], # Don't pad out the image tokens yet, since that happens later inside of birr
+            # images=[_main_image], # Don't pad out the image tokens yet, since that happens later inside of birr
             padding=True,
             return_tensors="np",
         )
