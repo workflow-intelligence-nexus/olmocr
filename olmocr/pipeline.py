@@ -949,9 +949,8 @@ async def main():
         pdf_session = boto3.Session(profile_name=args.pdf_profile)
         pdf_s3 = pdf_session.client("s3")
 
+    # We need poppler to load the initial pdfs, even if we are not processing them here
     check_poppler_version()
-    check_sglang_version()
-    check_torch_gpu_available()
 
     # Create work queue
     if args.workspace.startswith("s3://"):
@@ -1016,6 +1015,10 @@ async def main():
     if args.beaker:
         submit_beaker_job(args)
         return
+
+    # If you get this far, then you are doing inference and need a GPU
+    check_sglang_version()
+    check_torch_gpu_available()
 
     logger.info(f"Starting pipeline with PID {os.getpid()}")
 
