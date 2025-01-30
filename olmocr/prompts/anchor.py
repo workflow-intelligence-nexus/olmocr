@@ -4,7 +4,6 @@
 
 # pdftotext
 # pdfium
-# pymupdf
 # pypdf
 
 import random
@@ -16,7 +15,6 @@ from dataclasses import dataclass
 from typing import List, Literal
 
 import ftfy
-import pymupdf
 import pypdfium2 as pdfium
 from pypdf import PdfReader
 from pypdf.generic import RectangleObject
@@ -25,7 +23,7 @@ from olmocr.filter.coherency import get_document_coherency
 
 
 def get_anchor_text(
-    local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"], target_length: int = 4000
+    local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pypdf", "topcoherency", "pdfreport"], target_length: int = 4000
 ) -> str:
     assert page > 0, "Pages are 1-indexed in pdf-land"
 
@@ -35,12 +33,9 @@ def get_anchor_text(
         return _get_pdfium(local_pdf_path, page)
     elif pdf_engine == "pypdf":
         return _get_pypdf_raw(local_pdf_path, page)
-    elif pdf_engine == "pymupdf":
-        return _get_pymupdf(local_pdf_path, page)
     elif pdf_engine == "topcoherency":
         options = {
             "pdftotext": _get_pdftotext(local_pdf_path, page),
-            "pymupdf": _get_pymupdf(local_pdf_path, page),
             "pdfium": _get_pdfium(local_pdf_path, page),
             "pypdf_raw": _get_pypdf_raw(local_pdf_path, page),
         }
@@ -68,11 +63,6 @@ def _get_pdftotext(local_pdf_path: str, page: int) -> str:
     )
     assert pdftotext_result.returncode == 0
     return pdftotext_result.stdout.decode("utf-8")
-
-
-def _get_pymupdf(local_pdf_path: str, page: int) -> str:
-    pm_doc = pymupdf.open(local_pdf_path)
-    return pm_doc[page - 1].get_text()
 
 
 def _get_pypdf_raw(local_pdf_path: str, page: int) -> str:

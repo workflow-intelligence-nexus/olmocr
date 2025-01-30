@@ -2,7 +2,6 @@ torchvision
 cached-path
 smart_open
 pypdf
-pymupdf
 pypdfium2
 lingua-language-detector
 Pillow

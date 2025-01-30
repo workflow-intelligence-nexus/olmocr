@@ -43,27 +43,17 @@ class TestCoherencyScores(unittest.TestCase):
             page=2,
             pdf_engine="pdftotext",
         )
-        pymupdf_text = get_anchor_text(
-            os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"),
-            page=2,
-            pdf_engine="pymupdf",
-        )
         pdfium_text = get_anchor_text(
             os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"),
             page=2,
             pdf_engine="pdfium",
         )
 
-        # pdftotext_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), pdf_engine="pdftotext")
-        # pymupdf_text = get_document_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), pdf_engine="pymupdf")
-
         print("pdftotext_text", pdftotext_score := get_document_coherency(pdftotext_text))
-        print("pymupdf_text", pymupdf_score := get_document_coherency(pymupdf_text))
         print("pdfium_text", pdfium_score := get_document_coherency(pdfium_text))
 
-        self.assertLess(pdftotext_score, pymupdf_score)
-        self.assertLess(pdfium_score, pymupdf_score)
+        self.assertLess(pdfium_score, pdftotext_score)
 
         anchor_text = get_anchor_text(os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "pdftotext_two_column_issue.pdf"), 2, pdf_engine="topcoherency")
 
-        self.assertEqual(anchor_text, pymupdf_text)
+        self.assertEqual(anchor_text, pdfium_text)

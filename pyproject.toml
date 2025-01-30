@@ -22,7 +22,6 @@ dependencies = [
   "cached-path",
   "smart_open",
   "pypdf>=5.2.0",
-  "pymupdf",
   "pypdfium2",
   "cryptography",
   "lingua-language-detector",
