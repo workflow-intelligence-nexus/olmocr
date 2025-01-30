@@ -24,13 +24,14 @@ from transformers import AutoProcessor, AutoTokenizer, Qwen2VLForConditionalGene
 from olmocr.pipeline import (
     SGLANG_SERVER_PORT,
     build_page_query,
-    download_directory,
     get_anchor_text,
     render_pdf_to_base64png,
     sglang_server_ready,
     sglang_server_task,
 )
 from olmocr.prompts import PageResponse
+
+
 
 MODEL_FINETUNED_PATH = (
     "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"
