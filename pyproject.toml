@@ -70,7 +70,8 @@ dev = [
     "packaging",
     "necessary",
     "peft",
-    "datasets"
+    "datasets",
+    "omegaconf"
 ]
 
 
