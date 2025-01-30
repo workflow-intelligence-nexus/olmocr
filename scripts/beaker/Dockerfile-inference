@@ -40,13 +40,13 @@ COPY olmocr/version.py olmocr/version.py
 
 RUN /root/.local/bin/uv pip install --system --no-cache -e .[inference]
 
-COPY olmocr olmocr
+RUN /root/.local/bin/uv pip install --system --no-cache sgl-kernel==0.0.3.post1 --force-reinstall --no-deps
+RUN /root/.local/bin/uv pip install --system --no-cache "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 
-# TODO You can remove this once pypdf > 5.10 comes out
-RUN /root/.local/bin/uv pip install --system --no-cache git+https://github.com/py-pdf/pypdf.git@c6e43374ab002d76811ec85333fdc2c82c268251
+COPY olmocr olmocr
 
 WORKDIR /root
 COPY olmocr olmocr
 
 RUN python3 -m sglang.launch_server --help
-RUN python3 -m olmocr.beakerpipeline --help
+RUN python3 -m olmocr.pipeline --help
