@@ -142,6 +142,7 @@ ignore = ["E722"] #igore bare except
 ignore_missing_imports = true
 no_site_packages = true
 check_untyped_defs = true
+exclude = ["olmocr/train/molmo/", "tests/*"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"

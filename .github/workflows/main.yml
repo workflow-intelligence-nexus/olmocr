@@ -39,10 +39,11 @@ jobs:
               name: Lint
               run: ruff check .
 
-          - python: "3.11"
-            task:
-              name: Type check
-              run: mypy .
+          # Removing mypy for now, as it isn't handling async things correctly
+          # - python: "3.11"
+          #   task:
+          #     name: Type check
+          #     run: mypy .
 
           - python: "3.11"
             task:
