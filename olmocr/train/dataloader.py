@@ -15,7 +15,6 @@ from olmocr.data.renderpdf import get_pdf_media_box_width_height
 from olmocr.prompts.anchor import get_anchor_text
 from olmocr.s3_utils import parse_custom_id, parse_s3_path
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

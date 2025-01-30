@@ -11,7 +11,6 @@ import smart_open
 from cached_path import cached_path
 
 
-
 def setup_logging():
     """Configure logging for the script."""
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s", handlers=[logging.StreamHandler(sys.stdout)])

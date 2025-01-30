@@ -13,7 +13,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 import boto3
 import zstandard

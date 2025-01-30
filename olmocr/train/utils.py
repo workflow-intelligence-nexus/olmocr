@@ -17,17 +17,17 @@ from accelerate.utils import PrecisionType
 from datasets import Dataset, DatasetDict, concatenate_datasets
 from transformers import AutoProcessor
 
-from .core.cli import to_native_types
-from .core.config import AwsConfig, DataConfig, SourceConfig, TrainConfig, WandbConfig
-from .core.loggers import get_logger
-from .core.paths import copy_dir, is_local
-from .core.state import BeakerState
-
 from olmocr.train.dataloader import build_finetuning_dataset
 from olmocr.train.dataprep import (
     batch_prepare_data_for_molmo_training,
     batch_prepare_data_for_qwen2_training,
 )
+
+from .core.cli import to_native_types
+from .core.config import AwsConfig, DataConfig, SourceConfig, TrainConfig, WandbConfig
+from .core.loggers import get_logger
+from .core.paths import copy_dir, is_local
+from .core.state import BeakerState
 
 T = TypeVar("T")
 
