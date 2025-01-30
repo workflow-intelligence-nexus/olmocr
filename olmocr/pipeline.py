@@ -714,6 +714,12 @@ def submit_beaker_job(args):
     ]
 
     try:
+        b.secret.get("OLMOCR_PREVIEW_HF_TOKEN", args.beaker_workspace)
+        env_var_secrets.append(EnvVar(name="HF_TOKEN", secret="OLMOCR_PREVIEW_HF_TOKEN"))
+    except SecretNotFound:
+        pass
+
+    try:
         b.secret.get("OE_DATA_GCS_SA_KEY", args.beaker_workspace)
         env_var_secrets.append(EnvVar(name="GOOGLE_APPLICATION_CREDENTIALS_FILE", secret="OE_DATA_GCS_SA_KEY"))
     except SecretNotFound:
