@@ -18,10 +18,15 @@ What is included:
 
 ### Installation
 
+Requirements:
+ - Recent NVIDIA GPU (tested on RTX 4090, L40S, A100, H100)
+ - 30GB of free disk space
+ 
 You will need to install poppler-utils and some additional fonts as a prerequisite. olmOCR uses poppler to render its PDF images.
 
 Linux Ubuntu/Debian
 ```bash
+sudo apt-get update
 sudo apt-get install poppler-utils ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 ```
 

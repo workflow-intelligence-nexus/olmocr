@@ -884,6 +884,7 @@ async def main():
     )
     parser.add_argument(
         "--pdfs",
+        nargs="*",
         help="Path to add pdfs stored in s3 to the workspace, can be a glob path s3://bucket/prefix/*.pdf or path to file containing list of pdf paths",
         default=None,
     )
@@ -956,26 +957,24 @@ async def main():
 
     if args.pdfs:
         logger.info("Got --pdfs argument, going to add to the work queue")
+        pdf_work_paths = set()
 
-        # Expand s3 paths
-        if args.pdfs.startswith("s3://"):
-            logger.info(f"Expanding s3 glob at {args.pdfs}")
-            pdf_work_paths = expand_s3_glob(pdf_s3, args.pdfs)
-        elif any(char in args.pdfs for char in {"*", "?", "[", "]"}):
-            logger.info(f"Expanding local glob at {args.pdfs}")
-            pdf_work_paths = glob.glob(args.pdfs)
-        elif os.path.exists(args.pdfs):
-            if open(args.pdfs, "rb").read(4) == b"%PDF":
-                logger.info(f"Loading file at {args.pdfs} as PDF document")
-                pdf_work_paths = [args.pdfs]
+        for pdf_path in args.pdfs:
+            # Expand s3 paths
+            if pdf_path.startswith("s3://"):
+                logger.info(f"Expanding s3 glob at {pdf_path}")
+                pdf_work_paths |= set(expand_s3_glob(pdf_s3, pdf_path))
+            elif os.path.exists(pdf_path):
+                if open(pdf_path, "rb").read(4) == b"%PDF":
+                    logger.info(f"Loading file at {pdf_path} as PDF document")
+                    pdf_work_paths.add(pdf_path)
+                else:
+                    logger.info(f"Loading file at {args.pdfs} as list of paths")
+                    with open(args.pdfs, "r") as f:
+                        pdf_work_paths |= set(filter(None, (line.strip() for line in f)))
             else:
-                logger.info(f"Loading file at {args.pdfs} as list of paths")
-                with open(args.pdfs, "r") as f:
-                    pdf_work_paths = list(filter(None, (line.strip() for line in f)))
-        else:
-            raise ValueError("pdfs argument needs to be either a local path, an s3 path, or a glob pattern...")
+                raise ValueError("pdfs argument needs to be either a local path, an s3 path, or an s3 glob pattern...")
 
-        pdf_work_paths = set(pdf_work_paths)
         logger.info(f"Found {len(pdf_work_paths):,} total pdf paths to add")
 
         # Estimate average pages per pdf
