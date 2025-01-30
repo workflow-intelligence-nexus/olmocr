@@ -31,6 +31,7 @@ from .core.state import BeakerState
 
 T = TypeVar("T")
 
+
 def accelerator_to_dtype(accelerator: Accelerator) -> torch.dtype:
     pt = PrecisionType(accelerator.mixed_precision)
     if pt == PrecisionType.FP16:
