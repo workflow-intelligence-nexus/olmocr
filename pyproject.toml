@@ -69,6 +69,8 @@ dev = [
     "sphinx-autodoc-typehints==1.23.3",
     "packaging",
     "necessary",
+    "peft",
+    "datasets"
 ]
 
 

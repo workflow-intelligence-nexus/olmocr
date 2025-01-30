@@ -31,8 +31,6 @@ from olmocr.pipeline import (
 )
 from olmocr.prompts import PageResponse
 
-
-
 MODEL_FINETUNED_PATH = (
     "s3://ai2-oe-data/jakep/experiments/qwen2vl-pdf/v1/models/jakep/Qwen_Qwen2-VL-7B-Instruct-e4ecf8-01JAH8GMWHTJ376S2N7ETXRXH4/checkpoint-9500/bf16/"
 )
