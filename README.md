@@ -38,7 +38,7 @@ pip install -e .
 Finally, make sure you have sglang with [flashinfer](https://github.com/flashinfer-ai/flashinfer) installed if you want to run inference on your own GPU.
 ```bash
 pip install sgl-kernel --force-reinstall --no-deps
-pip install "sglang[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
+pip install "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
 
 **BETA TESTER NOTE:**
