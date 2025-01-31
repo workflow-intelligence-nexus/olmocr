@@ -1,15 +1,8 @@
 # This file generates anchor text in a variety of different ways
 # The goal here is to generate a bit of text which can be used to help prompt a VLM
 # to better understand a document
-
-# pdftotext
-# pdfium
-# pypdf
-
 import random
 import re
-
-# coherency score best of these three
 import subprocess
 from dataclasses import dataclass
 from typing import List, Literal
