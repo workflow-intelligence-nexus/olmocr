@@ -6,13 +6,15 @@ import os
 import random
 import re
 import sqlite3
+from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import Optional
 from urllib.parse import urlparse
 
 from tqdm import tqdm
 
 
-def parse_pdf_hash(pretty_pdf_path: str) -> str:
+def parse_pdf_hash(pretty_pdf_path: str) -> Optional[str]:
     pattern = r"s3://ai2-s2-pdfs/([a-f0-9]{4})/([a-f0-9]+)\.pdf-\d+"
     match = re.match(pattern, pretty_pdf_path)
     if match:
@@ -58,7 +60,7 @@ def cache_athena_csv_to_db(athena_csv_path: str) -> str:
     return db_path
 
 
-def get_uri_from_db(db_path: str, pdf_hash: str) -> str:
+def get_uri_from_db(db_path: str, pdf_hash: str) -> Optional[str]:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT uri FROM pdf_mapping WHERE pdf_hash = ?", (pdf_hash,))
@@ -154,7 +156,7 @@ def main():
         for cid, uri, domain in all_rows:
             writer.writerow([cid, uri if uri else "", domain if domain else ""])
 
-    domain_counter = collections.Counter()
+    domain_counter: Counter[str] = Counter()
     for _, _, domain in all_rows:
         if domain:
             domain_counter[domain] += 1

@@ -35,7 +35,7 @@ def get_anchor_text(
 
         scores = {label: get_document_coherency(text) for label, text in options.items()}
 
-        best_option_label = max(scores, key=scores.get)
+        best_option_label = max(scores, key=scores.get)  # type: ignore
         best_option = options[best_option_label]
 
         print(f"topcoherency chosen: {best_option_label}")
@@ -194,7 +194,7 @@ def _merge_image_elements(images: List[ImageElement], tolerance: float = 0.5) ->
                 union(i, j)
 
     # Group images by their root parent
-    groups = {}
+    groups: dict[int, list[int]] = {}
     for i in range(n):
         root = find(i)
         groups.setdefault(root, []).append(i)
@@ -268,21 +268,21 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
 
     # Process text elements
     text_strings = []
-    for element in report.text_elements:
-        if len(element.text.strip()) == 0:
+    for element in report.text_elements:  # type: ignore
+        if len(element.text.strip()) == 0:  # type: ignore
             continue
 
-        element_text = _cleanup_element_text(element.text)
-        text_str = f"[{element.x:.0f}x{element.y:.0f}]{element_text}\n"
+        element_text = _cleanup_element_text(element.text)  # type: ignore
+        text_str = f"[{element.x:.0f}x{element.y:.0f}]{element_text}\n"  # type: ignore
         text_strings.append((element, text_str))
 
     # Combine all elements with their positions for sorting
-    all_elements = []
+    all_elements: list[tuple[str, ImageElement, str, tuple[float, float]]] = []
     for elem, s in image_strings:
         position = (elem.bbox.x0, elem.bbox.y0)
         all_elements.append(("image", elem, s, position))
     for elem, s in text_strings:
-        position = (elem.x, elem.y)
+        position = (elem.x, elem.y)  # type: ignore
         all_elements.append(("text", elem, s, position))
 
     # Calculate total length
@@ -311,7 +311,7 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
             max_x_text = max(text_elements, key=lambda e: e.x)
             min_y_text = min(text_elements, key=lambda e: e.y)
             max_y_text = max(text_elements, key=lambda e: e.y)
-            edge_elements.update([min_x_text, max_x_text, min_y_text, max_y_text])
+            edge_elements.update([min_x_text, max_x_text, min_y_text, max_y_text])  # type: ignore
 
     # Keep track of element IDs to prevent duplication
     selected_element_ids = set()

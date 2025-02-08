@@ -1,9 +1,10 @@
 import csv
 import re
 from collections import defaultdict
+from typing import Any, DefaultDict
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
-import requests
+import requests  # type: ignore
 
 
 def fetch_review_page_html(url):
@@ -108,7 +109,7 @@ def build_comparison_report(entries_dict, datastore):
       comparisons[(A, B)] = [A_wins, B_wins],
         where A < B lexicographically in that tuple.
     """
-    comparisons = defaultdict(lambda: [0, 0])
+    comparisons: DefaultDict[Any, list[int]] = defaultdict(lambda: [0, 0])
 
     for entry_id, vote in datastore.items():
         if entry_id not in entries_dict:

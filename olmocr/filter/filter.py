@@ -2,6 +2,7 @@ import logging
 import re
 import subprocess
 from collections import Counter
+from typing import Any, Dict, List
 
 from lingua import Language, LanguageDetectorBuilder
 from pypdf import PdfReader
@@ -142,7 +143,7 @@ if __name__ == "__main__":
 
     # Load the list of S3 paths with a progress bar
     with open("/home/ubuntu/s2pdf_paths_1M.txt", "r") as f:
-        s3_work_paths = list(filter(None, (line.strip() for line in tqdm(f, desc="Loading paths"))))
+        s3_work_paths: List[str] = list(filter(None, (line.strip() for line in tqdm(f, desc="Loading paths"))))
 
     # Initialize the PDF filter
     filter = PdfFilter(
@@ -173,7 +174,7 @@ if __name__ == "__main__":
 
                 while pending_futures:
                     # Wait for the next future to complete
-                    done, _ = wait(
+                    done, _ = wait(  # type: ignore
                         pending_futures.keys(),
                         timeout=0.1,
                         return_when=FIRST_COMPLETED,
