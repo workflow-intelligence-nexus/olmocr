@@ -2,7 +2,7 @@ import logging
 import re
 import subprocess
 from collections import Counter
-from typing import Any, Dict, List
+from typing import List
 
 from lingua import Language, LanguageDetectorBuilder
 from pypdf import PdfReader
