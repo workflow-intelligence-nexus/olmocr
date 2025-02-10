@@ -49,7 +49,7 @@ pip install "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/to
 **BETA TESTER NOTE:**
 
 If you are a beta tester, you will need to login using the hugging-face CLI
-to make sure you have access to https://huggingface.co/allenai/olmocr-preview
+to make sure you have access to https://huggingface.co/allenai/olmOCR-7B-0225-preview
  
 `huggingface-cli login`
 

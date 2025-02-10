@@ -911,7 +911,7 @@ async def main():
     parser.add_argument(
         "--model",
         help="List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access",
-        default="allenai/olmocr-preview",
+        default="allenai/olmOCR-7B-0225-preview",
     )
     parser.add_argument("--model_max_context", type=int, default="8192", help="Maximum context length that the model was fine tuned under")
     parser.add_argument("--model_chat_template", type=str, default="qwen2-vl", help="Chat template to pass to sglang server")
