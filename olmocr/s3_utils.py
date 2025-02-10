@@ -12,7 +12,7 @@ from typing import List, Optional
 from urllib.parse import urlparse
 
 import boto3
-import requests
+import requests  # type: ignore
 import zstandard as zstd
 from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
@@ -58,7 +58,7 @@ def expand_s3_glob(s3_client, s3_glob: str) -> dict[str, str]:
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
             for obj in page.get("Contents", []):
                 key = obj["Key"]
-                if glob.fnmatch.fnmatch(key, posixpath.join(prefix, pattern)):
+                if glob.fnmatch.fnmatch(key, posixpath.join(prefix, pattern)):  # type: ignore
                     matched[f"s3://{bucket}/{key}"] = obj["ETag"].strip('"')
         return matched
 

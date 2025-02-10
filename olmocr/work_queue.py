@@ -5,8 +5,9 @@ import hashlib
 import logging
 import os
 import random
+from asyncio import Queue
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from olmocr.s3_utils import (
     download_zstd_csv,
@@ -196,7 +197,7 @@ class LocalWorkQueue(WorkQueue):
         os.makedirs(self._locks_dir, exist_ok=True)
 
         # Internal queue
-        self._queue = asyncio.Queue()
+        self._queue: Queue[Any] = Queue()
 
     async def populate_queue(self, work_paths: List[str], items_per_group: int) -> None:
         """
@@ -401,7 +402,7 @@ class S3WorkQueue(WorkQueue):
 
         self._index_path = os.path.join(self.workspace_path, "work_index_list.csv.zstd")
         self._output_glob = os.path.join(self.workspace_path, "results", "*.jsonl")
-        self._queue = asyncio.Queue()
+        self._queue: Queue[Any] = Queue()
 
     async def populate_queue(self, work_paths: List[str], items_per_group: int) -> None:
         """

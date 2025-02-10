@@ -1,12 +1,12 @@
 # olmOCR
 
-Toolkit for training language models to work with PDF documents in the wild.
+A toolkit for training language models to work with PDF documents in the wild.
 
 
 <img src="https://github.com/user-attachments/assets/d70c8644-3e64-4230-98c3-c52fddaeccb6" alt="olmOCR Logo" width="300"/>
 <br/>
 
-Online demo: [https://olmocr.allen.ai/](https://olmocr.allen.ai/)
+Try the online demo: [https://olmocr.allen.ai/](https://olmocr.allen.ai/)
 
 What is included:
  - A prompting strategy to get really good natural text parsing using ChatGPT 4o - [buildsilver.py](https://github.com/allenai/olmocr/blob/main/olmocr/data/buildsilver.py)
@@ -22,15 +22,15 @@ Requirements:
  - Recent NVIDIA GPU (tested on RTX 4090, L40S, A100, H100)
  - 30GB of free disk space
  
-You will need to install poppler-utils and some additional fonts as a prerequisite. olmOCR uses poppler to render its PDF images.
+You will need to install poppler-utils and additional fonts for rendering PDF images.
 
-Linux Ubuntu/Debian
+Install dependencies (Ubuntu/Debian)
 ```bash
 sudo apt-get update
 sudo apt-get install poppler-utils ttf-mscorefonts-installer msttcorefonts fonts-crosextra-caladea fonts-crosextra-carlito gsfonts lcdf-typetools
 ```
 
-Set up a conda environment, then clone and install the olmocr package
+Set up a conda environment and install olmocr
 ```bash
 conda create -n olmocr python=3.11
 conda activate olmocr
@@ -40,7 +40,7 @@ cd olmocr
 pip install -e .
 ```
 
-Finally, make sure you have sglang with [flashinfer](https://github.com/flashinfer-ai/flashinfer) installed if you want to run inference on your own GPU.
+Install sglang with [flashinfer](https://github.com/flashinfer-ai/flashinfer) if you want to run inference on GPU.
 ```bash
 pip install sgl-kernel==0.0.3.post1 --force-reinstall --no-deps
 pip install "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
@@ -48,37 +48,32 @@ pip install "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/to
 
 **BETA TESTER NOTE:**
 
-If you are a beta tester, you will need to login using the hugging-face CLI
-to make sure you have access to https://huggingface.co/allenai/olmocr-preview
- 
-`huggingface-cli login`
-
+If you’re a beta tester, log in with Hugging Face CLI to access (olmOCR)[https://huggingface.co/allenai/olmocr-preview] preview model:
+``` bash
+huggingface-cli login
+```
 ### Local Usage Example
 
-The easiest way to try out olmOCR on one or two PDFs is to check out the [web demo](https://olmocr.allen.ai/).
-
-Once you are ready to run locally, a local GPU is required, as inference is powered by [sglang](https://github.com/sgl-project/sglang) 
-under the hood.
-
-This command will convert one PDF into a directory called `localworkspace`:
+For quick testing, try the [web demo](https://olmocr.allen.ai/). To run locally, a GPU is required, as inference is powered by [sglang](https://github.com/sgl-project/sglang) under the hood.
+Convert a Single PDF:
 ```bash
-python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf
+python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf # will convert one PDF into a directory called `localworkspace`
 ```
 
-You can also bulk convert many PDFS with a glob pattern:
+Convert Multiple PDFs:
 ```bash
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/*.pdf
 ```
 
 #### Viewing Results
 
-Once that finishes, output is stored as [Dolma](https://github.com/allenai/dolma)-style JSONL inside of the `./localworkspace/results` directory.
+Extracted text is stored as [Dolma](https://github.com/allenai/dolma)-style JSONL inside of the `./localworkspace/results` directory.
 
 ```bash
 cat localworkspace/results/output_*.jsonl  
 ```
 
-You can view your documents side-by-side with the original PDF renders using the `dolmaviewer` command.
+View results side-by-side with the original PDFs (uses `dolmaviewer` command):
 
 ```bash
 python -m olmocr.viewer.dolmaviewer localworkspace/results/output_*.jsonl
@@ -106,7 +101,7 @@ Now on any subsequent nodes, just run this and they will start grabbing items fr
 python -m olmocr.pipeline s3://my_s3_bucket/pdfworkspaces/exampleworkspace
 ```
 
-If you are at AI2 and want to linearize millions of PDFs efficiently using [beaker](https://www.beaker.org), just add the `--beaker`
+If you are at Ai2 and want to linearize millions of PDFs efficiently using [beaker](https://www.beaker.org), just add the `--beaker`
 flag. This will prepare the workspace on your local machine, and then launch N GPU workers in the cluster to start
 converting PDFs.
 
