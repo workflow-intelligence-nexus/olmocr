@@ -27,11 +27,17 @@ class Comparison:
 
     @property
     def comparison_a_method(self):
-        return re.search(r"page[0-9]+_(\w+)\.md$", self.comparison_a_path).group(1)
+        match = re.search(r"page[0-9]+_(\w+)\.md$", self.comparison_a_path)
+        if match:
+            return match.group(1)
+        raise ValueError(f"No match found in path: {self.comparison_a_path}")
 
     @property
     def comparison_b_method(self):
-        return re.search(r"page[0-9]+_(\w+)\.md$", self.comparison_b_path).group(1)
+        match = re.search(r"page[0-9]+_(\w+)\.md$", self.comparison_b_path)
+        if match:
+            return match.group(1)
+        raise ValueError(f"No match found in path: {self.comparison_b_path}")
 
 
 def process_single_pdf(pdf_path, all_mds, comparisons, segmenter_name="spacy"):

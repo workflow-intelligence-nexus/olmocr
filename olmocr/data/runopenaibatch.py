@@ -144,8 +144,8 @@ def get_estimated_space_usage(folder_path):
 
 
 def get_next_work_item(folder_path):
-    all_states = get_state(folder_path)
-    all_states = [s for s in all_states.values() if s["state"] not in FINISHED_STATES]
+    all_states = list(get_state(folder_path).values())
+    all_states = [s for s in all_states if s["state"] not in FINISHED_STATES]
     all_states.sort(key=lambda s: s["last_checked"])
 
     return all_states[0] if len(all_states) > 0 else None

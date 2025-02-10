@@ -1,7 +1,7 @@
 import asyncio
 import time
 from collections import defaultdict, deque
-from typing import Dict
+from typing import Any, Deque, Dict, List, Set
 
 
 class MetricsKeeper:
@@ -15,7 +15,7 @@ class MetricsKeeper:
         self.window = window  # Time window in seconds
         self.start_time = time.time()  # Timestamp when MetricsKeeper was created
         self.total_metrics = defaultdict(int)  # Cumulative metrics since start
-        self.window_metrics = deque()  # Deque to store (timestamp, metrics_dict)
+        self.window_metrics: Deque[Any] = deque()  # Deque to store (timestamp, metrics_dict)
         self.window_sum = defaultdict(int)  # Sum of metrics within the window
 
     def add_metrics(self, **kwargs):
@@ -108,16 +108,16 @@ class WorkerTracker:
         """
         async with self.lock:
             # Determine all unique states across all workers
-            all_states = set()
+            all_states: Set[str] = set()
             for states in self.worker_status.values():
                 all_states.update(states.keys())
-            all_states = sorted(all_states)
+            sorted_states: List[str] = sorted(all_states)
 
-            headers = ["Worker ID"] + all_states
+            headers = ["Worker ID"] + sorted_states  # type: ignore
             rows = []
             for worker_id, states in sorted(self.worker_status.items()):
                 row = [str(worker_id)]
-                for state in all_states:
+                for state in sorted_states:
                     count = states.get(state, 0)
                     row.append(str(count))
                 rows.append(row)
