@@ -11,6 +11,8 @@ sample200_vllm/*
 sample200_sglang/*
 pdelfin_testset/*
 localworkspace/*
+gpt4otestset/*
+gpt4otestset_output/*
 /*.html
 scoreelo.csv
 debug.log
