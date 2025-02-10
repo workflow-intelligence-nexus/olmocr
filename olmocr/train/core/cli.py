@@ -33,7 +33,7 @@ from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
 from rich.console import Console
 from rich.syntax import Syntax
-from yaml import safe_load
+from yaml import safe_load  # type: ignore
 
 from .errors import DolmaRefineError
 
@@ -116,7 +116,7 @@ def _make_parser(parser: A, config: Type[DataClass], prefix: Optional[str] = Non
         # here's where we check if T is a dataclass
         if is_dataclass(typ_):
             # recursively add subparsers
-            _make_parser(parser, typ_, prefix=field_name)
+            _make_parser(parser, typ_, prefix=field_name)  # type: ignore
             continue
 
         if typ_ is bool:

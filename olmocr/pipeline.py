@@ -115,7 +115,7 @@ async def build_page_query(local_pdf_path: str, page: int, target_longest_image_
         process_pool, partial(get_anchor_text, pdf_engine="pdfreport", target_length=target_anchor_text_len), local_pdf_path, page
     )
 
-    image_base64, anchor_text = await asyncio.gather(image_base64, anchor_text)
+    image_base64, anchor_text = await asyncio.gather(image_base64, anchor_text)  # type: ignore
     if image_rotation != 0:
         image_bytes = base64.b64decode(image_base64)
         with Image.open(BytesIO(image_bytes)) as img:
@@ -659,7 +659,7 @@ async def metrics_reporter(work_queue):
 
 
 def submit_beaker_job(args):
-    from beaker import (
+    from beaker import (  # type: ignore
         Beaker,
         Constraints,
         EnvVar,
@@ -911,7 +911,7 @@ async def main():
     parser.add_argument(
         "--model",
         help="List of paths where you can find the model to convert this pdf. You can specify several different paths here, and the script will try to use the one which is fastest to access",
-        default="allenai/olmocr-preview",
+        default="allenai/olmOCR-7B-0225-preview",
     )
     parser.add_argument("--model_max_context", type=int, default="8192", help="Maximum context length that the model was fine tuned under")
     parser.add_argument("--model_chat_template", type=str, default="qwen2-vl", help="Chat template to pass to sglang server")

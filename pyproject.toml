@@ -22,7 +22,6 @@ dependencies = [
   "cached-path",
   "smart_open",
   "pypdf>=5.2.0",
-  "pymupdf",
   "pypdfium2",
   "cryptography",
   "lingua-language-detector",
@@ -51,7 +50,7 @@ Changelog = "https://github.com/allenai/olmocr/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 dev = [
     "ruff",
-    "mypy>=1.0,<1.5",
+    "mypy",
     "black",
     "isort",
     "pytest",
@@ -69,6 +68,9 @@ dev = [
     "sphinx-autodoc-typehints==1.23.3",
     "packaging",
     "necessary",
+    "peft",
+    "datasets",
+    "omegaconf"
 ]
 
 

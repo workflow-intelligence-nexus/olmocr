@@ -230,8 +230,8 @@ def list_jsonl_files(path: str) -> list:
 # Returns the average Levenshtein distance match between the data
 def process_jsonl_file(jsonl_file, gold_data, comparer):
     page_data = {}
-    total_alignment_score = 0
-    char_weighted_alignment_score = 0
+    total_alignment_score: float = 0.0
+    char_weighted_alignment_score: float = 0.0
     total_pages = 0
     total_chars = 0
     total_errors = 0

@@ -52,7 +52,7 @@ def list_dataset_files(s3_glob_path: str):
         return glob.glob(s3_glob_path)
 
 
-def load_jsonl_into_ds(s3_glob_path: str, first_n_files: int = None) -> Dataset:
+def load_jsonl_into_ds(s3_glob_path: str, first_n_files: Optional[int] = None) -> Dataset:
     """
     Loads JSONL files from the specified S3 path into a Hugging Face Dataset.
     """

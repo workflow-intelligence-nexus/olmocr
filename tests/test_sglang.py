@@ -24,7 +24,6 @@ from transformers import AutoProcessor, AutoTokenizer, Qwen2VLForConditionalGene
 from olmocr.pipeline import (
     SGLANG_SERVER_PORT,
     build_page_query,
-    download_directory,
     get_anchor_text,
     render_pdf_to_base64png,
     sglang_server_ready,
@@ -37,6 +36,7 @@ MODEL_FINETUNED_PATH = (
 )
 
 
+@unittest.skip("Skip these tests when running CI, they are mostly for experimentation")
 class TestSglangServer(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         # Mock arguments

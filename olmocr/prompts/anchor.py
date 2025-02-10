@@ -1,22 +1,13 @@
 # This file generates anchor text in a variety of different ways
 # The goal here is to generate a bit of text which can be used to help prompt a VLM
 # to better understand a document
-
-# pdftotext
-# pdfium
-# pymupdf
-# pypdf
-
 import random
 import re
-
-# coherency score best of these three
 import subprocess
 from dataclasses import dataclass
 from typing import List, Literal
 
 import ftfy
-import pymupdf
 import pypdfium2 as pdfium
 from pypdf import PdfReader
 from pypdf.generic import RectangleObject
@@ -25,7 +16,7 @@ from olmocr.filter.coherency import get_document_coherency
 
 
 def get_anchor_text(
-    local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pymupdf", "pypdf", "topcoherency", "pdfreport"], target_length: int = 4000
+    local_pdf_path: str, page: int, pdf_engine: Literal["pdftotext", "pdfium", "pypdf", "topcoherency", "pdfreport"], target_length: int = 4000
 ) -> str:
     assert page > 0, "Pages are 1-indexed in pdf-land"
 
@@ -35,19 +26,16 @@ def get_anchor_text(
         return _get_pdfium(local_pdf_path, page)
     elif pdf_engine == "pypdf":
         return _get_pypdf_raw(local_pdf_path, page)
-    elif pdf_engine == "pymupdf":
-        return _get_pymupdf(local_pdf_path, page)
     elif pdf_engine == "topcoherency":
         options = {
             "pdftotext": _get_pdftotext(local_pdf_path, page),
-            "pymupdf": _get_pymupdf(local_pdf_path, page),
             "pdfium": _get_pdfium(local_pdf_path, page),
             "pypdf_raw": _get_pypdf_raw(local_pdf_path, page),
         }
 
         scores = {label: get_document_coherency(text) for label, text in options.items()}
 
-        best_option_label = max(scores, key=scores.get)
+        best_option_label = max(scores, key=scores.get)  # type: ignore
         best_option = options[best_option_label]
 
         print(f"topcoherency chosen: {best_option_label}")
@@ -68,11 +56,6 @@ def _get_pdftotext(local_pdf_path: str, page: int) -> str:
     )
     assert pdftotext_result.returncode == 0
     return pdftotext_result.stdout.decode("utf-8")
-
-
-def _get_pymupdf(local_pdf_path: str, page: int) -> str:
-    pm_doc = pymupdf.open(local_pdf_path)
-    return pm_doc[page - 1].get_text()
 
 
 def _get_pypdf_raw(local_pdf_path: str, page: int) -> str:
@@ -211,7 +194,7 @@ def _merge_image_elements(images: List[ImageElement], tolerance: float = 0.5) ->
                 union(i, j)
 
     # Group images by their root parent
-    groups = {}
+    groups: dict[int, list[int]] = {}
     for i in range(n):
         root = find(i)
         groups.setdefault(root, []).append(i)
@@ -285,21 +268,21 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
 
     # Process text elements
     text_strings = []
-    for element in report.text_elements:
-        if len(element.text.strip()) == 0:
+    for element in report.text_elements:  # type: ignore
+        if len(element.text.strip()) == 0:  # type: ignore
             continue
 
-        element_text = _cleanup_element_text(element.text)
-        text_str = f"[{element.x:.0f}x{element.y:.0f}]{element_text}\n"
+        element_text = _cleanup_element_text(element.text)  # type: ignore
+        text_str = f"[{element.x:.0f}x{element.y:.0f}]{element_text}\n"  # type: ignore
         text_strings.append((element, text_str))
 
     # Combine all elements with their positions for sorting
-    all_elements = []
+    all_elements: list[tuple[str, ImageElement, str, tuple[float, float]]] = []
     for elem, s in image_strings:
         position = (elem.bbox.x0, elem.bbox.y0)
         all_elements.append(("image", elem, s, position))
     for elem, s in text_strings:
-        position = (elem.x, elem.y)
+        position = (elem.x, elem.y)  # type: ignore
         all_elements.append(("text", elem, s, position))
 
     # Calculate total length
@@ -328,7 +311,7 @@ def _linearize_pdf_report(report: PageReport, max_length: int = 4000) -> str:
             max_x_text = max(text_elements, key=lambda e: e.x)
             min_y_text = min(text_elements, key=lambda e: e.y)
             max_y_text = max(text_elements, key=lambda e: e.y)
-            edge_elements.update([min_x_text, max_x_text, min_y_text, max_y_text])
+            edge_elements.update([min_x_text, max_x_text, min_y_text, max_y_text])  # type: ignore
 
     # Keep track of element IDs to prevent duplication
     selected_element_ids = set()
