@@ -7,14 +7,14 @@
 # Where Id will be the output of parse_pdf_hash plus "-" plus the page number
 # The url will be the result of get_uri_from_db
 # Rresponse will be NormalizedEntry.text
-
 import argparse
 import glob
 import json
 import re
 import sqlite3
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List, Tuple
+import concurrent.futures
 
 from tqdm import tqdm
 import pandas as pd
@@ -99,35 +99,23 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
         # Already normalized
         return NormalizedEntry(**data)
     elif "response" in data and "body" in data["response"] and "choices" in data["response"]["body"]:
-            return NormalizedEntry.from_goldkey(
-                goldkey=data["custom_id"],
-                text=data["response"]["body"]["choices"][0]["message"]["content"],
-                finish_reason=data["response"]["body"]["choices"][0]["finish_reason"],
-            )
+        return NormalizedEntry.from_goldkey(
+            goldkey=data["custom_id"],
+            text=data["response"]["body"]["choices"][0]["message"]["content"],
+            finish_reason=data["response"]["body"]["choices"][0]["finish_reason"],
+        )
+    else:
+        raise ValueError("Unsupported JSON format")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Generate a Parquet dataset file for HuggingFace upload."
-    )
-    parser.add_argument(
-        "input_dataset",
-        help="Input dataset file pattern (e.g., '/data/jakep/pdfdata/openai_batch_data_v5_1_iabooks_train_done/*.json')",
-    )
-    parser.add_argument(
-        "db_path", help="Path to the SQLite database file."
-    )
-    parser.add_argument(
-        "--output", default="output.parquet", help="Output Parquet file path."
-    )
-    args = parser.parse_args()
-
+def process_file(file_path: str, db_path: str) -> Tuple[List[dict], int]:
+    """
+    Process a single file and return a tuple:
+      (list of valid rows, number of rows skipped due to missing URL).
+    """
     rows = []
-    files = glob.glob(args.input_dataset)
-    print(f"Found {len(files)} files matching pattern: {args.input_dataset}")
-
-    for file_path in tqdm(files):
-        print(f"Processing file: {file_path}")
+    missing_count = 0
+    try:
         with open(file_path, "r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, start=1):
                 line = line.strip()
@@ -145,23 +133,23 @@ def main():
                     print(f"Error normalizing entry at {file_path}:{line_num} - {e}")
                     continue
 
-                # Use the s3_path from the normalized entry to extract the pdf hash.
+                # Extract the pdf hash from the s3_path.
                 pdf_hash = parse_pdf_hash(normalized.s3_path)
                 if pdf_hash is None:
-                    print(
-                        f"Could not parse pdf hash from {normalized.s3_path} at {file_path}:{line_num}"
-                    )
+                    print(f"Could not parse pdf hash from {normalized.s3_path} at {file_path}:{line_num}")
                     continue
 
                 # The output id is the pdf hash plus '-' plus the page number.
                 combined_id = f"{pdf_hash}-{normalized.pagenum}"
 
                 # Look up the corresponding URL from the sqlite database.
-                url = get_uri_from_db(args.db_path, pdf_hash)
-                if url is None:
-                    print(
-                        f"No URL found in DB for pdf hash {pdf_hash} at {file_path}:{line_num}"
-                    )
+                url = get_uri_from_db(db_path, pdf_hash)
+                if url is not None:
+                    url = url.strip()
+                # Skip rows with missing URLs (None or empty after strip)
+                if not url:
+                    print(f"Missing URL for pdf hash {pdf_hash} at {file_path}:{line_num}")
+                    missing_count += 1
                     continue
 
                 row = {
@@ -171,15 +159,62 @@ def main():
                     "response": normalized.text,
                 }
                 rows.append(row)
+    except Exception as e:
+        print(f"Error processing file {file_path}: {e}")
+    return rows, missing_count
 
-        break
 
-    if rows:
-        df = pd.DataFrame(rows)
-        df.to_parquet(args.output, index=False)
-        print(f"Successfully wrote {len(df)} rows to {args.output}")
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate a Parquet dataset file for HuggingFace upload."
+    )
+    parser.add_argument(
+        "input_dataset",
+        help="Input dataset file pattern (e.g., '/data/jakep/pdfdata/openai_batch_data_v5_1_iabooks_train_done/*.json')",
+    )
+    parser.add_argument("db_path", help="Path to the SQLite database file.")
+    parser.add_argument(
+        "--output", default="output.parquet", help="Output Parquet file path."
+    )
+
+    args = parser.parse_args()
+
+    files = glob.glob(args.input_dataset)
+    print(f"Found {len(files)} files matching pattern: {args.input_dataset}")
+
+    all_rows = []
+    total_missing = 0
+    # Process files in parallel using ProcessPoolExecutor.
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        futures = {
+            executor.submit(process_file, file_path, args.db_path): file_path
+            for file_path in files
+        }
+        for future in tqdm(
+            concurrent.futures.as_completed(futures),
+            total=len(futures),
+            desc="Processing files",
+        ):
+            file_path = futures[future]
+            try:
+                rows, missing_count = future.result()
+                all_rows.extend(rows)
+                total_missing += missing_count
+            except Exception as e:
+                print(f"Error processing file {file_path}: {e}")
+
+    if all_rows:
+        df = pd.DataFrame(all_rows)
+        # Set the "id" column as the index.
+        df.set_index("id", inplace=True)
+        df.to_parquet(args.output)
+
+        valid_count = len(df)
+        total_processed = valid_count + total_missing
+        print(f"Successfully wrote {valid_count} rows to {args.output}")
+        print(f"Missing URL rows skipped: {total_missing} out of {total_processed} processed rows")
     else:
-        print("No rows to write. Exiting.")
+        print("No valid rows to write. Exiting.")
 
 
 if __name__ == "__main__":
