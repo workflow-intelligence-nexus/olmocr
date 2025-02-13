@@ -6,7 +6,7 @@ A toolkit for training language models to work with PDF documents in the wild.
 <img src="https://github.com/user-attachments/assets/d70c8644-3e64-4230-98c3-c52fddaeccb6" alt="olmOCR Logo" width="300"/>
 <br/>
 
-Try the online demo: [https://olmocr.allen.ai/](https://olmocr.allen.ai/)
+Try the online demo: [https://olmocr.allenai.org/](https://olmocr.allenai.org/)
 
 What is included:
  - A prompting strategy to get really good natural text parsing using ChatGPT 4o - [buildsilver.py](https://github.com/allenai/olmocr/blob/main/olmocr/data/buildsilver.py)
