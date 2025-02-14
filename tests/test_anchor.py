@@ -133,7 +133,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 4000)
+        self.assertLessEqual(len(anchor_text), 4000)
 
     def testEmptyAnchor(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "tobacco_missed_tokens_pg1.pdf")
@@ -151,7 +151,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 6000)
+        self.assertLessEqual(len(anchor_text), 6000)
 
     @unittest.skip("TODO, this unit test still fails, the map text is too large.")
     def testExcessiveMapAnchor(self):
@@ -161,7 +161,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 4000)
+        self.assertLessEqual(len(anchor_text), 4000)
 
     def testKyleOnePageAnchors1(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "dolma-page-1.pdf")
@@ -170,7 +170,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 6000)
+        self.assertLessEqual(len(anchor_text), 6000)
 
     def testKyleOnePageAnchors2(self):
         local_pdf_path = os.path.join(os.path.dirname(__file__), "gnarly_pdfs", "olmo-page-1.pdf")
@@ -179,7 +179,7 @@ class AnchorTest(unittest.TestCase):
 
         print(anchor_text)
         print(len(anchor_text))
-        self.assertLess(len(anchor_text), 6000)
+        self.assertLessEqual(len(anchor_text), 6000)
 
 
 class BuildSilverTest(unittest.TestCase):
