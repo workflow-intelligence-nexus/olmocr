@@ -88,6 +88,12 @@ train = [
     "transformers>=4.45.1"
 ]
 
+elo = [
+    "numpy",
+    "scipy",
+    "pandas"
+]
+
 [tool.setuptools.packages.find]
 exclude = [
     "*.tests",
