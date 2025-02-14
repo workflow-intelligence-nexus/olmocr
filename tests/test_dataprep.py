@@ -183,6 +183,7 @@ class TestDataprep(unittest.TestCase):
         self.assertEqual(zero_count + full_count, num_iterations, "Total count should equal number of iterations")
 
 
+@pytest.mark.nonci
 class TestMolmoDataPrep(unittest.TestCase):
     def testMolmoDefaultSetup(self):
         processor = AutoProcessor.from_pretrained("allenai/Molmo-7B-O-0924", trust_remote_code=True, torch_dtype="auto", device_map="auto")
