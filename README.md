@@ -58,13 +58,14 @@ to make sure you have access to https://huggingface.co/allenai/olmOCR-7B-0225-pr
 For quick testing, try the [web demo](https://olmocr.allen.ai/). To run locally, a GPU is required, as inference is powered by [sglang](https://github.com/sgl-project/sglang) under the hood.
 Convert a Single PDF:
 ```bash
-python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf # will convert one PDF into a directory called `localworkspace`
+python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf
 ```
 
 Convert Multiple PDFs:
 ```bash
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/*.pdf
 ```
+Results will be stored as JSON in `./localworkspace`.
 
 #### Viewing Results
 
