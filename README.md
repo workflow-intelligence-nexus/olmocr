@@ -35,9 +35,7 @@ Set up a conda environment and install olmocr
 conda create -n olmocr python=3.11
 conda activate olmocr
 
-git clone https://github.com/allenai/olmocr.git
-cd olmocr
-pip install -e .
+pip install olmocr
 ```
 
 Install sglang with [flashinfer](https://github.com/flashinfer-ai/flashinfer) if you want to run inference on GPU.
