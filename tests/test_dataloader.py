@@ -1,6 +1,7 @@
 import unittest
 from functools import partial
 
+import pytest
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoProcessor
@@ -14,6 +15,7 @@ from olmocr.train.dataloader import (
 from olmocr.train.dataprep import batch_prepare_data_for_qwen2_training
 
 
+@pytest.mark.nonci
 class TestBatchQueryResponseDataset(unittest.TestCase):
     def testLoadS3(self):
         ds = load_jsonl_into_ds("s3://ai2-oe-data/jakep/openai_batch_data_v2/*.jsonl", first_n_files=3)

@@ -7,6 +7,7 @@ from io import BytesIO
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 import requests
 import torch
 from PIL import Image
@@ -27,6 +28,7 @@ from olmocr.train.dataprep import (
 from olmocr.train.utils import make_dataset
 
 
+@pytest.mark.nonci
 class TestDataprep(unittest.TestCase):
     def testFullDataloader(self):
         processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")

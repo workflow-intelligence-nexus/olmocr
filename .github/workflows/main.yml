@@ -31,7 +31,7 @@ jobs:
         task:
           - name: Test
             run: |
-              pytest -v --color=yes tests/
+              pytest -v --color=yes  -m "not nonci" tests/
 
         include:
           - python: "3.11"
@@ -39,7 +39,7 @@ jobs:
               name: Lint
               run: ruff check .
 
-          # Removing mypy for now, as it isn't handling async things correctly
+          # Removing mypy for now, as it isn't handling async things correctly and crashing
           # - python: "3.11"
           #   task:
           #     name: Type check
