@@ -8,23 +8,24 @@
 # The url will be the result of get_uri_from_db
 # Rresponse will be NormalizedEntry.text
 import argparse
+import concurrent.futures
 import glob
 import json
 import multiprocessing
+import os
 import re
+import shutil
 import sqlite3
 import tempfile
-import os
-import shutil
 from dataclasses import dataclass
-from typing import Optional, List, Tuple, Dict, Set
-import concurrent.futures
+from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import boto3
-from tqdm import tqdm
 import pandas as pd
 from pypdf import PdfReader, PdfWriter
+from tqdm import tqdm
+
 
 def parse_pdf_hash(pretty_pdf_path: str) -> Optional[str]:
     """
@@ -44,7 +45,7 @@ def parse_pdf_hash(pretty_pdf_path: str) -> Optional[str]:
         return urlparse(pretty_pdf_path).path.split("/")[-1]
     else:
         raise NotImplementedError()
-        
+
 
 def get_uri_from_db(db_path: str, pdf_hash: str) -> Optional[str]:
     """
@@ -58,6 +59,7 @@ def get_uri_from_db(db_path: str, pdf_hash: str) -> Optional[str]:
     conn.close()
     return result[0].strip() if result and result[0] else None
 
+
 @dataclass(frozen=True)
 class NormalizedEntry:
     s3_path: str
@@ -70,7 +72,7 @@ class NormalizedEntry:
     def from_goldkey(goldkey: str, **kwargs):
         """
         Constructs a NormalizedEntry from a goldkey string.
-        The goldkey is expected to be of the format: 
+        The goldkey is expected to be of the format:
           <s3_path>-<page_number>
         """
         s3_path = goldkey[: goldkey.rindex("-")]
@@ -80,6 +82,7 @@ class NormalizedEntry:
     @property
     def goldkey(self):
         return f"{self.s3_path}-{self.pagenum}"
+
 
 def normalize_json_entry(data: dict) -> NormalizedEntry:
     """
@@ -117,6 +120,7 @@ def normalize_json_entry(data: dict) -> NormalizedEntry:
     else:
         raise ValueError("Unsupported JSON format")
 
+
 def parse_s3_url(s3_url: str) -> Tuple[str, str]:
     """
     Parses an S3 URL of the form s3://bucket/key and returns (bucket, key).
@@ -127,6 +131,7 @@ def parse_s3_url(s3_url: str) -> Tuple[str, str]:
     bucket, key = s3_path.split("/", 1)
     return bucket, key
 
+
 def download_pdf_to_cache(s3_url: str, cache_dir: str) -> Optional[str]:
     """
     Downloads the PDF from the given S3 URL into the specified cache directory.
@@ -135,11 +140,11 @@ def download_pdf_to_cache(s3_url: str, cache_dir: str) -> Optional[str]:
     """
     try:
         bucket, key = parse_s3_url(s3_url)
-        s3_client = boto3.client('s3')
+        s3_client = boto3.client("s3")
         pdf_hash = parse_pdf_hash(s3_url)
         if not pdf_hash:
             # Fallback: use a sanitized version of the s3_url
-            pdf_hash = re.sub(r'\W+', '_', s3_url)
+            pdf_hash = re.sub(r"\W+", "_", s3_url)
         dest_path = os.path.join(cache_dir, f"{pdf_hash}.pdf")
         # Avoid re-downloading if already exists
         if not os.path.exists(dest_path):
@@ -148,6 +153,7 @@ def download_pdf_to_cache(s3_url: str, cache_dir: str) -> Optional[str]:
     except Exception as e:
         print(f"Error downloading {s3_url}: {e}")
         return None
+
 
 def process_pdf_page(s3_url: str, page_number: int, combined_id: str, output_pdf_dir: str, pdf_cache: Dict[str, str]) -> Optional[str]:
     """
@@ -177,6 +183,7 @@ def process_pdf_page(s3_url: str, page_number: int, combined_id: str, output_pdf
     except Exception as e:
         print(f"Error processing PDF page for {s3_url} page {page_number}: {e}")
         return None
+
 
 def process_file(file_path: str, db_path: str, output_pdf_dir: str, pdf_cache: Dict[str, str]) -> Tuple[List[dict], int]:
     """
@@ -215,8 +222,7 @@ def process_file(file_path: str, db_path: str, output_pdf_dir: str, pdf_cache: D
 
                 # Apply filter: skip if response contains "resume" (any case) and an email or phone number.
                 response_text = normalized.text if normalized.text else ""
-                if (re.search(r"resume", response_text, re.IGNORECASE) and 
-                    (re.search(email_regex, response_text) or re.search(phone_regex, response_text))):
+                if re.search(r"resume", response_text, re.IGNORECASE) and (re.search(email_regex, response_text) or re.search(phone_regex, response_text)):
                     print(f"Skipping entry due to resume and contact info in response at {file_path}:{line_num}")
                     continue
 
@@ -254,6 +260,7 @@ def process_file(file_path: str, db_path: str, output_pdf_dir: str, pdf_cache: D
         print(f"Error processing file {file_path}: {e}")
     return rows, missing_count
 
+
 def scan_file_for_s3_urls(file_path: str) -> Set[str]:
     """
     Scans a single file and returns a set of unique S3 URLs found in the JSON entries.
@@ -276,18 +283,15 @@ def scan_file_for_s3_urls(file_path: str) -> Set[str]:
         print(f"Error reading file {file_path}: {e}")
     return urls
 
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate a Parquet dataset file for HuggingFace upload."
-    )
+    parser = argparse.ArgumentParser(description="Generate a Parquet dataset file for HuggingFace upload.")
     parser.add_argument(
         "input_dataset",
         help="Input dataset file pattern (e.g., '/data/jakep/pdfdata/openai_batch_data_v5_1_iabooks_train_done/*.json')",
     )
     parser.add_argument("db_path", help="Path to the SQLite database file.")
-    parser.add_argument(
-        "--output", default="output.parquet", help="Output Parquet file path."
-    )
+    parser.add_argument("--output", default="output.parquet", help="Output Parquet file path.")
 
     args = parser.parse_args()
 
@@ -303,7 +307,7 @@ def main():
     # Create a temporary directory for caching PDFs.
     pdf_cache_dir = "/tmp/pdf_cache"
     os.makedirs(pdf_cache_dir, exist_ok=True)
-    
+
     print(f"Caching PDFs to temporary directory: {pdf_cache_dir}")
 
     # ---------------------------------------------------------------------
@@ -323,12 +327,8 @@ def main():
     pdf_cache: Dict[str, str] = {}
     print("Caching PDFs from S3...")
     with concurrent.futures.ProcessPoolExecutor(max_workers=num_cpus * 8) as executor:
-        future_to_url = {
-            executor.submit(download_pdf_to_cache, s3_url, pdf_cache_dir): s3_url
-            for s3_url in unique_s3_urls
-        }
-        for future in tqdm(concurrent.futures.as_completed(future_to_url),
-                           total=len(future_to_url), desc="Downloading PDFs"):
+        future_to_url = {executor.submit(download_pdf_to_cache, s3_url, pdf_cache_dir): s3_url for s3_url in unique_s3_urls}
+        for future in tqdm(concurrent.futures.as_completed(future_to_url), total=len(future_to_url), desc="Downloading PDFs"):
             s3_url = future_to_url[future]
             try:
                 local_path = future.result()
@@ -345,12 +345,8 @@ def main():
     total_missing = 0
     print("Processing files...")
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        futures = {
-            executor.submit(process_file, file_path, args.db_path, pdfs_dir, pdf_cache): file_path
-            for file_path in files
-        }
-        for future in tqdm(concurrent.futures.as_completed(futures),
-                           total=len(futures), desc="Processing files"):
+        futures = {executor.submit(process_file, file_path, args.db_path, pdfs_dir, pdf_cache): file_path for file_path in files}
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Processing files"):
             file_path = futures[future]
             try:
                 rows, missing_count = future.result()

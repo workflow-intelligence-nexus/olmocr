@@ -1,23 +1,21 @@
+import logging
 import os
 import tarfile
-import logging
-from math import ceil
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from tqdm import tqdm
+from math import ceil
+
 from huggingface_hub import HfApi
+from tqdm import tqdm
 
 # Configuration
-pdf_dir = "pdfs"             # Directory with PDF files (flat structure)
-tarball_dir = "tarballs"     # Directory where tar.gz files will be saved
+pdf_dir = "pdfs"  # Directory with PDF files (flat structure)
+tarball_dir = "tarballs"  # Directory where tar.gz files will be saved
 os.makedirs(tarball_dir, exist_ok=True)
 repo_id = "allenai/olmOCR-mix-0225"  # Hugging Face dataset repo ID
 
 # Set up logging to file
-logging.basicConfig(
-    filename='upload.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(filename="upload.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 def process_chunk(args):
     """
@@ -27,7 +25,7 @@ def process_chunk(args):
     chunk_index, chunk_files = args
     tarball_name = f"pdf_chunk_{chunk_index:04d}.tar.gz"
     tarball_path = os.path.join(tarball_dir, tarball_name)
-    
+
     try:
         with tarfile.open(tarball_path, "w:gz") as tar:
             for pdf_filename in chunk_files:
@@ -41,10 +39,11 @@ def process_chunk(args):
         logging.error(error_msg)
         return chunk_index, False, error_msg
 
+
 def main():
     # List all PDF files (assuming a flat directory)
     try:
-        pdf_files = sorted([f for f in os.listdir(pdf_dir) if f.lower().endswith('.pdf')])
+        pdf_files = sorted([f for f in os.listdir(pdf_dir) if f.lower().endswith(".pdf")])
     except Exception as e:
         logging.error(f"Error listing PDFs in '{pdf_dir}': {e}")
         return
@@ -61,7 +60,7 @@ def main():
     #     end = start + chunk_size
     #     chunk_files = pdf_files[start:end]
     #     chunks.append((idx, chunk_files))
-    
+
     # # Create tarballs in parallel
     # results = []
     # with ProcessPoolExecutor() as executor:
@@ -90,10 +89,11 @@ def main():
     api.upload_large_folder(
         folder_path=tarball_dir,
         repo_id=repo_id,
-        #path_in_repo="pdf_tarballs",
-        repo_type="dataset"
+        # path_in_repo="pdf_tarballs",
+        repo_type="dataset",
     )
     logging.info("Successfully uploaded tarballs folder to Hugging Face Hub.")
+
 
 if __name__ == "__main__":
     main()
