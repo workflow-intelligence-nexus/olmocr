@@ -1,11 +1,9 @@
 import logging
 import os
 import tarfile
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from math import ceil
 
 from huggingface_hub import HfApi
-from tqdm import tqdm
 
 # Configuration
 pdf_dir = "pdfs"  # Directory with PDF files (flat structure)

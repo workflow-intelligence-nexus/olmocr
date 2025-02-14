@@ -14,9 +14,7 @@ import json
 import multiprocessing
 import os
 import re
-import shutil
 import sqlite3
-import tempfile
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
