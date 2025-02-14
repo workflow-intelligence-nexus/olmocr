@@ -102,9 +102,11 @@ exclude = [
 include-package-data = true
 
 [tool.setuptools.package-data]
-olmocr = ["py.typed"]
-olmocr.viewer = ["*.html"]
-olmocr.eval = ["*.html"]
+olmocr = [
+    "py.typed",
+    "viewer/*.html",
+    "eval/*.html",
+]
 
 [tool.setuptools.dynamic]
 version = {attr = "olmocr.version.VERSION"}
