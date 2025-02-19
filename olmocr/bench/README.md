@@ -60,4 +60,12 @@ python olmocr/bench/runners/run_marker.py olmocr/bench/sample_data/pdfs
 
 pip install verovio torchvision
 python olmocr/bench/runners/run_gotocr.py olmocr/bench/sample_data/pdfs
+
+conda create -n MinerU python=3.10
+conda activate MinerU
+pip install -U magic-pdf[full]==1.1.0 --extra-index-url https://wheels.myhloli.com
+pip install huggingface_hub
+wget https://github.com/opendatalab/MinerU/raw/master/scripts/download_models_hf.py -O download_models_hf.py
+python download_models_hf.py
+python olmocr/bench/runners/run_mineru.py olmocr/bench/sample_data/pdfs
 ```
