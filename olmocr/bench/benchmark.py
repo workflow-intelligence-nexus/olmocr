@@ -27,6 +27,7 @@ def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
     all_pdf_basenames = [os.path.basename(p) for p in all_pdf_files]
 
     rules = []
+    rule_ids = set()
     with open(jsonl_path, 'r', encoding='utf-8') as f:
         for line_num, line in enumerate(f, start=1):
             line = line.strip()
@@ -43,6 +44,11 @@ def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
                 raise ValueError(f"Missing required fields in line {line_num} of {jsonl_path}: {data}")
 
             rule_id = data["id"]
+
+            if rule_id in rule_ids:
+                raise ValueError(f"Duplicate rule {rule_id} in {jsonl_path}")
+            else:
+                rule_ids.add(rule_id)
 
             # Make sure the document referenced exists
             if data["pdf"] not in all_pdf_basenames:
@@ -96,12 +102,12 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
             if best_ratio >= threshold:
                 return (True, "")
             else:
-                return (False, f"Expected text to be present with threshold {threshold} but best match ratio was {best_ratio:.3f}")
+                return (False, f"Expected '{reference_query[:40]}...' with threshold {threshold} but best match ratio was {best_ratio:.3f}")
         else:  # absent
             if best_ratio < threshold:
                 return (True, "")
             else:
-                return (False, f"Expected text to be absent with threshold {threshold} but best match ratio was {best_ratio:.3f}")
+                return (False, f"Expected '{reference_query[:40]}...' with threshold {threshold} but best match ratio was {best_ratio:.3f}")
     elif rule_type == "order":
         # Implement a simple ordering check: ensure that the anchor text appears,
         # and if 'before' is specified, it must appear before the anchor;
