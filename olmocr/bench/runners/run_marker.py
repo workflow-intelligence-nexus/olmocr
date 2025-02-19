@@ -34,7 +34,6 @@ def run(pdf_folder):
         artifact_dict=create_model_dict(),
     )
 
-
     for pdf_path in pdf_files:
         rendered = converter(pdf_path)
         # Create the markdown filename by replacing the .pdf extension with .md
