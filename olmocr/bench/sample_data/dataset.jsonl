@@ -6,10 +6,6 @@
 {"pdf": "multi_column_miss.pdf", "id": "multi_column_miss_05", "type": "present", "text": "Some writers on CSR trace its American roots to the 19th century when large industries engaged in philanthropy and established great public institutions", "threshold": 0.95}
 {"pdf": "multi_column_miss.pdf", "id": "multi_column_miss_06", "type": "present", "text": "", "threshold": 0.95}
 {"pdf": "multi_column_miss.pdf", "id": "multi_column_miss_07", "type": "present", "text": "", "threshold": 0.95}
-
 {"pdf": "multi_column_miss.pdf", "id": "multi_column_miss_10", "type": "order", "anchor": "multi_column_miss_00", "before": "multi_column_miss_02"}
 {"pdf": "multi_column_miss.pdf", "id": "multi_column_miss_10", "type": "order", "anchor": "multi_column_miss_04", "after": "multi_column_miss_02"}
 {"pdf": "multi_column_miss.pdf", "id": "multi_column_miss_10", "type": "order", "anchor": "multi_column_miss_05", "after": "multi_column_miss_00", "before": "multi_column_miss_04"}
-
-
-
