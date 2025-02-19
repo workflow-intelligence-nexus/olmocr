@@ -57,8 +57,12 @@ def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
                 # Check that anchor is present, and that either 'before' or 'after' is present
                 if "before" not in data:
                     raise ValueError(f"'before' field required for rule type 'order' in {jsonl_path} line {line_num}")
+                if len(data["before"]) < 10:
+                    raise ValueError(f"'before' field too short {jsonl_path} line {line_num}")
                 if "after" not in data:
                     raise ValueError(f"'after' required for rule type 'order' in {jsonl_path} line {line_num}")
+                if len(data["after"]) < 10:
+                    raise ValueError(f"'after' field too short {jsonl_path} line {line_num}")
             else:
                 raise ValueError(f"Unknown rule type '{rule_type}' in {jsonl_path} line {line_num}")
 
@@ -92,12 +96,12 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
             if best_ratio >= threshold:
                 return (True, "")
             else:
-                return (False, f"Expected text to be present with threshold {threshold} but best match ratio was {best_ratio:.2f}")
+                return (False, f"Expected text to be present with threshold {threshold} but best match ratio was {best_ratio:.3f}")
         else:  # absent
             if best_ratio < threshold:
                 return (True, "")
             else:
-                return (False, f"Expected text to be absent with threshold {threshold} but best match ratio was {best_ratio:.2f}")
+                return (False, f"Expected text to be absent with threshold {threshold} but best match ratio was {best_ratio:.3f}")
     elif rule_type == "order":
         # Implement a simple ordering check: ensure that the anchor text appears,
         # and if 'before' is specified, it must appear before the anchor;
@@ -106,14 +110,16 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
         after = rule.get("after")
         threshold = rule.get("threshold", 1.0)
 
-        before_matches = find_near_matches(before, md_content, max_l_dist=1)
-        after_matches = find_near_matches(after, md_content, max_l_dist=1)
+        max_l_dist = round((1.0 - threshold) * len(before))
+
+        before_matches = find_near_matches(before, md_content, max_l_dist=max_l_dist)
+        after_matches = find_near_matches(after, md_content, max_l_dist=max_l_dist)
 
         if not before_matches:
-            return (False, f"'before' search text '{before[:40]}...' does not appear in parse")
+            return (False, f"'before' search text '{before[:40]}...' does not appear in parse with max_l_dist {max_l_dist}")
         
         if not after_matches:
-            return (False, f"'after' search text '{after[:40]}...' does not appear in parse")
+            return (False, f"'after' search text '{after[:40]}...' does not appear in parse with max_l_dist {max_l_dist}")
         
         # Go through each combination of matches and see if there exists one where the before .start is sooner than the after .start
         for before_match, after_match in itertools.product(before_matches, after_matches):
