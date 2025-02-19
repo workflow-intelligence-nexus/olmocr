@@ -32,6 +32,17 @@ Table Format:
  - table: {table_index: int, needs to be fuzzy as well, ex. does row exist with column text X, does column exist with a row containing Y}
  - formula: TODO
 
+## Creation
+
+We sampled documents from the same source as olmocrmix. We run them through two models, and see which ones have biggest 
+plain textual diffs, but still contain lots of good text, and aren't just tables/formula heavy for now.
+Then, we will extract text presence/absense markers and verify using tinyhost UI. 
+Write those to JSON. Maybe do some embedding and grouping to try to get lots of variation, at least when 
+prioritizing manual review.
+
+Later, we will repeat the same for tables and formulas.
+
+Write the evalutor script which will output a nice templated tinyhostable results page.
 
 ## Running
 We do not want to depend on a model having any specific format of its output.
