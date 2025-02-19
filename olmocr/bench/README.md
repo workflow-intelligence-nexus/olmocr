@@ -52,5 +52,12 @@ Step 2. Run your extraction on it, point output to folder, ex. olmocr-v2_1/ wher
 Step 3. Run the evaluation script
 Step 4. Get results, and use tinyhost to view all failing examples
 
-## TODO
+### Running existing scripts
 
+```bash
+pip install marker-pdf==1.5.4
+python olmocr/bench/runners/run_marker.py olmocr/bench/sample_data/pdfs
+
+pip install verovio torchvision
+python olmocr/bench/runners/run_gotocr.py olmocr/bench/sample_data/pdfs
+```

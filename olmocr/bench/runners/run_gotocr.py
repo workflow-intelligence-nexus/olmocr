@@ -27,14 +27,14 @@ def run(pdf_folder):
     """
     Convert all PDF files in the specified folder to markdown using GOT-OCR.
     Each page of a PDF is converted to an image and processed with OCR.
-    The markdown files are saved in a folder called "marker" located alongside the pdf_folder.
+    The markdown files are saved in a folder called "got_ocr" located alongside the pdf_folder.
     
     :param pdf_folder: Path to the folder containing PDF files.
     """
     # Resolve absolute paths and prepare destination folder
     pdf_folder = os.path.abspath(pdf_folder)
     parent_dir = os.path.dirname(pdf_folder)
-    destination_folder = os.path.join(parent_dir, "marker")
+    destination_folder = os.path.join(parent_dir, "got_ocr")
     os.makedirs(destination_folder, exist_ok=True)
 
     # List all PDF files in the folder
