@@ -14,8 +14,10 @@ import os
 import json
 import glob
 import sys
+import itertools
 
 from rapidfuzz import fuzz
+from fuzzysearch import find_near_matches
 
 def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
     """
@@ -53,10 +55,10 @@ def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
                     raise ValueError(f"'text' field required for rule type '{rule_type}' in {jsonl_path} line {line_num}")
             elif rule_type == "order":
                 # Check that anchor is present, and that either 'before' or 'after' is present
-                if "anchor" not in data:
-                    raise ValueError(f"'anchor' field required for rule type 'order' in {jsonl_path} line {line_num}")
-                if not ("before" in data or "after" in data):
-                    raise ValueError(f"'before' or 'after' required for rule type 'order' in {jsonl_path} line {line_num}")
+                if "before" not in data:
+                    raise ValueError(f"'before' field required for rule type 'order' in {jsonl_path} line {line_num}")
+                if "after" not in data:
+                    raise ValueError(f"'after' required for rule type 'order' in {jsonl_path} line {line_num}")
             else:
                 raise ValueError(f"Unknown rule type '{rule_type}' in {jsonl_path} line {line_num}")
 
@@ -100,27 +102,25 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
         # Implement a simple ordering check: ensure that the anchor text appears,
         # and if 'before' is specified, it must appear before the anchor;
         # if 'after' is specified, it must appear after the anchor.
-        anchor = rule.get("anchor", "")
         before = rule.get("before")
         after = rule.get("after")
+        threshold = rule.get("threshold", 1.0)
 
-        anchor_index = md_content.find(anchor)
-        if anchor_index == -1:
-            return (False, f"Anchor text '{anchor}' not found.")
+        before_matches = find_near_matches(before, md_content, max_l_dist=1)
+        after_matches = find_near_matches(after, md_content, max_l_dist=1)
 
-        if before is not None:
-            before_index = md_content.find(before)
-            if before_index == -1:
-                return (False, f"Expected text before anchor not found: '{before}' missing.")
-            if before_index >= anchor_index:
-                return (False, f"Expected text '{before}' should appear before anchor '{anchor}', but it appears after.")
-        if after is not None:
-            after_index = md_content.find(after)
-            if after_index == -1:
-                return (False, f"Expected text after anchor not found: '{after}' missing.")
-            if after_index <= anchor_index:
-                return (False, f"Expected text '{after}' should appear after anchor '{anchor}', but it appears before.")
-        return (True, "")
+        if not before_matches:
+            return (False, f"'before' search text '{before[:40]}...' does not appear in parse")
+        
+        if not after_matches:
+            return (False, f"'after' search text '{after[:40]}...' does not appear in parse")
+        
+        # Go through each combination of matches and see if there exists one where the before .start is sooner than the after .start
+        for before_match, after_match in itertools.product(before_matches, after_matches):
+            if before_match.start < after_match.start:
+                return (True, "")
+
+        return (False, f"Could not find a place in the text where '{before[:40]}...' appears before '{after[:40]}...'.")
 
     else:
         raise NotImplementedError(f"Rule type '{rule_type}' is not implemented.")

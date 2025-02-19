@@ -37,6 +37,8 @@ dependencies = [
   "httpx",
   "torch>=2.5.1",
   "transformers>=4.46.2",
+  "fuzzysearch",
+  "rapidfuzz",
   "beaker-py",
 ]
 license = {file = "LICENSE"}
