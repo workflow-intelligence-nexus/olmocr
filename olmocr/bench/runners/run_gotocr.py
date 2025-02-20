@@ -72,7 +72,7 @@ def run(pdf_folder):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Convert all PDF files in a folder to markdown using GOT-OCR and save them to a sibling 'marker' folder."
+        description="Convert all PDF files in a folder to markdown using GOT-OCR and save them to a sibling 'got_ocr' folder."
     )
     parser.add_argument(
         "pdf_folder",
