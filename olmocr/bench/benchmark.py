@@ -4,9 +4,11 @@ This script runs olmocr bench.
 It will take as an argument a folder, and scan it for .jsonl files which contain the various rules and properties that we will check.
 It will then validate the JSON files to make sure they are all valid.
 Then, each other folder in there (besides /pdfs) represents a pipeline tool that we will evaluate.
-We will validate that each one of those contains a .md file corresponding to its parse for every .pdf in the /pdfs folder.
+We will validate that each one of those contains at least one .md file (or repeated generations, e.g. _1.md, _2.md, etc.)
+corresponding to its parse for every .pdf in the /pdfs folder.
 Then, we will read each one, and check if they pass against all the rules.
-If a rule fails, a short explanation is printed.
+If a rule fails on some of the repeats, a short explanation is printed.
+The final score is averaged over the repeated generations.
 """
 
 import argparse
@@ -44,39 +46,34 @@ def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
                 raise ValueError(f"Missing required fields in line {line_num} of {jsonl_path}: {data}")
 
             rule_id = data["id"]
-
             if rule_id in rule_ids:
                 raise ValueError(f"Duplicate rule {rule_id} in {jsonl_path}")
             else:
                 rule_ids.add(rule_id)
 
-            # Make sure the document referenced exists
+            # Make sure the referenced PDF exists
             if data["pdf"] not in all_pdf_basenames:
                 raise ValueError(f"Missing pdf {data['pdf']} referenced by {rule_id} in {jsonl_path} line {line_num}")
 
-            # Additional validations depending on type
+            # Additional validations depending on rule type
             rule_type = data["type"]
             if rule_type in ("present", "absent"):
                 if "text" not in data:
                     raise ValueError(f"'text' field required for rule type '{rule_type}' in {jsonl_path} line {line_num}")
             elif rule_type == "order":
-                # Check that anchor is present, and that either 'before' or 'after' is present
                 if "before" not in data:
                     raise ValueError(f"'before' field required for rule type 'order' in {jsonl_path} line {line_num}")
                 if len(data["before"]) < 10:
-                    raise ValueError(f"'before' field too short {jsonl_path} line {line_num}")
+                    raise ValueError(f"'before' field too short in {jsonl_path} line {line_num}")
                 if "after" not in data:
-                    raise ValueError(f"'after' required for rule type 'order' in {jsonl_path} line {line_num}")
+                    raise ValueError(f"'after' field required for rule type 'order' in {jsonl_path} line {line_num}")
                 if len(data["after"]) < 10:
-                    raise ValueError(f"'after' field too short {jsonl_path} line {line_num}")
+                    raise ValueError(f"'after' field too short in {jsonl_path} line {line_num}")
             else:
                 raise ValueError(f"Unknown rule type '{rule_type}' in {jsonl_path} line {line_num}")
 
-            # If everything looks good, add to the rules list
             rules.append(data)
-
     return rules
-
 
 def run_rule(rule, md_file_path: str) -> (bool, str):
     """
@@ -95,9 +92,7 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
     if rule_type in ("present", "absent"):
         reference_query = rule["text"]
         threshold = rule.get("threshold", 1.0)
-
         best_ratio = fuzz.partial_ratio(reference_query, md_content) / 100.0
-
         if rule_type == "present":
             if best_ratio >= threshold:
                 return (True, "")
@@ -109,96 +104,96 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
             else:
                 return (False, f"Expected '{reference_query[:40]}...' with threshold {threshold} but best match ratio was {best_ratio:.3f}")
     elif rule_type == "order":
-        # Implement a simple ordering check: ensure that the anchor text appears,
-        # and if 'before' is specified, it must appear before the anchor;
-        # if 'after' is specified, it must appear after the anchor.
         before = rule.get("before")
         after = rule.get("after")
         threshold = rule.get("threshold", 1.0)
-
         max_l_dist = round((1.0 - threshold) * len(before))
-
         before_matches = find_near_matches(before, md_content, max_l_dist=max_l_dist)
         after_matches = find_near_matches(after, md_content, max_l_dist=max_l_dist)
-
         if not before_matches:
-            return (False, f"'before' search text '{before[:40]}...' does not appear in parse with max_l_dist {max_l_dist}")
-        
+            return (False, f"'before' search text '{before[:40]}...' not found with max_l_dist {max_l_dist}")
         if not after_matches:
-            return (False, f"'after' search text '{after[:40]}...' does not appear in parse with max_l_dist {max_l_dist}")
-        
-        # Go through each combination of matches and see if there exists one where the before .start is sooner than the after .start
+            return (False, f"'after' search text '{after[:40]}...' not found with max_l_dist {max_l_dist}")
         for before_match, after_match in itertools.product(before_matches, after_matches):
             if before_match.start < after_match.start:
                 return (True, "")
-
-        return (False, f"Could not find a place in the text where '{before[:40]}...' appears before '{after[:40]}...'.")
-
+        return (False, f"Could not find a location where '{before[:40]}...' appears before '{after[:40]}...'.")
     else:
         raise NotImplementedError(f"Rule type '{rule_type}' is not implemented.")
 
-
 def evaluate_candidate(candidate_folder: str, all_rules: list, pdf_basenames: list[str]):
     """
-    For the candidate folder (pipeline tool output), first validate that it contains
-    a .md file for every PDF in the pdf folder. Then, run each rule against the corresponding
-    .md file.
-
+    For the candidate folder (pipeline tool output), validate that it contains at least one .md file
+    (i.e. repeated generations like _1.md, _2.md, etc.) for every PDF in the pdf folder.
+    Then, run each rule against all corresponding .md files and average the results.
+    
     Returns a tuple:
-        (num_passed, total_rules, candidate_errors, rule_failures, rule_type_breakdown)
-    where:
-      - candidate_errors is a list of error strings (e.g. missing files or exceptions)
-      - rule_failures is a list of rule failure messages (a rule returning False is not an error)
-      - rule_type_breakdown is a dict with rule type as key and a tuple (passed, total) as value
-
-    NOTE: A rule returning False is not considered an 'error' but simply a rule failure.
-          Only exceptions and missing files are treated as candidate errors.
-          The rule_type_breakdown is added for a detailed breakdown of performance per rule type.
+      (overall_score, total_rules, candidate_errors, rule_failures, rule_type_breakdown)
+      
+      - overall_score: Average fraction of rules passed (averaged over repeats and rules).
+      - total_rules: Total number of rules evaluated.
+      - candidate_errors: List of candidate errors (e.g. missing files).
+      - rule_failures: List of failure messages for rules not passing on all repeats.
+      - rule_type_breakdown: Dictionary mapping rule type to list of average pass ratios for rules of that type.
     """
     candidate_errors = []
     rule_failures = []
-    rule_type_breakdown = {}  # key: rule type, value: [passed_count, total_count]
+    rule_type_breakdown = {}  # key: rule type, value: list of average pass ratios
     candidate_name = os.path.basename(candidate_folder)
-    num_passed = 0
-    total_rules = 0
 
-    # Validate that a .md file exists for every PDF.
+    # Map each PDF to its corresponding MD repeats (e.g., doc1_1.md, doc1_2.md, etc.)
+    pdf_to_md_files = {}
     for pdf_name in pdf_basenames:
-        # Change .pdf extension to .md (assumes pdf_name ends with .pdf)
-        md_name = os.path.splitext(pdf_name)[0] + ".md"
-        md_path = os.path.join(candidate_folder, md_name)
-        if not os.path.exists(md_path):
-            candidate_errors.append(f"Candidate '{candidate_name}' is missing {md_name} corresponding to {pdf_name}.")
+        md_base = os.path.splitext(pdf_name)[0]
+        md_pattern = os.path.join(candidate_folder, f"{md_base}_*.md")
+        md_files = glob.glob(md_pattern)
+        if not md_files:
+            candidate_errors.append(
+                f"Candidate '{candidate_name}' is missing MD repeats for {pdf_name} (expected files matching {md_base}_*.md)."
+            )
+        else:
+            pdf_to_md_files[pdf_name] = md_files
 
-    # If there are missing .md files, we don't run the rules.
     if candidate_errors:
-        return (0, len(all_rules), candidate_errors, rule_failures, rule_type_breakdown)
+        return (0.0, len(all_rules), candidate_errors, rule_failures, rule_type_breakdown)
 
-    # Evaluate rules. Each rule references a PDF (e.g., "doc1.pdf"), and we expect the candidate to have "doc1.md".
+    total_rule_score = 0.0
+
+    # Evaluate each rule. Each rule references a PDF (e.g., "doc1.pdf") so we get all its MD repeats.
     for rule in all_rules:
         rule_type = rule["type"]
-        # Initialize breakdown counts for this rule type if not already
         if rule_type not in rule_type_breakdown:
-            rule_type_breakdown[rule_type] = [0, 0]
-        rule_type_breakdown[rule_type][1] += 1  # increment total count
-
+            rule_type_breakdown[rule_type] = []
         pdf_name = rule["pdf"]
-        md_name = os.path.splitext(pdf_name)[0] + ".md"
-        md_path = os.path.join(candidate_folder, md_name)
-        total_rules += 1
-        try:
-            passed, explanation = run_rule(rule, md_path)
-            if passed:
-                num_passed += 1
-                rule_type_breakdown[rule_type][0] += 1  # increment passed count
-            else:
-                # A rule returning False is recorded as a rule failure, not an error.
-                rule_failures.append(f"Rule {rule.get('id')} on {md_name} failed: {explanation}")
-        except Exception as e:
-            # Exceptions are considered candidate errors.
-            candidate_errors.append(f"Error running rule {rule.get('id')} on {md_name}: {e}")
+        md_base = os.path.splitext(pdf_name)[0]
+        md_files = pdf_to_md_files.get(pdf_name, [])
+        if not md_files:
+            continue  # Should not occur due to earlier check.
+        repeat_passes = 0
+        num_repeats = 0
+        explanations = []
+        for md_path in md_files:
+            num_repeats += 1
+            try:
+                passed, explanation = run_rule(rule, md_path)
+                if passed:
+                    repeat_passes += 1
+                else:
+                    explanations.append(explanation)
+            except Exception as e:
+                candidate_errors.append(f"Error running rule {rule.get('id')} on {md_path}: {e}")
+                explanations.append(str(e))
+        rule_avg = repeat_passes / num_repeats if num_repeats > 0 else 0.0
+        total_rule_score += rule_avg
+        if rule_avg < 1.0:
+            rule_failures.append(
+                f"Rule {rule.get('id')} on {md_base} average pass ratio: {rule_avg:.3f} ({repeat_passes}/{num_repeats} repeats passed). "
+                f"Example explanation: {explanations[0] if explanations else 'No explanation'}"
+            )
+        rule_type_breakdown[rule_type].append(rule_avg)
 
-    return (num_passed, total_rules, candidate_errors, rule_failures, rule_type_breakdown)
+    overall_score = total_rule_score / len(all_rules) if all_rules else 0.0
+    return (overall_score, len(all_rules), candidate_errors, rule_failures, rule_type_breakdown)
 
 def main():
     parser = argparse.ArgumentParser(description="Run OLMOCR Bench.")
@@ -224,7 +219,7 @@ def main():
     # Get PDF basenames (e.g. "doc1.pdf")
     pdf_basenames = [os.path.basename(p) for p in all_pdf_files]
 
-    # Find .jsonl files in the input folder and validate them
+    # Find and validate .jsonl files in the input folder
     jsonl_files = glob.glob(os.path.join(input_folder, "*.jsonl"))
     if not jsonl_files:
         print(f"Error: No .jsonl files found in {input_folder}.", file=sys.stderr)
@@ -260,8 +255,8 @@ def main():
     print("\nRunning rules for each candidate:")
     for candidate in candidate_folders:
         candidate_name = os.path.basename(candidate)
-        num_passed, total_rules, candidate_errors, rule_failures, rule_type_breakdown = evaluate_candidate(candidate, all_rules, pdf_basenames)
-        summary.append((candidate_name, num_passed, total_rules, candidate_errors, rule_failures, rule_type_breakdown))
+        overall_score, total_rules, candidate_errors, rule_failures, rule_type_breakdown = evaluate_candidate(candidate, all_rules, pdf_basenames)
+        summary.append((candidate_name, overall_score, total_rules, candidate_errors, rule_failures, rule_type_breakdown))
         print(f"\nCandidate: {candidate_name}")
         if candidate_errors:
             for err in candidate_errors:
@@ -270,23 +265,24 @@ def main():
             if rule_failures:
                 for fail in rule_failures:
                     print(f"  [FAIL] {fail}")
-            print(f"  Passed {num_passed} out of {total_rules} rules.")
+            print(f"  Average Score: {overall_score * 100:.1f}% over {total_rules} rules.")
 
-    # Print a final summary (if only rule failures occurred, we output the score and breakdown)
+    # Print final summary with breakdown by rule type
     print("\n" + "="*50)
     print("Final Summary:")
-    for candidate_name, num_passed, total_rules, candidate_errors, _, rule_type_breakdown in summary:
+    for candidate_name, overall_score, total_rules, candidate_errors, _, rule_type_breakdown in summary:
         if candidate_errors:
             status = "FAILED (errors)"
         else:
-            status = f"{num_passed / total_rules * 100:0.1f}%"
-        print(f"{candidate_name:20s} : {num_passed:3d}/{total_rules:3d} rules passed - {status}")
+            status = f"{overall_score * 100:0.1f}%"
+        print(f"{candidate_name:20s} : Average Score: {overall_score * 100:0.1f}% over {total_rules:3d} rules - {status}")
         print("  Breakdown by rule type:")
-        for rtype, counts in rule_type_breakdown.items():
-            passed_count, total_count = counts
-            percentage = passed_count / total_count * 100 if total_count else 0
-            print(f"    {rtype:8s}: {passed_count:2d}/{total_count:2d} rules passed ({percentage:0.1f}%)")
-
+        for rtype, scores in rule_type_breakdown.items():
+            if scores:
+                avg = sum(scores) / len(scores) * 100
+            else:
+                avg = 0.0
+            print(f"    {rtype:8s}: {avg:0.1f}% average pass rate over {len(scores)} rules")
     print("="*50)
 
 if __name__ == "__main__":
