@@ -1,6 +1,7 @@
 import os
 import shutil
 import argparse
+import tempfile
 
 from magic_pdf.data.data_reader_writer import FileBasedDataWriter, FileBasedDataReader
 from magic_pdf.data.dataset import PymuDocDataset
@@ -9,14 +10,12 @@ from magic_pdf.config.enums import SupportedPdfParseMethod
 
 
 def run_mineru(pdf_path: str, page_num: int=1) -> str:
-   
-    # Create output directories if they don't exist
-    os.makedirs(image_output_folder, exist_ok=True)
-    os.makedirs(output_folder, exist_ok=True)
+    output_folder = tempfile.TemporaryDirectory()
+    image_output_folder = tempfile.TemporaryDirectory()
 
     # Initialize writers (same for all PDFs)
-    image_writer = FileBasedDataWriter(image_output_folder)
-    md_writer = FileBasedDataWriter(output_folder)
+    image_writer = FileBasedDataWriter(str(image_output_folder))
+    md_writer = FileBasedDataWriter(str(output_folder))
 
     # Read the PDF file bytes
     reader = FileBasedDataReader("")
@@ -44,20 +43,5 @@ def run_mineru(pdf_path: str, page_num: int=1) -> str:
     with open(os.path.join(output_folder, md_file_name), "r") as f:
         md_data = f.read()
 
-    # Remove useless image folder
-    shutil.rmtree(image_output_folder)
-
     return md_data
 
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Convert all PDF files in a folder to markdown and related outputs using MinerU."
-    )
-    parser.add_argument(
-        "pdf_folder",
-        type=str,
-        help="Path to the folder containing PDF files (e.g., '/path/to/pdfs')"
-    )
-    args = parser.parse_args()
-    run(args.pdf_folder)

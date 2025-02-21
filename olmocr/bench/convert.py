@@ -52,6 +52,7 @@ if __name__ == "__main__":
         "gotocr": ("olmocr.bench.runners.run_gotocr", "run_gotocr"),
         "marker": ("olmocr.bench.runners.run_marker", "run_marker"),
         "mineru": ("olmocr.bench.runners.run_mineru", "run_mineru"),
+        "chatgpt": ("olmocr.bench.runners.run_chatgpt", "run_chatgpt"),
     }
 
     # Build config by importing only requested methods.
