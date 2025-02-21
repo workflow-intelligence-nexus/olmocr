@@ -8,3 +8,6 @@
 {"pdf": "multi_column_miss.pdf", "id": "multi_column_miss_11", "type": "order", "before": "It now looks like that with vigilance", "after": "this leaves BAT to argue why it should not be held to be largely accountable for the annual deaths", "threshold": 0.95}
 {"pdf": "multi_column_miss.pdf", "id": "multi_column_miss_12", "type": "order", "before": "Corporate social responsibility (CSR) emerged from a realisation among transnational corporations", "after": " perspective on its own behaviour; and reflects on whether marketing tobacco is antithetical to social responsibility.", "threshold": 0.95}
 
+{"pdf": "discoverworld_crazy_table4.pdf", "id": "discoverworld_crazy_table4_00", "type": "present", "text": "Table 4: Baseline model performance on each of the three scoring metrics", "threshold": 1.0}
+{"pdf": "discoverworld_crazy_table4.pdf", "id": "discoverworld_crazy_table4_01", "type": "present", "text": "Table 5: Baseline model performance on each of the three scoring metrics", "threshold": 1.0}
+{"pdf": "discoverworld_crazy_table4.pdf", "id": "discoverworld_crazy_table4_02", "type": "present", "text": "We use the GPT-4O model for all our agents due to its higher performance and lower cost compared to other models. For space we provide", "threshold": 1.0}
