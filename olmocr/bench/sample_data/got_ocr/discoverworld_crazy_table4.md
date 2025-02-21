@@ -62,58 +62,54 @@ Protometrics
 Clustering 
 1 
 Easy 
-Simpliﬁed Clustering 
+Simplified Clustering 
 0.37 
 0.20 
 0.20 
 0.20 
-0.20 
 0.00 
 0.00 
 0.00 
 0.40 
-0.00 
-2 
+0.40 
+1 
 Easy 
-Simpliﬁed Clustering 
-0.40 
-0.40 
-0.40 
-0.40 
-0.64 
+Simplified Clustering 
+0.37 
+0.20, 0.20 
 0.20 
+0.00 
+0.00 0.00 
 0.00 
 0.93 
 0.40 
 0.40 
-3 
+2 
 Challenge 
 Clustering (3D) 
 0.28 
-0.40 
-0.60 
+0.40, 0.60 
 0.58 
 0.20 
 0.00 
 0.93 
-0.44 
+0.40 
 0.60 
-0.60 
-4 
-Semi-
+0.58 
+3 
+Eingloring Conbinations and Hill Climbing 
 Chemistry 
-Exploring Combinations and Hill Climbing 
+Exploring Conbinations 
+0.37 
+0.20, 0.20 
+0.30 
+0.20 
 0.00 
 0.00 
-0.00 
-0.00 
-0.01 
-0.00 
-0.00 
-0.00 
-0.05 
-0.00 
-5 
+0.40 
+0.60 
+0.58 
+4 
 Normal 
 Mix of 3 substances 
 0.82 
@@ -125,71 +121,64 @@ Mix of 3 substances
 0.93 
 0.40 
 0.00 
-0.6 
 6 
 Challenge 
 Mix of 4 substances 
 0.90 
-0.40 
-0.00 
+0.40, 0.00 
 0.90 
 0.40 
 0.00 
 0.87 
 0.00 
 0.00 
-0.00 
+0.90 
 7 
-Semi-
 Easy 
 Simple instrument 
 0.27 
-0.60 
-0.00 
+0.60, 0.00 
 0.33 
 0.20 
 0.00 
 0.60 
 0.20 
 0.50 
-0.00 
+0.50 
 8 
-Challenge 
-Instrument Use 
+Easy 
+Simplified Clustering 
 0.40 
+0.40, 0.60 
 0.40 
-0.40 
-0.48 
 0.00 
 0.00 
-0.55 
+0.65 
 0.40 
 0.40 
-0.40 
+0.60 
 9 
 Challenge 
-Simpliﬁed Clustering 
 0.40 
+0.40, 0.60 
+0.58 
 0.40 
-1.00 
+0.00 
+0.65 
 0.40 
-0.00 
-0.00 
-0.55 
-0.41 
-0.00 
-0.00 
+0.60 
+0.58 
 9 
 Reactor Lab 
 Regression 
 0.42 
-0.00 
-0.00 
+0.00, 0.00 
 0.40 
-0.01 
+0.00 
 0.10 
 0.38 
 0.00 
+0.20 
 0.20 
 11 
 Normal 
@@ -215,12 +204,11 @@ Quadratic regression
 0.39 
 0.00 
 0.00 
-0.00 
 13 
-Semi-
-Simpliﬁed rules 
-0.82 
-0.00 
+Easy 
+Simplified rules 
+0.88 
+0.20 
 0.20 
 0.70 
 0.20 
@@ -241,8 +229,8 @@ Presence rules
 0.00 
 0.00 
 15 
-Semi-
-Simpliﬁed Data 
+Large 
+Eingloring 
 0.89 
 0.40 
 0.00 
@@ -254,38 +242,29 @@ Simpliﬁed Data
 0.00 
 Space Sick 
 Open-ended discovery 
-0.6 
-0.00 
-0.00 
-0.68 
-0.40 
-0.10 
-0.16 
-0.00 
-0.00 
 16 
 Easy 
 Single instrument 
 0.78 
-0.00 
+0.60 
 0.00 
 0.68 
-0.44 
-0.10 
-0.16 
-0.00 
-0.01 
-17 
-Semi-
-Simpliﬁed 
-0.78 
-0.00 
-0.00 
-0.69 
 0.40 
 0.10 
 0.16 
+0.00 
+0.00 
+17 
+Easy 
+Simplified Clustering 
+0.40 
+0.00 
+0.20 
+0.39 
 0.01 
+0.00 
+0.30 
+0.00 
 0.00 
 18 
 Challenge 
@@ -301,19 +280,18 @@ Novel instruments
 0.00 
 Rocket Science 
 Multi-step measurements and applying formulas 
-0.3 
+0.30 
 0.00 
 0.00 
 0.00 
-0.02 
+0.00 
+0.10 
 0.00 
 0.00 
 0.00 
-0.03 
 20 
 Normal 
-Semi-
-Simpliﬁed 
+Machine 
 0.51 
 0.00 
 0.05 
@@ -348,18 +326,6 @@ Measure 5 variables
 0.00 
 0.03 
 23 
-Semi-
-Simpliﬁed 
-0.50 
-0.00 
-0.00 
-0.00 
-0.20 
-0.0 
-0.00 
-0.00 
-0.00 
-24 
 Easy 
 Single noun 
 0.40 
@@ -371,7 +337,7 @@ Single noun
 0.20 
 0.20 
 0.00 
-25 
+24 
 Normal 
 Noun and verb 
 0.20 
@@ -381,23 +347,22 @@ Noun and verb
 0.20 
 0.00 
 0.15 
-0.40 
 0.00 
-26 
+0.20 
+25 
 Challenge 
 Noun, all., and verb 
 0.49 
 0.00 
 0.00 
-0.49 
+0.40 
 0.00 
 0.00 
 0.20 
-0.01 
+0.0 
 0.00 
-27 
-Semi-
-Simpliﬁed 
+26 
+Average 
 0.56 
 0.18 
 0.11 
@@ -439,11 +404,10 @@ Unit Test Topic
 0.00 
 0.00 
 0.00 
-0.04 
+0.01 
 0.00 
 0.00 
 0.00 
-0.06 
 25 
 Multi-turn dialog with an agent 
 1.00 
@@ -461,21 +425,19 @@ Measure an object with an instrument
 0.40 
 1.00 
 1.00 
-1.00 
 28 
-Semi-
-Simpliﬁed 
+Circle 
 0.00 
 0.00 
 0.00 
-0.08 
+0.02 
 0.00 
 0.00 
 0.00 
-0.0.0 
+0.0 
 0.00 
 29 
-Pick-and-give object 
+Pick-and give object 
 1.00 
 1.00 
 1.00 
@@ -491,9 +453,8 @@ Read DiscoveryFeed posts
 0.00 
 0.30 
 0.00 
+0.0 
 0.00 
-0.00 
-0.50 
 31 
 Using keys with doors 
 0.69 
@@ -503,7 +464,7 @@ Using keys with doors
 0.69 
 0.00 
 32 
-Navigate to a speciﬁc room in a house 
+Navigate to a specific room in a house 
 0.20 
 0.20 
 0.20 
@@ -511,7 +472,6 @@ Navigate to a speciﬁc room in a house
 0.00 
 0.20 
 0.20 
-0.33 
 33 
 Search an environment for an object 
 0.60 

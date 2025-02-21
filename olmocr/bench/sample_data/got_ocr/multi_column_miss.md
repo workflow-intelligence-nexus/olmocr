@@ -36,15 +36,12 @@ Hirschhorn. A Report. http://www.bango.com.au/articles/2004/05/16
 Rishidson N. Corporate social responsibility and the tobacco industry. hope
 or hypo? Tobacco Control 2004;13.447–53.
 5
-Buch, Michael, and Michael Scherer. “Healthcare website. http://
-www.ethalicorg.com/asia2004/.
+Ghupan S, Shattenelin S. Extreme corporate makeover tobacco companies,
+and the industry’s public relations ambitions. The “health”.
+” Globalist petition.
+http://petition globalink.org/view.php/Canada—extreme World Health
 6
-Chopman S, Shatenstein S. Eterne corporate makeover tobacco companies,
-and the industry’s public relations ambitions. http://www.bishair.com/2004/
-http://petition globalink.org/view.php/roades-entree-entree/.
-7
-6
-Mockay J, Erikson M. The Tobacco Effects. Green: World Health
+Mockay J, Erikson M. The Tobacco Affairs. Geneva: World Health
 Organization, 2002.
 INDUSTRY WATCH
 Corporate social responsibility and the tobacco industry:
@@ -62,44 +59,1489 @@ Philip Morris showing the company’s deliberations on the
 matter, and the company’s perspective on its own
 behaviour; and reflects on whether marketing tobacco is
 antithetical to social responsibility.
-Correspondence to:
-Dr Norbert Hirschhorn,
-Nostalonte 6, A3 00600
-Helsinki, Finland, 000000.
-Received
-13 November 2003
-Accepted 15 July 2004
-Tobacco Control 2004;13.447–453. doi: 10.1136/rlc.2003.006676
-tobacco company espousing CSR should be
-judged simply as a corporate entity along
-standards of business ethics, or as an irretrie-
-vably negative force in the realm of public health,
-thereby rendering CSR an oxymoron.
-CORPORATE SOCIAL RESPONSIBILITY:
-THE CONTEXT
-The term “corporate social responsibility” is in
-vogue at the moment bounds a concept it is vague
-and means different groups to different people.4
-The report from CSR trace its American roots
-to the 19th century when large industries
-engaged in philanthropy and established great
-public institutions, a form of “noblesse object”.
-But the notion that corporations should be
-noted to the extent to the two society because of
-their impact on society, and the environment
-from the civil rights, peace, and environmental
-movements of the last half century.2 The
-unprecedented expansion of power and influ-
-ence of TNCs over the past three decades has
-accelerated global trade and development, but
-also environmental damage and abuses of
-the world.
-Abbreviations: ASH, Action on Smoking and Health,
-and Health, and Health, and Health, and Health
-Environmentally Responsible Economies; CSR, corporate
-social responsibility, DJSI, Dow Jones Sustainability Index;
-CACA, Global Corporate Affairs Council; GRI, Global
-Health, and Health, and Health, and Health, and
-NGOs, non-governmental organisations; PM, Philip
-Morris; TNCs, transnational corporations; UNEP, United
-Nations Environment Program
+Corporate social responsibility (CSR) emerged from a
+realisation among transnational corporations of the need 
+to account for and redress their adverse impact on society: 
+specifically, on human rights, labour practices, and the 
+environment. Two transnational tobacco companies have 
+recently adopted CSR: Philip Morris, and British American
+Tobacco. This report explains this origins and theory
+behind CSR; examines internal company documents from
+Philip Morris showing the company's deliberations on the 
+matter, and the company’s perspective on its own
+behaviour; and reflects on whether marketing Tobacco is 
+antithetical to social responsibility.
+Corporate social responsibility (CSR) emerged from a
+realisationamong transnational corporations of the need 
+to account for and redress their adverse impact on society: 
+ 
+specifically, on human rights, labour practices, and the 
+environment. Two transnational tobaccoCompanies have 
+recently adopted CSR: Philip Morris, and British American
+Tobacco. This Report lists the context of the international
+corporations of the need. This report is first provides the context
+of the international, and the company’s perspective on its own
+the context of the international, and the company’s perspective on its 
+own
+the context of the international, and the company’s perspective on its own
+the context of the international, and its own
+the context of the international, and its own
+the context of the international, 
+and its own
+the context of the international, and its own
+the context of the international, 
+ 
+and its own
+the context of the international, and its own
+the context of the international,
+and its own
+the context of the international, and its own
+the context of the international
+and its own
+the context of the international, and its own
+the context of the international.
+and its own
+and its own
+and its own
+and its own
+and its own
+and its own.
+and its own
+and its own
+and its own
+and its own
+and its
+and its own
+and its own
+and its own
+and its own
+and its
+of
+of
+of
+of
+of
+of
+of
+of
+of
+of
+and its own
+and its own
+and its own
+and its own
+and its now
+and its now
+and its now
+and its now
+and its now
+and its own
+and its now
+and its now
+and its now
+and its own
+and its own
+and its own
+and its own
+and its new
+and its new
+and its new
+and its new
+and its new
+and its now
+and its now
+and its now
+and its now
+and its new
+and its now
+and its now
+and its now
+and its new
+and its new
+and its now
+and its now
+and its new
+and its now
+and its new
+and its now
+and its now
+and its new
+and its new
+and its new
+and its new
+and its
+and its new
+and its new
+and its new
+and its new
+and its 
+and its 
+and its 
+and its 
+and its 
+and its 
+and its 
+and 
+and its 
+and its 
+and its 
+and its 
+and its 
+and its 
+the 
+the 
+the 
+the 
+the 
+the 
+the 
+the 
+the 
+the 
+and its 
+and its 
+and its 
+and its 
+and its 
+and its 
+of
+of
+of
+of
+of
+of
+of
+of
+of
+of 
+of 
+of 
+of 
+of 
+of 
+of 
+of 
+of 
+of 
+of
+of 
+of 
+of 
+of 
+of 
+of 
+of 
+of 
+of
+of
+of 
+of 
+of 
+of 
+of 
+of 
+of 
+of
+of 
+of
+of 
+of 
+of 
+of 
+of 
+of 
+of 
+of
+of
+of
+of 
+of 
+of 
+of 
+of 
+of 
+of
+of 
+of 
+of
+of 
+of 
+of 
+of 
+of 
+of 
+of
+of 
+of
+of
+of 
+of 
+of 
+of 
+of 
+of 
+of
+of
+of 
+of
+of 
+of 
+of 
+of 
+of 
+of 
+of
+of
+of
+of
+of 
+of 
+of 
+of 
+of 
+of
+of 
+of 
+of 
+of
+of 
+of 
+of 
+of 
+of 
+of
+of 
+of 
+of
+of
+of 
+of 
+of 
+of 
+of 
+of
+of 
+of
+of 
+of
+of 
+of 
+of 
+of 
+of 
+of
+of 
+of
+of
+of
+of 
+of 
+of 
+of 
+of 
+of
+of
+of 
+of 
+of
+of 
+of 
+of 
+of 
+of 
+of
+of
+of 
+of
+of
+of 
+of 
+of 
+of 
+of 
+of
+of
+of
+of 
+of
+of 
+of 
+of 
+of 
+of 
+of
+of
+of
+of
+of
+of 
+of 
+of 
+of 
+of
+of 
+of 
+of 
+of 
+of
+of 
+of 
+of 
+of
+of
+of 
+of 
+of 
+of 
+of
+of 
+of 
+of
+of 
+of
+of 
+of 
+of 
+of 
+of
+of 
+of 
+of
+of
+of
+of 
+of 
+of 
+of 
+of
+of 
+of
+of 
+of 
+of
+of 
+of 
+of 
+of 
+of
+of
+of
+of
+of
+of
+of
+of
+of
+and
+and
+and
+and
+and
+and
+and
+and
+and
+and
+of
+of
+of
+of
+of
+of
+of
+of
+of
+OF
+OF
+OF
+OF
+OF
+OF
+OF
+OF
+OF
+OF
+of
+OF
+OF
+OF
+OF
+OF
+OF
+OF
+OF
+of
+of
+of
+of
+of
+of
+of
+of
+of
+o
+of
+of
+of
+of
+of
+of
+of
+of
+of
+a
+a
+a
+a
+a
+a
+a
+a
+a
+a
+and
+and
+and
+and
+and
+and
+and
+and
+and
+a
+a
+a
+a
+a
+a
+a
+a
+a
+of
+of
+of
+of
+of
+of
+of
+of
+of
+af
+af
+af
+af
+af
+af
+af
+af
+af
+af
+a
+af
+af
+af
+af
+af
+af
+af
+af
+af
+of
+of
+of
+of
+of
+of
+of
+of
+of
+ef
+ef
+ef
+ef
+ef
+ef
+ef
+ef
+ef
+ef
+of
+of
+of
+of
+of
+of
+of
+of
+of
+f
+f
+f
+f
+f
+f
+f
+f
+f
+f
+of
+of
+of
+of
+of
+of
+of
+of
+of
+fo
+fo
+fo
+fo
+fo
+fo
+fo
+fo
+fo
+fo
+of
+of
+of
+of
+of
+of
+of
+of
+of
+lo
+lo
+lo
+lo
+lo
+lo
+lo
+lo
+lo
+lo
+l
+l
+l
+l
+l
+l
+l
+l
+l
+l
+ll
+ll
+ll
+ll
+ll
+ll
+ll
+ll
+ll
+ll
+l
+ll
+ll
+ll
+ll
+ll
+ll
+ll
+ll
+l
+l
+ll
+ll
+ll
+ll
+ll
+ll
+ll
+l
+ll
+l
+ll
+ll
+ll
+ll
+ll
+ll
+ll
+l
+l
+l
+ll
+ll
+ll
+ll
+ll
+ll
+l
+ll
+ll
+l
+ll
+ll
+ll
+ll
+ll
+ll
+l
+ll
+l
+l
+ll
+ll
+ll
+ll
+ll
+ll
+l
+l
+ll
+l
+ll
+ll
+ll
+ll
+ll
+ll
+l
+l
+l
+l
+ll
+ll
+ll
+ll
+ll
+l
+ll
+ll
+ll
+l
+ll
+ll
+ll
+ll
+ll
+l
+ll
+ll
+l
+l
+ll
+ll
+ll
+ll
+ll
+l
+ll
+l
+ll
+l
+ll
+ll
+ll
+ll
+ll
+l
+ll
+l
+l
+l
+ll
+ll
+ll
+ll
+ll
+l
+l
+ll
+ll
+l
+ll
+ll
+ll
+ll
+ll
+l
+l
+ll
+l
+l
+ll
+ll
+ll
+ll
+ll
+l
+l
+l
+ll
+l
+ll
+ll
+ll
+ll
+ll
+l
+l
+l
+l
+l
+ll
+ll
+ll
+ll
+l
+ll
+ll
+ll
+ll
+l
+ll
+ll
+ll
+l
+l
+ll
+ll
+ll
+ll
+l
+ll
+ll
+l
+ll
+l
+ll
+ll
+ll
+ll
+l
+ll
+ll
+l
+l
+l
+ll
+ll
+ll
+ll
+l
+ll
+l
+ll
+ll
+l
+ll
+ll
+ll
+ll
+l
+ll
+l
+ll
+l
+l
+ll
+ll
+ll
+ll
+l
+ll
+l
+l
+ll
+l
+ll
+ll
+ll
+ll
+l
+ll
+l
+l
+l
+l
+ll
+ll
+ll
+ll
+l
+l
+ll
+ll
+ll
+l
+ll
+ll
+ll
+ll
+l
+l
+ll
+ll
+l
+l
+ll
+ll
+ll
+ll
+l
+l
+ll
+l
+ll
+l
+ll
+ll
+ll
+ll
+l
+l
+ll
+l
+l
+l
+ll
+ll
+ll
+ll
+l
+l
+l
+ll
+ll
+l
+ll
+ll
+ll
+ll
+l
+l
+l
+ll
+l
+l
+ll
+ll
+ll
+ll
+l
+l
+l
+l
+ll
+l
+ll
+ll
+ll
+ll
+l
+l
+l
+l
+l
+l
+ll
+ll
+ll
+l
+ll
+ll
+ll
+l
+ll
+l
+ll
+ll
+ll
+l
+ll
+ll
+ll
+l
+l
+l
+ll
+ll
+ll
+l
+ll
+ll
+l
+ll
+ll
+l
+ll
+ll
+ll
+l
+ll
+ll
+l
+ll
+l
+l
+ll
+ll
+ll
+l
+ll
+ll
+l
+l
+ll
+l
+ll
+ll
+ll
+l
+ll
+ll
+l
+l
+l
+l
+ll
+ll
+ll
+l
+ll
+l
+ll
+ll
+l
+l
+ll
+ll
+ll
+l
+ll
+l
+ll
+l
+ll
+l
+ll
+ll
+ll
+l
+ll
+l
+ll
+l
+l
+l
+ll
+ll
+ll
+l
+ll
+l
+l
+ll
+ll
+l
+ll
+ll
+ll
+l
+ll
+l
+l
+ll
+l
+l
+ll
+ll
+ll
+l
+ll
+l
+l
+l
+ll
+l
+ll
+ll
+ll
+l
+ll
+l
+l
+l
+l
+l
+ll
+ll
+ll
+l
+l
+ll
+ll
+ll
+l
+l
+ll
+ll
+l
+ll
+l
+ll
+ll
+ll
+l
+l
+ll
+ll
+l
+l
+l
+ll
+ll
+ll
+l
+l
+ll
+l
+ll
+ll
+l
+ll
+ll
+ll
+l
+l
+ll
+l
+ll
+l
+l
+ll
+ll
+ll
+l
+l
+ll
+l
+l
+ll
+l
+ll
+ll
+ll
+l
+l
+ll
+l
+l
+l
+l
+ll
+ll
+ll
+l
+l
+l
+ll
+ll
+l
+l
+ll
+ll
+ll
+l
+l
+l
+ll
+l
+ll
+l
+ll
+ll
+ll
+l
+l
+l
+ll
+l
+l
+l
+ll
+ll
+ll
+l
+l
+l
+l
+ll
+ll
+l
+ll
+ll
+ll
+l
+l
+l
+l
+ll
+l
+l
+ll
+ll
+ll
+l
+l
+l
+l
+l
+ll
+l
+ll
+ll
+ll
+l
+l
+l
+l
+l
+l
+l
+ll
+ll
+l
+ll
+ll
+l
+ll
+ll
+l
+l
+ll
+ll
+l
+ll
+ll
+l
+ll
+l
+ll
+l
+ll
+ll
+l
+ll
+ll
+l
+ll
+l
+l
+l
+ll
+ll
+l
+ll
+ll
+l
+l
+ll
+l
+l
+ll
+ll
+l
+ll
+ll
+l
+l
+l
+ll
+l
+ll
+ll
+l
+ll
+ll
+l
+l
+l
+l
+l
+ll
+ll
+l
+ll
+l
+ll
+ll
+l
+ll
+l
+ll
+ll
+l
+l
+l
+ll
+ll
+l
+ll
+l
+ll
+l
+ll
+l
+l
+ll
+ll
+l
+ll
+l
+ll
+l
+l
+ll
+l
+ll
+ll
+l
+ll
+l
+ll
+l
+l
+l
+l
+ll
+ll
+l
+ll
+l
+l
+ll
+ll
+l
+l
+ll
+ll
+l
+ll
+l
+l
+ll
+l
+ll
+l
+ll
+ll
+l
+ll
+l
+l
+ll
+l
+l
+l
+ll
+ll
+l
+ll
+l
+l
+l
+ll
+l
+l
+ll
+ll
+l
+ll
+l
+l
+l
+l
+ll
+l
+ll
+ll
+l
+ll
+l
+l
+l
+l
+l
+l
+ll
+ll
+l
+l
+ll
+ll
+l
+l
+ll
+l
+ll
+ll
+l
+l
+ll
+ll
+l
+l
+l
+l
+ll
+ll
+l
+l
+ll
+l
+ll
+l
+ll
+l
+ll
+ll
+l
+l
+ll
+l
+ll
+l
+l
+l
+ll
+ll
+l
+l
+ll
+l
+l
+ll
+l
+l
+ll
+ll
+l
+l
+ll
+l
+l
+l
+ll
+l
+ll
+ll
+l
+l
+ll
+l
+l
+l
+l
+l
+ll
+ll
+l
+l
+l
+ll
+ll
+l
+l
+l
+ll
+l
+ll
+l
+l
+ll
+ll
+l
+l
+l
+ll
+l
+l
+ll
+l
+ll
+ll
+l
+l
+l
+ll
+l
+l
+l
+l
+ll
+ll
+l
+l
+l
+l
+ll
+l
+ll
+l
+ll
+ll
+l
+l
+l
+l
+ll
+l
+l
+l
+ll
+ll
+l
+l
+l
+l
+l
+ll
+l
+l
+ll
+ll
+l
+l
+l
+l
+l
+l
+ll
+l
+ll
+ll
+l
+l
+l
+l
+l
+l
+l
+l
+ll
+l
+ll
+l
+ll
+l
+ll
+l
+ll
+l
+l
+l

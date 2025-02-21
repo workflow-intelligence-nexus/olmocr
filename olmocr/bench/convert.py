@@ -22,15 +22,18 @@ if __name__ == "__main__":
         "got_ocr": {
             "method": run_gotocr,
             "temperature": 0.0,
-        }
+        },
     }
 
+
     for candidate in config.keys():
-        print(candidate)
+        print(f"Starting conversion using {candidate}")
         os.makedirs(os.path.join(data_directory, candidate), exist_ok=True)
 
-        for pdf_path in glob.glob(os.path.join(pdf_directory, "*.pdf")):
-            print(pdf_path)
+        for pdf_path in tqdm(glob.glob(os.path.join(pdf_directory, "*.pdf")), desc=candidate):
             markdown = config[candidate]["method"](pdf_path, page_num=1)
+
+            with open(os.path.join(data_directory, candidate, os.path.basename(pdf_path).replace(".pdf", ".md")), "w") as out_f:
+                out_f.write(markdown)
 
             
