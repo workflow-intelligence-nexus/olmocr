@@ -166,11 +166,21 @@ options:
 ```
 
 
-#### TODOs for future versions
- - Ask model to predict footnotes in a structured format separately
- - Add training data for complex tables
- - More training augmentations to improve performance
- - Fix pages which are all-references sometimes rendering as empty-text
- - Automated benchmarking
- - More efficient inference with 8-bit KV cache
- 
+## Team
+
+<!-- start team -->
+
+**olmOCR** is developed and maintained by the AllenNLP team, backed by [the Allen Institute for Artificial Intelligence (AI2)](https://allenai.org/).
+AI2 is a non-profit institute with the mission to contribute to humanity through high-impact AI research and engineering.
+To learn more about who specifically contributed to this codebase, see [our contributors](https://github.com/allenai/olmocr/graphs/contributors) page.
+
+<!-- end team -->
+
+## License
+
+<!-- start license -->
+
+**olmOCR** is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+A full copy of the license can be found [on GitHub](https://github.com/allenai/olmocr/blob/main/LICENSE).
+
+<!-- end license -->
