@@ -46,13 +46,6 @@ pip install sgl-kernel==0.0.3.post1 --force-reinstall --no-deps
 pip install "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
 
-**BETA TESTER NOTE:**
-
-If you are a beta tester, you will need to login using the hugging-face CLI
-to make sure you have access to https://huggingface.co/allenai/olmOCR-7B-0225-preview
- 
-`huggingface-cli login`
-
 ### Local Usage Example
 
 For quick testing, try the [web demo](https://olmocr.allen.ai/). To run locally, a GPU is required, as inference is powered by [sglang](https://github.com/sgl-project/sglang) under the hood.
