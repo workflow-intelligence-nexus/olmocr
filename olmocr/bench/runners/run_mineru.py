@@ -14,8 +14,8 @@ def run_mineru(pdf_path: str, page_num: int=1) -> str:
     image_output_folder = tempfile.TemporaryDirectory()
 
     # Initialize writers (same for all PDFs)
-    image_writer = FileBasedDataWriter(str(image_output_folder))
-    md_writer = FileBasedDataWriter(str(output_folder))
+    image_writer = FileBasedDataWriter(image_output_folder.name)
+    md_writer = FileBasedDataWriter(output_folder.name)
 
     # Read the PDF file bytes
     reader = FileBasedDataReader("")
@@ -33,15 +33,16 @@ def run_mineru(pdf_path: str, page_num: int=1) -> str:
         pipe_result = infer_result.pipe_txt_mode(image_writer)
 
     # Generate markdown content; the image directory is the basename of the images output folder
-    image_dir_basename = os.path.basename(image_output_folder)
+    image_dir_basename = os.path.basename(image_output_folder.name)
     md_content = pipe_result.get_markdown(image_dir_basename)
 
     # Dump markdown file
-    md_file_name = f"{name_without_suff}.md"
-    pipe_result.dump_md(md_writer, md_file_name, image_dir_basename)
+    with tempfile.NamedTemporaryFile("w+", suffix="md") as tf:
+        pipe_result.dump_md(md_writer, tf.name, image_dir_basename)
+        tf.flush()
 
-    with open(os.path.join(output_folder, md_file_name), "r") as f:
-        md_data = f.read()
+        tf.seek(0)
+        md_data = tf.read()
 
     return md_data
 
