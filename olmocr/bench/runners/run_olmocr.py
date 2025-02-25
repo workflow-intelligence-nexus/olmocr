@@ -1,9 +1,10 @@
-import sys
+import asyncio
 import glob
 import json
 import os
 import shutil
-import asyncio
+import sys
+
 import olmocr.pipeline
 
 # Set sys.argv as if you were running the script from the command line.
@@ -11,9 +12,10 @@ import olmocr.pipeline
 workspace_dir = "olmocr/bench/sample_data/olmocr/workspace"
 
 sys.argv = [
-    "pipeline.py",              # The script name (can be arbitrary)
-    "olmocr/bench/sample_data/olmocr/workspace",            # Positional argument: workspace
-    "--pdfs", *list(glob.glob("olmocr/bench/sample_data/pdfs/*.pdf")),  # PDF paths
+    "pipeline.py",  # The script name (can be arbitrary)
+    "olmocr/bench/sample_data/olmocr/workspace",  # Positional argument: workspace
+    "--pdfs",
+    *list(glob.glob("olmocr/bench/sample_data/pdfs/*.pdf")),  # PDF paths
 ]
 
 # Call the async main() function.

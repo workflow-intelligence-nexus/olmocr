@@ -12,14 +12,15 @@ The final score is averaged over the repeated generations.
 """
 
 import argparse
-import os
-import json
 import glob
-import sys
 import itertools
+import json
+import os
+import sys
 
-from rapidfuzz import fuzz
 from fuzzysearch import find_near_matches
+from rapidfuzz import fuzz
+
 
 def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
     """
@@ -30,7 +31,7 @@ def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
 
     rules = []
     rule_ids = set()
-    with open(jsonl_path, 'r', encoding='utf-8') as f:
+    with open(jsonl_path, "r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -75,6 +76,7 @@ def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
             rules.append(data)
     return rules
 
+
 def run_rule(rule, md_file_path: str) -> (bool, str):
     """
     Run the given rule on the content of the provided .md file.
@@ -82,7 +84,7 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
     and 'explanation' is a short message explaining the failure when the rule does not pass.
     """
     try:
-        with open(md_file_path, 'r', encoding='utf-8') as f:
+        with open(md_file_path, "r", encoding="utf-8") as f:
             md_content = f.read()
     except Exception as e:
         return (False, f"Error reading {md_file_path}: {e}")
@@ -121,15 +123,16 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
     else:
         raise NotImplementedError(f"Rule type '{rule_type}' is not implemented.")
 
+
 def evaluate_candidate(candidate_folder: str, all_rules: list, pdf_basenames: list[str]):
     """
     For the candidate folder (pipeline tool output), validate that it contains at least one .md file
     (i.e. repeated generations like _1.md, _2.md, etc.) for every PDF in the pdf folder.
     Then, run each rule against all corresponding .md files and average the results.
-    
+
     Returns a tuple:
       (overall_score, total_rules, candidate_errors, rule_failures, rule_type_breakdown)
-      
+
       - overall_score: Average fraction of rules passed (averaged over repeats and rules).
       - total_rules: Total number of rules evaluated.
       - candidate_errors: List of candidate errors (e.g. missing files).
@@ -148,9 +151,7 @@ def evaluate_candidate(candidate_folder: str, all_rules: list, pdf_basenames: li
         md_pattern = os.path.join(candidate_folder, f"{md_base}_*.md")
         md_files = glob.glob(md_pattern)
         if not md_files:
-            candidate_errors.append(
-                f"Candidate '{candidate_name}' is missing MD repeats for {pdf_name} (expected files matching {md_base}_*.md)."
-            )
+            candidate_errors.append(f"Candidate '{candidate_name}' is missing MD repeats for {pdf_name} (expected files matching {md_base}_*.md).")
         else:
             pdf_to_md_files[pdf_name] = md_files
 
@@ -195,11 +196,14 @@ def evaluate_candidate(candidate_folder: str, all_rules: list, pdf_basenames: li
     overall_score = total_rule_score / len(all_rules) if all_rules else 0.0
     return (overall_score, len(all_rules), candidate_errors, rule_failures, rule_type_breakdown)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Run OLMOCR Bench.")
-    parser.add_argument("--input_folder",
-                        default=os.path.join(os.path.dirname(__file__), "sample_data"),
-                        help="Path to the folder containing .jsonl files, /pdfs folder, and pipeline tool subfolders.")
+    parser.add_argument(
+        "--input_folder",
+        default=os.path.join(os.path.dirname(__file__), "sample_data"),
+        help="Path to the folder containing .jsonl files, /pdfs folder, and pipeline tool subfolders.",
+    )
     args = parser.parse_args()
 
     input_folder = args.input_folder
@@ -268,7 +272,7 @@ def main():
             print(f"  Average Score: {overall_score * 100:.1f}% over {total_rules} rules.")
 
     # Print final summary with breakdown by rule type
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("Final Summary:")
     for candidate_name, overall_score, total_rules, candidate_errors, _, rule_type_breakdown in summary:
         if candidate_errors:
@@ -283,7 +287,8 @@ def main():
             else:
                 avg = 0.0
             print(f"    {rtype:8s}: {avg:0.1f}% average pass rate over {len(scores)} rules")
-    print("="*50)
+    print("=" * 50)
+
 
 if __name__ == "__main__":
     main()

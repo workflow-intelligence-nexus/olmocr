@@ -6,4 +6,4 @@
 
 # Then, prompt again to generate the set of absent/present rules, given the diffs presented
 
-# Then, run those rules through a tinyhost verification/edit system to quickly build up a big set 
+# Then, run those rules through a tinyhost verification/edit system to quickly build up a big set

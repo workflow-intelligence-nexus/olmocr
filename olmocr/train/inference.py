@@ -4,17 +4,11 @@ from io import BytesIO
 import torch
 import torch.distributed
 from PIL import Image
-from transformers import (
-    AutoConfig,
-    AutoProcessor,
-    Qwen2_5_VLForConditionalGeneration,
-)
+from transformers import AutoConfig, AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import (
-    build_openai_silver_data_prompt,
-)
+from olmocr.prompts.prompts import build_openai_silver_data_prompt
 
 
 @torch.no_grad()

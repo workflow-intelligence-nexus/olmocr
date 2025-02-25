@@ -1,15 +1,13 @@
 import os
-import shutil
-import argparse
 import tempfile
 
-from magic_pdf.data.data_reader_writer import FileBasedDataWriter, FileBasedDataReader
+from magic_pdf.config.enums import SupportedPdfParseMethod
+from magic_pdf.data.data_reader_writer import FileBasedDataReader, FileBasedDataWriter
 from magic_pdf.data.dataset import PymuDocDataset
 from magic_pdf.model.doc_analyze_by_custom_model import doc_analyze
-from magic_pdf.config.enums import SupportedPdfParseMethod
 
 
-def run_mineru(pdf_path: str, page_num: int=1) -> str:
+def run_mineru(pdf_path: str, page_num: int = 1) -> str:
     output_folder = tempfile.TemporaryDirectory()
     image_output_folder = tempfile.TemporaryDirectory()
 
@@ -34,7 +32,7 @@ def run_mineru(pdf_path: str, page_num: int=1) -> str:
 
     # Generate markdown content; the image directory is the basename of the images output folder
     image_dir_basename = os.path.basename(image_output_folder.name)
-    md_content = pipe_result.get_markdown(image_dir_basename)
+    # md_content = pipe_result.get_markdown(image_dir_basename)
 
     # Dump markdown file
     with tempfile.NamedTemporaryFile("w+", suffix="md") as tf:
@@ -45,4 +43,3 @@ def run_mineru(pdf_path: str, page_num: int=1) -> str:
         md_data = tf.read()
 
     return md_data
-

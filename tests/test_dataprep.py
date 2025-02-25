@@ -16,9 +16,7 @@ from tqdm import tqdm
 from transformers import AutoProcessor
 
 from olmocr.train.core.config import DataConfig, SourceConfig, TrainConfig
-from olmocr.train.dataloader import (
-    build_finetuning_dataset,
-)
+from olmocr.train.dataloader import build_finetuning_dataset
 from olmocr.train.dataprep import (
     batch_prepare_data_for_molmo_training,
     build_finetuning_prompt,
@@ -223,7 +221,6 @@ class TestMolmoDataPrep(unittest.TestCase):
             patch("olmocr.prompts.anchor.get_anchor_text") as mock_get_anchor_text,
             patch("olmocr.data.renderpdf.render_pdf_to_base64png") as mock_render_pdf_to_base64png,
         ):
-
             # Set return values for the mocked functions
             mock_get_anchor_text.return_value = "This is the anchor text."
             # Create a red square image and encode it in base64
@@ -305,7 +302,6 @@ class TestMolmoDataPrep(unittest.TestCase):
             patch("olmocr.prompts.anchor.get_anchor_text") as mock_get_anchor_text,
             patch("olmocr.data.renderpdf.render_pdf_to_base64png") as mock_render_pdf_to_base64png,
         ):
-
             mock_get_anchor_text.return_value = "This is the anchor text."
             img = Image.new("RGB", (100, 100), color="red")
             buffered = BytesIO()

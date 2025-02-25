@@ -740,7 +740,6 @@ class ViTMLP(nn.Module):
 
 
 class ResidualAttentionBlock(nn.Module):
-
     def __init__(self, config: FullMolmoConfig):
         super().__init__()
         self.config = config
@@ -772,7 +771,6 @@ class ResidualAttentionBlock(nn.Module):
 
 
 class BlockCollection(nn.Module):
-
     def __init__(self, config: FullMolmoConfig):
         super().__init__()
         self.config = config
@@ -801,7 +799,6 @@ class LayerNormFp32(nn.LayerNorm):
 
 
 class VisionTransformer(nn.Module):
-
     def __init__(self, config: FullMolmoConfig):
         super().__init__()
         self.config = config
@@ -952,7 +949,6 @@ class MultiHeadDotProductAttention(nn.Module):
         return hidden_states.reshape(hidden_states.shape[:2] + (self.embed_dim,))
 
     def forward(self, inputs_q: torch.Tensor, inputs_kv: Optional[torch.Tensor] = None) -> torch.Tensor:
-
         if inputs_kv is not None:
             inputs_k = inputs_kv
             inputs_v = inputs_kv
@@ -1099,7 +1095,6 @@ class MultiHeadAttentionPool(nn.Module):
         return hidden_states.reshape(hidden_states.shape[:2] + (self.embed_dim,))
 
     def forward(self, inputs_kv: torch.Tensor) -> torch.Tensor:
-
         xk, xv = self.wk(inputs_kv), self.wv(inputs_kv)
 
         if self.query == "mean":

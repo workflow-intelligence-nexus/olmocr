@@ -1,8 +1,10 @@
 import argparse
-import os
 import glob
 import importlib
+import os
+
 from tqdm import tqdm
+
 
 def parse_method_arg(method_arg):
     """
@@ -29,22 +31,11 @@ def parse_method_arg(method_arg):
             raise ValueError(f"Extra argument '{extra}' is not in key=value format")
     return name, kwargs
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run PDF conversion using specified OCR methods and extra parameters."
-    )
-    parser.add_argument(
-        "methods",
-        nargs="+",
-        help="Methods to run in the format method[:key=value ...]. "
-             "Example: gotocr mineru:temperature=2 marker:runs=3"
-    )
-    parser.add_argument(
-        "--repeats",
-        type=int,
-        default=1,
-        help="Number of times to repeat the conversion for each PDF."
-    )
+    parser = argparse.ArgumentParser(description="Run PDF conversion using specified OCR methods and extra parameters.")
+    parser.add_argument("methods", nargs="+", help="Methods to run in the format method[:key=value ...]. " "Example: gotocr mineru:temperature=2 marker:runs=3")
+    parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
     args = parser.parse_args()
 
     # Mapping of method names to a tuple: (module path, function name)
@@ -60,16 +51,12 @@ if __name__ == "__main__":
     for method_arg in args.methods:
         method_name, extra_kwargs = parse_method_arg(method_arg)
         if method_name not in available_methods:
-            parser.error(f"Unknown method: {method_name}. "
-                         f"Available methods: {', '.join(available_methods.keys())}")
+            parser.error(f"Unknown method: {method_name}. " f"Available methods: {', '.join(available_methods.keys())}")
         module_path, function_name = available_methods[method_name]
         # Dynamically import the module and get the function.
         module = importlib.import_module(module_path)
         function = getattr(module, function_name)
-        config[method_name] = {
-            "method": function,
-            "kwargs": extra_kwargs
-        }
+        config[method_name] = {"method": function, "kwargs": extra_kwargs}
 
     data_directory = os.path.join(os.path.dirname(__file__), "sample_data")
     pdf_directory = os.path.join(data_directory, "pdfs")

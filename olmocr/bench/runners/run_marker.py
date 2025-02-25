@@ -1,15 +1,11 @@
-import os
-import time
-import argparse
-
-
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 
 _marker_converter = None
 
-def run_marker(pdf_path: str, page_num: int=1) -> str:
+
+def run_marker(pdf_path: str, page_num: int = 1) -> str:
     global _marker_converter
 
     if _marker_converter is None:
@@ -22,4 +18,3 @@ def run_marker(pdf_path: str, page_num: int=1) -> str:
     text, _, images = text_from_rendered(rendered)
 
     return text
-
