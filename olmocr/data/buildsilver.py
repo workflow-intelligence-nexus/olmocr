@@ -14,8 +14,8 @@ from tqdm import tqdm
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.filter import PdfFilter
 from olmocr.prompts import (
-    build_openai_silver_data_prompt,
-    openai_response_format_schema,
+    build_silver_data_prompt,
+    response_format_schema,
 )
 from olmocr.prompts.anchor import get_anchor_text
 
@@ -39,7 +39,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
     #             {
     #                 "role": "user",
     #                 "content": [
-    #                     {"type": "text", "text": build_openai_silver_data_prompt(anchor_text)},
+    #                     {"type": "text", "text": build_silver_data_prompt(anchor_text)},
     #                     {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
     #                 ],
     #             }
@@ -48,7 +48,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
     #     max_tokens=3000,
     #     logprobs=True,
     #     top_logprobs=5,
-    #     response_format=openai_response_format_schema()
+    #     response_format=response_format_schema()
     # )
     # print(response)
 
@@ -70,7 +70,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": build_openai_silver_data_prompt(anchor_text)},
+                        {"type": "text", "text": build_silver_data_prompt(anchor_text)},
                         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
                     ],
                 }
@@ -79,7 +79,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
             "max_tokens": 6000,
             "logprobs": True,
             "top_logprobs": 5,
-            "response_format": openai_response_format_schema(),
+            "response_format": response_format_schema(),
         },
     }
 

@@ -8,7 +8,7 @@ from transformers import AutoConfig, AutoProcessor, Qwen2_5_VLForConditionalGene
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import build_openai_silver_data_prompt
+from olmocr.prompts.prompts import build_silver_data_prompt
 
 
 @torch.no_grad()
@@ -33,7 +33,7 @@ def run_inference(model_name: str):
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": build_openai_silver_data_prompt(anchor_text)},
+                {"type": "text", "text": build_silver_data_prompt(anchor_text)},
                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
             ],
         }
