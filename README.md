@@ -1,10 +1,29 @@
-# olmOCR
-
-A toolkit for training language models to work with PDF documents in the wild.
-
-
+<div align="center">
+  <!-- <img src="https://github.com/allenai/OLMo/assets/8812459/774ac485-a535-4768-8f7c-db7be20f5cc3" width="300"/> -->
 <img src="https://github.com/user-attachments/assets/d70c8644-3e64-4230-98c3-c52fddaeccb6" alt="olmOCR Logo" width="300"/>
 <br/>
+  <br>
+  <h1>olmOCR</h1>
+</div>
+<p align="center">
+  <a href="https://github.com/allenai/OLMo/blob/main/LICENSE">
+    <img alt="GitHub License" src="https://img.shields.io/github/license/allenai/OLMo">
+  </a>
+  <a href="https://github.com/allenai/olmocr/releases">
+    <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/olmocr.svg">
+  </a>
+  <a href="https://olmocr.allenai.org/papers/olmocr.pdf">
+    <img alt="Tech Report" src="https://img.shields.io/badge/Paper-olmOCR-blue">
+  </a>
+  <a href="https://playground.allenai.org">
+    <img alt="Playground" src="https://img.shields.io/badge/Ai2-Playground-F0529C">
+  </a>
+  <a href="https://discord.gg/sZq3jTNVNG">
+    <img alt="Discord" src="https://img.shields.io/badge/Discord%20-%20blue?style=flat&logo=discord&label=Ai2&color=%235B65E9">
+  </a>
+</p>
+
+A toolkit for training language models to work with PDF documents in the wild.
 
 Try the online demo: [https://olmocr.allenai.org/](https://olmocr.allenai.org/)
 
