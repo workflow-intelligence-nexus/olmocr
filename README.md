@@ -15,8 +15,8 @@
   <a href="https://olmocr.allenai.org/papers/olmocr.pdf">
     <img alt="Tech Report" src="https://img.shields.io/badge/Paper-olmOCR-blue">
   </a>
-  <a href="https://playground.allenai.org">
-    <img alt="Playground" src="https://img.shields.io/badge/Ai2-Playground-F0529C">
+  <a href="https://demo.allenai.org">
+    <img alt="Demo" src="https://img.shields.io/badge/Ai2-Demo-F0529C">
   </a>
   <a href="https://discord.gg/sZq3jTNVNG">
     <img alt="Discord" src="https://img.shields.io/badge/Discord%20-%20blue?style=flat&logo=discord&label=Ai2&color=%235B65E9">
