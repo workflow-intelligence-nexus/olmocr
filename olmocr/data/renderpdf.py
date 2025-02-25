@@ -36,7 +36,7 @@ def get_pdf_media_box_width_height(local_pdf_path: str, page_num: int) -> tuple[
     raise ValueError("MediaBox not found in the PDF info.")
 
 
-def render_pdf_to_base64png(local_pdf_path: str, page_num: int, target_longest_image_dim: int = 2048):
+def render_pdf_to_base64png(local_pdf_path: str, page_num: int, target_longest_image_dim: int = 2048) -> str:
     longest_dim = max(get_pdf_media_box_width_height(local_pdf_path, page_num))
 
     # Convert PDF page to PNG using pdftoppm
