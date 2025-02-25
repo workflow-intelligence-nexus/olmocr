@@ -2,6 +2,8 @@ import argparse
 import glob
 import importlib
 import os
+import asyncio
+import inspect
 
 from tqdm import tqdm
 
@@ -32,6 +34,34 @@ def parse_method_arg(method_arg):
     return name, kwargs
 
 
+async def process_pdfs(config, pdf_directory, data_directory, repeats):
+    """Process PDFs with both sync and async functions"""
+    for candidate in config.keys():
+        print(f"Starting conversion using {candidate} with kwargs: {config[candidate]['kwargs']}")
+        candidate_output_dir = os.path.join(data_directory, candidate)
+        os.makedirs(candidate_output_dir, exist_ok=True)
+        
+        method = config[candidate]["method"]
+        kwargs = config[candidate]["kwargs"]
+        is_async = asyncio.iscoroutinefunction(method)
+        
+        for pdf_path in tqdm(glob.glob(os.path.join(pdf_directory, "*.pdf")), desc=candidate):
+            base_name = os.path.basename(pdf_path).replace(".pdf", "")
+            
+            for i in range(1, repeats + 1):
+                if is_async:
+                    # Run async function
+                    markdown = await method(pdf_path, page_num=1, **kwargs)
+                else:
+                    # Run synchronous function
+                    markdown = method(pdf_path, page_num=1, **kwargs)
+                
+                output_filename = f"{base_name}_{i}.md"
+                output_path = os.path.join(candidate_output_dir, output_filename)
+                with open(output_path, "w") as out_f:
+                    out_f.write(markdown)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run PDF conversion using specified OCR methods and extra parameters.")
     parser.add_argument("methods", nargs="+", help="Methods to run in the format method[:key=value ...]. " "Example: gotocr mineru:temperature=2 marker:runs=3")
@@ -40,6 +70,7 @@ if __name__ == "__main__":
 
     # Mapping of method names to a tuple: (module path, function name)
     available_methods = {
+        "olmocr": ("olmocr.bench.runners.run_olmocr", "run_olmocr"),
         "gotocr": ("olmocr.bench.runners.run_gotocr", "run_gotocr"),
         "marker": ("olmocr.bench.runners.run_marker", "run_marker"),
         "mineru": ("olmocr.bench.runners.run_mineru", "run_mineru"),
@@ -61,18 +92,5 @@ if __name__ == "__main__":
     data_directory = os.path.join(os.path.dirname(__file__), "sample_data")
     pdf_directory = os.path.join(data_directory, "pdfs")
 
-    # Process each PDF using each specified method and repeat the conversion as needed.
-    for candidate in config.keys():
-        print(f"Starting conversion using {candidate} with kwargs: {config[candidate]['kwargs']}")
-        candidate_output_dir = os.path.join(data_directory, candidate)
-        os.makedirs(candidate_output_dir, exist_ok=True)
-
-        for pdf_path in tqdm(glob.glob(os.path.join(pdf_directory, "*.pdf")), desc=candidate):
-            base_name = os.path.basename(pdf_path).replace(".pdf", "")
-            # Repeat the conversion as many times as specified.
-            for i in range(1, args.repeats + 1):
-                markdown = config[candidate]["method"](pdf_path, page_num=1, **config[candidate]["kwargs"])
-                output_filename = f"{base_name}_{i}.md"
-                output_path = os.path.join(candidate_output_dir, output_filename)
-                with open(output_path, "w") as out_f:
-                    out_f.write(markdown)
+    # Run the async process function
+    asyncio.run(process_pdfs(config, pdf_directory, data_directory, args.repeats))
