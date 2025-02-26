@@ -1,8 +1,4 @@
 # This script will build a set of scores for the accuracy of a given pdf conversion tactic against a gold dataset
-#
-# You might need to pip install git+https://github.com/allenai/refine.git@soldni/eval-m
-# in order to use some of the existing aligner scoring that was developed as part
-# of the refiner pipeline
 import argparse
 import hashlib
 import json
@@ -17,9 +13,9 @@ from typing import Dict, List, Optional
 
 import boto3
 import zstandard
-from dolma_refine.evaluate.aligners import HirschbergAligner
-from dolma_refine.evaluate.metrics import DocumentEditSimilarity
-from dolma_refine.evaluate.segmenters import SpacySegmenter
+from .dolma_refine.aligners import HirschbergAligner
+from .dolma_refine.metrics import DocumentEditSimilarity
+from .dolma_refine.segmenters import SpacySegmenter
 from smart_open import register_compressor, smart_open
 from tqdm import tqdm
 
