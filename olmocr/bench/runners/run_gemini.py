@@ -23,7 +23,6 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", 
     Returns:
         str: The OCR result in markdown format.
     """
-    # Render the PDF page to an image
     image_base64 = render_pdf_to_base64png(pdf_path, page_num=page_num, target_longest_image_dim=2048)
     anchor_text = get_anchor_text(pdf_path, page_num, pdf_engine="pdfreport")
     api_key = os.getenv("GEMINI_API_KEY")
@@ -55,50 +54,42 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", 
 
             Context: {build_gemini_silver_data_prompt(anchor_text)}"""
     )
-    
-    # Build the generation config
     generation_config = glm.GenerationConfig(
         temperature=temperature,
         top_p=1.0,
         top_k=32,
         max_output_tokens=4096,
     )
-    
-    # Create the response schema configuration
     response_schema = gemini_response_format_schema()
-    
-    # # Create and send the request
-    # request = glm.GenerateContentRequest(
-    #     model=f"models/{model}",
-    #     contents=[glm.Content(parts=[image_part, text_part])],
-    #     generation_config=generation_config,
-    # )
-    
     request = glm.GenerateContentRequest(
         model=f"models/{model}",
         contents=[glm.Content(parts=[image_part, text_part])],
         generation_config=generation_config,
-        tools=[
-            glm.Tool(
-                function_declarations=[
-                    glm.FunctionDeclaration(
-                        name="page_response",
-                        parameters=response_schema
-                    )
-                ]
-            )
-        ],
-        tool_config=glm.ToolConfig(
-            function_calling_config=glm.FunctionCallingConfig(
-                mode="any",  # Allow model to call functions
-                allowed_function_names=["page_response"]
-            )
-        )
     )
+    
+    # request = glm.GenerateContentRequest(
+    #     model=f"models/{model}",
+    #     contents=[glm.Content(parts=[image_part, text_part])],
+    #     generation_config=generation_config,
+    #     tools=[
+    #         glm.Tool(
+    #             function_declarations=[
+    #                 glm.FunctionDeclaration(
+    #                     name="page_response",
+    #                     parameters=response_schema
+    #                 )
+    #             ]
+    #         )
+    #     ],
+    #     tool_config=glm.ToolConfig(
+    #         function_calling_config=glm.FunctionCallingConfig(
+    #             mode="any",
+    #             allowed_function_names=["page_response"]
+    #         )
+    #     )
+    # )
 
     response = client.generate_content(request)
-    
-    # Extract the response text
     result = response.candidates[0].content.parts[0].text
     
     return result
@@ -106,23 +97,18 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", 
 if __name__ == "__main__":
     import argparse
     
-    # Set up command-line argument parsing
     parser = argparse.ArgumentParser(description="Extract text from a PDF using Gemini OCR")
     parser.add_argument("pdf_path", help="Path to the PDF file")
     parser.add_argument("--page", type=int, default=1, help="Page number to process (default: 1)")
     parser.add_argument("--model", default="gemini-1.5-pro", help="Gemini model to use")
     parser.add_argument("--temperature", type=float, default=0.1, help="Temperature for generation")
     
-    # Parse the arguments
     args = parser.parse_args()
-    
-    # Run the OCR function
+
     result = run_gemini(
         pdf_path=args.pdf_path,
         page_num=args.page,
         model=args.model,
         temperature=args.temperature
     )
-    
-    # Print the result
     print(result)
