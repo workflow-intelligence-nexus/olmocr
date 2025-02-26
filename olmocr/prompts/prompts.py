@@ -214,13 +214,20 @@ def gemini_response_format_schema() -> dict:
     },
     
 
-
+def build_find_difference_prompt(base_text: str) -> str:
+    return (
+        f"Below is an image of a document page, along with raw textual content previously extracted using different models."
+        f"Your goal is to carefully identify the differences between the extracted texts from both models and determine which one is more accurate by comparing them with the image."
+        f"Only return the differences and specify which model extracted the text with higher accuracy.\n"
+        f"Do not hallucinate.\n"
+        f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
+    )
 
 # This is a base prompt that will be used for training and running the fine tuned model
 # It's simplified from the prompt which was used to generate the silver data, and can change from dataset to dataset
 def build_finetuning_prompt(base_text: str) -> str:
     return (
-        f"Below is the image of one page of a document, as well as some raw textual content that was previously extracted for it. "
+        f"Below is the image of one page of a document, as well as some raw textual content that was previously extracted for it."
         f"Just return the plain text representation of this document as if you were reading it naturally.\n"
         f"Do not hallucinate.\n"
         f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"

@@ -44,15 +44,7 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", 
     # )
 
     text_part = glm.Part(
-        text=f"""Analyze this document image and extract the following information:
-                1. The primary language (use two-letter code)
-                2. Whether the page is oriented correctly for reading
-                3. What rotation correction is needed (0, 90, 180, or 270 degrees)
-                4. If the content is primarily a table
-                5. If the content is primarily a diagram
-                6. All the readable text content
-
-            Context: {build_gemini_silver_data_prompt(anchor_text)}"""
+        text=f"""{build_gemini_silver_data_prompt(anchor_text)}"""
     )
     generation_config = glm.GenerationConfig(
         temperature=temperature,
