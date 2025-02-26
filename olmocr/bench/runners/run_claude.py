@@ -3,7 +3,7 @@ import json
 import base64
 from anthropic import Anthropic
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import build_claude_silver_data_prompt, claude_response_format_schema, PageResponse
+from olmocr.prompts.prompts import build_silver_data_prompt, claude_response_format_schema, PageResponse
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
 def run_claude(pdf_path: str, page_num: int = 1, model: str = "claude-3-7-sonnet-20250219", temperature: float=0.1) -> str:
@@ -44,7 +44,7 @@ def run_claude(pdf_path: str, page_num: int = 1, model: str = "claude-3-7-sonnet
                         }
                     },
                     {
-                        "type": "text", "text": build_claude_silver_data_prompt(anchor_text),
+                        "type": "text", "text": build_silver_data_prompt(anchor_text),
                         "text": f"Use the page_response tool to respond. If the propeties are true, then extract the text from them and respond in natural_text."
                     }
                 ]

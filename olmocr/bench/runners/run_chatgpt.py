@@ -4,7 +4,7 @@ import json
 from openai import OpenAI
 
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import build_openai_silver_data_prompt, openai_response_format_schema, PageResponse
+from olmocr.prompts.prompts import build_silver_data_prompt, openai_response_format_schema, PageResponse
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
 
@@ -32,7 +32,7 @@ def run_chatgpt(pdf_path: str, page_num: int = 1, model: str = "gpt-4o-2024-08-0
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": build_openai_silver_data_prompt(anchor_text)},
+                    {"type": "text", "text": build_silver_data_prompt(anchor_text)},
                     {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}},
                 ],
             }

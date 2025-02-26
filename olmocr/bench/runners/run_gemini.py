@@ -5,7 +5,7 @@ from google.ai import generativelanguage as glm
 from google.api_core import client_options
 from google.auth import credentials as auth_credentials
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import build_gemini_silver_data_prompt, gemini_response_format_schema, PageResponse
+from olmocr.prompts.prompts import build_silver_data_prompt, gemini_response_format_schema, PageResponse
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
 def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", temperature: float=0.1) -> str:
@@ -44,7 +44,7 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", 
     # )
 
     text_part = glm.Part(
-        text=f"""{build_gemini_silver_data_prompt(anchor_text)}"""
+        text=f"""{build_silver_data_prompt(anchor_text)}"""
     )
     generation_config = glm.GenerationConfig(
         temperature=temperature,
