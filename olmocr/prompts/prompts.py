@@ -4,7 +4,31 @@ from typing import Optional
 
 
 # This is the prompt we use for getting chat gpt 4o to convert documents into our silver training data
-def build_silver_data_prompt(base_text: str) -> str:
+def build_openai_silver_data_prompt(base_text: str) -> str:
+    return (
+        f"Below is the image of one page of a PDF document, as well as some raw textual content that was previously extracted for it that includes position information for each image and block of text (The origin [0x0] of the coordinates is in the lower left corner of the image). "
+        f"Just return the plain text representation of this document as if you were reading it naturally.\n"
+        f"Turn equations into a LaTeX representation, and tables into markdown format. Remove the headers and footers, but keep references and footnotes.\n"
+        f"Read any natural handwriting.\n"
+        f"This is likely one page out of several in the document, so be sure to preserve any sentences that come from the previous page, or continue onto the next page, exactly as they are.\n"
+        f"If there is no text at all that you think you should read, you can output null.\n"
+        f"Do not hallucinate.\n"
+        f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
+    )
+
+def build_claude_silver_data_prompt(base_text: str) -> str:
+    return (
+        f"Below is the image of one page of a PDF document, as well as some raw textual content that was previously extracted for it that includes position information for each image and block of text (The origin [0x0] of the coordinates is in the lower left corner of the image). "
+        f"Just return the plain text representation of this document as if you were reading it naturally.\n"
+        f"Turn equations into a LaTeX representation, and tables into markdown format. Remove the headers and footers, but keep references and footnotes.\n"
+        f"Read any natural handwriting.\n"
+        f"This is likely one page out of several in the document, so be sure to preserve any sentences that come from the previous page, or continue onto the next page, exactly as they are.\n"
+        f"If there is no text at all that you think you should read, you can output null.\n"
+        f"Do not hallucinate.\n"
+        f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
+    )
+
+def build_gemini_silver_data_prompt(base_text: str) -> str:
     return (
         f"Below is the image of one page of a PDF document, as well as some raw textual content that was previously extracted for it that includes position information for each image and block of text (The origin [0x0] of the coordinates is in the lower left corner of the image). "
         f"Just return the plain text representation of this document as if you were reading it naturally.\n"
@@ -46,7 +70,7 @@ class PageResponse:
             raise TypeError("natural_text must be of type Optional[str].")
 
 
-def response_format_schema() -> dict:
+def openai_response_format_schema() -> dict:
     return {
         "type": "json_schema",
         "json_schema": {
@@ -94,6 +118,102 @@ def response_format_schema() -> dict:
             "strict": True,
         },
     }
+
+def claude_response_format_schema() -> dict:
+    return {        
+        "name": "page_response",
+        "description": "Extracts text from pdf's.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "primary_language": {
+                    "type": ["string", "null"],
+                    "description": "The primary language of the text using two-letter codes or null if there is no text at all that you think you should read.",
+                },
+                "is_rotation_valid": {
+                    "type": "boolean",
+                    "description": "Is this page oriented correctly for reading? Answer only considering the textual content, do not factor in the rotation of any charts, tables, drawings, or figures.",
+                },
+                "rotation_correction": {
+                    "type": "integer",
+                    "description": "Indicates the degree of clockwise rotation needed if the page is not oriented correctly.",
+                    "enum": [0, 90, 180, 270],
+                    "default": 0,
+                },
+                "is_table": {
+                    "type": "boolean",
+                    "description": "Indicates if the majority of the page content is in tabular format.",
+                },
+                "is_diagram": {
+                    "type": "boolean",
+                    "description": "Indicates if the majority of the page content is a visual diagram.",
+                },
+                "natural_text": {
+                    "type": ["string", "null"],
+                    "description": "The natural text content extracted from the page.",
+                },
+            },
+            "required": [
+                "primary_language",
+                "is_rotation_valid",
+                "rotation_correction",
+                "is_table",
+                "is_diagram",
+                "natural_text",
+            ],
+        },
+    },
+    
+
+def gemini_response_format_schema() -> dict:
+    return {
+        'type': 'OBJECT',
+        'properties': {
+            'primary_language': {
+                'type': 'STRING',
+                'description': 'The primary language of the text using two-letter codes or null if there is no text at all that you think you should read.'
+            },
+            'is_rotation_valid': {
+                'type': "BOOL",
+                'description': 'Is this page oriented correctly for reading? Answer only considering the textual content, do not factor in the rotation of any charts, tables, drawings, or figures.'
+            },
+            'rotation_correction': {
+                'type': 'INTEGER',
+                'enum': [0, 90, 180, 270],
+                'description': 'Indicates the degree of clockwise rotation needed if the page is not oriented correctly.'
+            },
+            'is_table': {
+                'type': "BOOL",
+                'description': 'Indicates if the majority of the page content is in tabular format.'
+            },
+            'is_diagram': {
+                'type': "BOOL",
+                'description': 'Indicates if the majority of the page content is a visual diagram.'
+            },
+            'natural_text': {
+                'type': 'STRING',
+                'description': 'The natural text content extracted from the page.'
+            }
+        },
+        'required': [
+            'primary_language',
+            'is_rotation_valid',
+            'rotation_correction',
+            'is_table',
+            'is_diagram',
+            'natural_text'
+        ],
+        'propertyOrdering': [
+            'primary_language',
+            'is_rotation_valid',
+            'rotation_correction',
+            'is_table',
+            'is_diagram',
+            'natural_text'
+        ]
+    },
+    
+
 
 
 # This is a base prompt that will be used for training and running the fine tuned model
