@@ -3,6 +3,7 @@ import json
 import sys
 import os
 import argparse
+import glob
 from collections import defaultdict
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from runners.run_gemini import run_gemini
@@ -41,22 +42,52 @@ def get_model_outputs(pdf_path):
         print(f"Error getting model outputs for {pdf_path}: {str(e)}")
         return f"Error: {str(e)}", f"Error: {str(e)}"
 
+def find_pdfs_in_directory(directory):
+    """Find all PDF files in the given directory."""
+    if not os.path.isdir(directory):
+        print(f"Warning: {directory} is not a directory.")
+        return []
+    
+    # Find all files with .pdf extension (case insensitive)
+    pdf_files = []
+    for ext in ['pdf', 'PDF']:
+        pattern = os.path.join(directory, f'*.{ext}')
+        pdf_files.extend(glob.glob(pattern))
+    
+    print(f"DEBUG: Found {len(pdf_files)} PDF files in {directory}")
+    for pdf in pdf_files:
+        print(f"  - {pdf}")
+    
+    return pdf_files
 
 def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
     """Generate the HTML page with PDF renderings and model outputs."""
-    # Use provided PDFs or limit to 10 unique PDFs from rules
+    # Process the input PDFs parameter
+    pdf_paths = []
+    
     if pdfs_to_process:
-        # Use the provided PDF paths directly
-        pdf_paths = pdfs_to_process
+        for pdf_item in pdfs_to_process:
+            if os.path.isdir(pdf_item):
+                # If it's a directory, find all PDFs within it
+                pdf_paths.extend(find_pdfs_in_directory(pdf_item))
+            elif os.path.isfile(pdf_item):
+                # If it's a file, add it directly
+                pdf_paths.append(pdf_item)
+            else:
+                print(f"Warning: {pdf_item} is neither a valid file nor directory")
     else:
         # Get PDF names from rules and construct paths
         pdf_base_dir = os.path.join(os.path.dirname(rules_file_path), 'pdfs')
         pdf_paths = [os.path.join(pdf_base_dir, pdf_name) for pdf_name in list(pdf_rules.keys())[:10]]
-
+    
+    # Ensure we have unique paths
+    pdf_paths = list(set(pdf_paths))
+    
+    # Debug information
     print(f"DEBUG: Processing the following PDFs:")
     for path in pdf_paths:
         print(f"  - {path} (exists: {os.path.exists(path)})")
-       
+    
     html = """
     <!DOCTYPE html>
     <html lang="en">
@@ -271,9 +302,12 @@ def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
             <h1>PDF Model Comparison</h1>
     """
     
-    pdf_bases = os.path.dirname(rules_file_path)
-    
     for pdf_path in pdf_paths:
+        # Skip if the path doesn't exist
+        if not os.path.exists(pdf_path) or not os.path.isfile(pdf_path):
+            print(f"Skipping non-existent or non-file path: {pdf_path}")
+            continue
+            
         # Use basename for display
         pdf_name = os.path.basename(pdf_path)
         pdf_id = pdf_name.replace('.', '-')
@@ -291,14 +325,11 @@ def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
         print(f"DEBUG: Getting model outputs for: {pdf_path}")
         chatgpt_output, gemini_output = get_model_outputs(pdf_path)
         
-        # Use basename for display and IDs
-        pdf_display_name = os.path.basename(pdf_path)
-        
         html += f"""
-        <div class="pdf-container" id="pdf-{pdf_display_name.replace('.', '-')}">
+        <div class="pdf-container" id="pdf-{pdf_id}">
             <div class="pdf-header">
-                <span>{pdf_display_name}</span>
-                <span class="rating-indicator" id="rating-{pdf_display_name.replace('.', '-')}"></span>
+                <span>{pdf_name}</span>
+                <span class="rating-indicator" id="rating-{pdf_id}"></span>
             </div>
             <div class="pdf-content">
                 <div class="pdf-image">
@@ -307,25 +338,25 @@ def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
                 <div class="models-container">
                     <div class="controls">
                         <div class="rating-controls">
-                            <button class="rating-btn chatgpt-better" onclick="rateModel('{pdf_name.replace('.', '-')}', 'chatgpt')">ChatGPT Better</button>
-                            <button class="rating-btn gemini-better" onclick="rateModel('{pdf_name.replace('.', '-')}', 'gemini')">Gemini Better</button>
-                            <button class="rating-btn both-good" onclick="rateModel('{pdf_name.replace('.', '-')}', 'both-good')">Both Good</button>
-                            <button class="rating-btn both-bad" onclick="rateModel('{pdf_name.replace('.', '-')}', 'both-bad')">Both Bad</button>
-                            <button class="rating-btn invalid-pdf" onclick="rateModel('{pdf_name.replace('.', '-')}', 'invalid')">Invalid PDF</button>
+                            <button class="rating-btn chatgpt-better" onclick="rateModel('{pdf_id}', 'chatgpt')">ChatGPT Better</button>
+                            <button class="rating-btn gemini-better" onclick="rateModel('{pdf_id}', 'gemini')">Gemini Better</button>
+                            <button class="rating-btn both-good" onclick="rateModel('{pdf_id}', 'both-good')">Both Good</button>
+                            <button class="rating-btn both-bad" onclick="rateModel('{pdf_id}', 'both-bad')">Both Bad</button>
+                            <button class="rating-btn invalid-pdf" onclick="rateModel('{pdf_id}', 'invalid')">Invalid PDF</button>
                         </div>
-                        <button class="show-diff-btn" onclick="toggleDifference('{pdf_name.replace('.', '-')}')">Show Differences</button>
+                        <button class="show-diff-btn" onclick="toggleDifference('{pdf_id}')">Show Differences</button>
                     </div>
                     <div class="model-outputs">
                         <div class="model-output">
                             <div class="model-header">ChatGPT Output</div>
-                            <div class="model-content" id="chatgpt-{pdf_name.replace('.', '-')}">{chatgpt_output}</div>
+                            <div class="model-content" id="chatgpt-{pdf_id}">{chatgpt_output}</div>
                         </div>
                         <div class="model-output">
                             <div class="model-header">Gemini Output</div>
-                            <div class="model-content" id="gemini-{pdf_name.replace('.', '-')}">{gemini_output}</div>
+                            <div class="model-content" id="gemini-{pdf_id}">{gemini_output}</div>
                         </div>
                     </div>
-                    <div class="difference-content" id="diff-{pdf_name.replace('.', '-')}">
+                    <div class="difference-content" id="diff-{pdf_id}">
                         <h3>Differences</h3>
                         <p>Loading differences...</p>
                     </div>
@@ -419,12 +450,12 @@ def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
     
     return html
 
-
 def main():
     parser = argparse.ArgumentParser(description='Generate an HTML visualization for comparing AI model outputs on PDFs.')
     parser.add_argument('-r', '--rules_file', help='Rules file path', default='./sample_data/dataset.jsonl')
     parser.add_argument('-o', '--output', help='Output HTML file path', default='pdf_model_comparison.html')
-    parser.add_argument('-p', '--pdfs', nargs='+', help='Specific PDF files to process')
+    parser.add_argument('-p', '--pdfs', nargs='+', help='Specific PDF files or directories to process')
+    parser.add_argument('-l', '--limit', type=int, help='Limit the number of PDFs to process', default=10)
     
     args = parser.parse_args()
     
@@ -436,7 +467,7 @@ def main():
     if args.pdfs:
         for pdf_path in args.pdfs:
             if not os.path.exists(pdf_path):
-                print(f"WARNING: PDF file not found: {pdf_path}")
+                print(f"WARNING: Path not found: {pdf_path}")
     
     pdf_rules = parse_rules_file(args.rules_file)
     html = generate_html(pdf_rules, args.rules_file, args.pdfs)
