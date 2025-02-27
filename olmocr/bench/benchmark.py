@@ -17,85 +17,31 @@ import itertools
 import json
 import os
 import sys
+from typing import Tuple, List, Dict
 
 from fuzzysearch import find_near_matches
 from rapidfuzz import fuzz
 
+from .datatypes import BasePDFTest, TextPresenceTest, TextOrderTest, TestType, load_tests
 
-def validate_jsonl_file(jsonl_path: str, all_pdf_files: list[str]):
-    """
-    Validate a .jsonl file line by line to ensure each line is valid JSON
-    and has the expected fields for the rules.
-    """
-    all_pdf_basenames = [os.path.basename(p) for p in all_pdf_files]
-
-    rules = []
-    rule_ids = set()
-    with open(jsonl_path, "r", encoding="utf-8") as f:
-        for line_num, line in enumerate(f, start=1):
-            line = line.strip()
-            if not line:
-                # Skip blank lines
-                continue
-            try:
-                data = json.loads(line)
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON on line {line_num} in {jsonl_path}: {e}")
-
-            # Basic checks to ensure required keys exist (pdf, id, type, etc.)
-            if "pdf" not in data or "id" not in data or "type" not in data:
-                raise ValueError(f"Missing required fields in line {line_num} of {jsonl_path}: {data}")
-
-            rule_id = data["id"]
-            if rule_id in rule_ids:
-                raise ValueError(f"Duplicate rule {rule_id} in {jsonl_path}")
-            else:
-                rule_ids.add(rule_id)
-
-            # Make sure the referenced PDF exists
-            if data["pdf"] not in all_pdf_basenames:
-                raise ValueError(f"Missing pdf {data['pdf']} referenced by {rule_id} in {jsonl_path} line {line_num}")
-
-            # Additional validations depending on rule type
-            rule_type = data["type"]
-            if rule_type in ("present", "absent"):
-                if "text" not in data:
-                    raise ValueError(f"'text' field required for rule type '{rule_type}' in {jsonl_path} line {line_num}")
-            elif rule_type == "order":
-                if "before" not in data:
-                    raise ValueError(f"'before' field required for rule type 'order' in {jsonl_path} line {line_num}")
-                if len(data["before"]) < 10:
-                    raise ValueError(f"'before' field too short in {jsonl_path} line {line_num}")
-                if "after" not in data:
-                    raise ValueError(f"'after' field required for rule type 'order' in {jsonl_path} line {line_num}")
-                if len(data["after"]) < 10:
-                    raise ValueError(f"'after' field too short in {jsonl_path} line {line_num}")
-            else:
-                raise ValueError(f"Unknown rule type '{rule_type}' in {jsonl_path} line {line_num}")
-
-            rules.append(data)
-    return rules
-
-
-def run_rule(rule, md_file_path: str) -> (bool, str):
+def run_rule(rule: BasePDFTest, md_content: str) -> Tuple[bool, str]:
     """
     Run the given rule on the content of the provided .md file.
     Returns a tuple (passed, explanation) where 'passed' is True if the rule passes,
     and 'explanation' is a short message explaining the failure when the rule does not pass.
     """
-    try:
-        with open(md_file_path, "r", encoding="utf-8") as f:
-            md_content = f.read()
-    except Exception as e:
-        return (False, f"Error reading {md_file_path}: {e}")
+    rule_type = rule.type
 
-    rule_type = rule["type"]
-
-    if rule_type in ("present", "absent"):
-        reference_query = rule["text"]
-        threshold = rule.get("threshold", 1.0)
+    if rule_type in (TestType.PRESENT.value, TestType.ABSENT.value):
+        # This is a TextPresenceTest
+        if not isinstance(rule, TextPresenceTest):
+            return (False, f"Rule type mismatch: expected TextPresenceTest but got {type(rule).__name__}")
+        
+        reference_query = rule.text
+        threshold = rule.threshold
         best_ratio = fuzz.partial_ratio(reference_query, md_content) / 100.0
-        if rule_type == "present":
+        
+        if rule_type == TestType.PRESENT.value:
             if best_ratio >= threshold:
                 return (True, "")
             else:
@@ -104,27 +50,37 @@ def run_rule(rule, md_file_path: str) -> (bool, str):
             if best_ratio < threshold:
                 return (True, "")
             else:
-                return (False, f"Expected '{reference_query[:40]}...' with threshold {threshold} but best match ratio was {best_ratio:.3f}")
-    elif rule_type == "order":
-        before = rule.get("before")
-        after = rule.get("after")
-        threshold = rule.get("threshold", 1.0)
+                return (False, f"Expected absence of '{reference_query[:40]}...' with threshold {threshold} but best match ratio was {best_ratio:.3f}")
+    
+    elif rule_type == TestType.ORDER.value:
+        # This is a TextOrderTest
+        if not isinstance(rule, TextOrderTest):
+            return (False, f"Rule type mismatch: expected TextOrderTest but got {type(rule).__name__}")
+        
+        before = rule.before
+        after = rule.after
+        threshold = rule.threshold
         max_l_dist = round((1.0 - threshold) * len(before))
+        
         before_matches = find_near_matches(before, md_content, max_l_dist=max_l_dist)
         after_matches = find_near_matches(after, md_content, max_l_dist=max_l_dist)
+        
         if not before_matches:
             return (False, f"'before' search text '{before[:40]}...' not found with max_l_dist {max_l_dist}")
         if not after_matches:
             return (False, f"'after' search text '{after[:40]}...' not found with max_l_dist {max_l_dist}")
+        
         for before_match, after_match in itertools.product(before_matches, after_matches):
             if before_match.start < after_match.start:
                 return (True, "")
+        
         return (False, f"Could not find a location where '{before[:40]}...' appears before '{after[:40]}...'.")
+    
     else:
         raise NotImplementedError(f"Rule type '{rule_type}' is not implemented.")
 
 
-def evaluate_candidate(candidate_folder: str, all_rules: list, pdf_basenames: list[str]):
+def evaluate_candidate(candidate_folder: str, all_rules: List[BasePDFTest], pdf_basenames: List[str]) -> Tuple[float, int, List[str], List[str], Dict[str, List[float]]]:
     """
     For the candidate folder (pipeline tool output), validate that it contains at least one .md file
     (i.e. repeated generations like _1.md, _2.md, etc.) for every PDF in the pdf folder.
@@ -162,10 +118,10 @@ def evaluate_candidate(candidate_folder: str, all_rules: list, pdf_basenames: li
 
     # Evaluate each rule. Each rule references a PDF (e.g., "doc1.pdf") so we get all its MD repeats.
     for rule in all_rules:
-        rule_type = rule["type"]
+        rule_type = rule.type
         if rule_type not in rule_type_breakdown:
             rule_type_breakdown[rule_type] = []
-        pdf_name = rule["pdf"]
+        pdf_name = rule.pdf
         md_base = os.path.splitext(pdf_name)[0]
         md_files = pdf_to_md_files.get(pdf_name, [])
         if not md_files:
@@ -176,19 +132,27 @@ def evaluate_candidate(candidate_folder: str, all_rules: list, pdf_basenames: li
         for md_path in md_files:
             num_repeats += 1
             try:
-                passed, explanation = run_rule(rule, md_path)
+                with open(md_path, "r", encoding="utf-8") as f:
+                    md_content = f.read()
+            except Exception as e:
+                candidate_errors.append(f"Error reading {md_path}: {e}")
+                continue
+
+            try:
+                passed, explanation = run_rule(rule, md_content)
                 if passed:
                     repeat_passes += 1
                 else:
                     explanations.append(explanation)
             except Exception as e:
-                candidate_errors.append(f"Error running rule {rule.get('id')} on {md_path}: {e}")
+                candidate_errors.append(f"Error running rule {rule.id} on {md_path}: {e}")
                 explanations.append(str(e))
+        
         rule_avg = repeat_passes / num_repeats if num_repeats > 0 else 0.0
         total_rule_score += rule_avg
         if rule_avg < 1.0:
             rule_failures.append(
-                f"Rule {rule.get('id')} on {md_base} average pass ratio: {rule_avg:.3f} ({repeat_passes}/{num_repeats} repeats passed). "
+                f"Rule {rule.id} on {md_base} average pass ratio: {rule_avg:.3f} ({repeat_passes}/{num_repeats} repeats passed). "
                 f"Example explanation: {explanations[0] if explanations else 'No explanation'}"
             )
         rule_type_breakdown[rule_type].append(rule_avg)
@@ -229,17 +193,13 @@ def main():
         print(f"Error: No .jsonl files found in {input_folder}.", file=sys.stderr)
         sys.exit(1)
 
-    all_rules = []
+    # Load and concatenate all test rules from JSONL files
+    all_tests = []
     for jsonl_path in jsonl_files:
-        print(f"Validating JSONL file: {jsonl_path}")
-        try:
-            rules = validate_jsonl_file(jsonl_path, all_pdf_files)
-            all_rules.extend(rules)
-        except ValueError as e:
-            print(f"Validation error in {jsonl_path}: {e}", file=sys.stderr)
-            sys.exit(1)
+        tests = load_tests(jsonl_path)
+        all_tests.extend(tests)
 
-    if not all_rules:
+    if not all_tests:
         print("No valid rules found. Exiting.", file=sys.stderr)
         sys.exit(1)
 
@@ -259,7 +219,7 @@ def main():
     print("\nRunning rules for each candidate:")
     for candidate in candidate_folders:
         candidate_name = os.path.basename(candidate)
-        overall_score, total_rules, candidate_errors, rule_failures, rule_type_breakdown = evaluate_candidate(candidate, all_rules, pdf_basenames)
+        overall_score, total_rules, candidate_errors, rule_failures, rule_type_breakdown = evaluate_candidate(candidate, all_tests, pdf_basenames)
         summary.append((candidate_name, overall_score, total_rules, candidate_errors, rule_failures, rule_type_breakdown))
         print(f"\nCandidate: {candidate_name}")
         if candidate_errors:
