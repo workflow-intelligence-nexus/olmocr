@@ -9,14 +9,17 @@ import syntok.tokenizer as tokenizer
 def parse_sentences(text: str) -> list[str]:
     """
     Splits a text into a list of sentence strings using syntok.
+    Preserves original spacing and punctuation.
     """
     sentences = []
     for paragraph in segmenter.process(text):
         for sentence in paragraph:
-            # Collect token values, stripping out empty strings
-            token_values = [token.value for token in sentence if token.value.strip()]
-            # Join them with a space
-            sentence_str = " ".join(token_values)
+            # Reconstruct the sentence with original spacing
+            sentence_str = ""
+            for token in sentence:
+                sentence_str += token.spacing + token.value
+            # Trim any leading whitespace
+            sentence_str = sentence_str.lstrip()
             sentences.append(sentence_str)
     return sentences
 
@@ -26,6 +29,8 @@ def compare_votes_for_file(base_text: str, candidate_texts: list[str]) -> None:
     each candidate text (using a similarity threshold). If any candidate sentences
     differ from the base sentence, prints the base sentence along with each unique
     variant and the number of times it was chosen.
+    
+    Comparison is case-insensitive, but output preserves original capitalization.
     """
     base_sentences = parse_sentences(base_text)
     # Parse all candidate texts into lists of sentences
@@ -38,18 +43,19 @@ def compare_votes_for_file(base_text: str, candidate_texts: list[str]) -> None:
             best_candidate = None
 
             # Find the candidate sentence with the highest similarity to b_sentence
+            # using case-insensitive comparison
             for c_sentence in c_sentences:
-                ratio = SequenceMatcher(None, b_sentence, c_sentence).ratio()
+                ratio = SequenceMatcher(None, b_sentence.lower(), c_sentence.lower()).ratio()
                 if ratio > best_ratio:
                     best_ratio = ratio
-                    best_candidate = c_sentence
+                    best_candidate = c_sentence  # Keep original capitalization for output
 
             # Append the candidate if it passes the similarity threshold (e.g., 0.7)
             if best_ratio > 0.7 and best_candidate is not None:
                 votes.append(best_candidate)
 
-        # Only consider variants that differ from the base sentence
-        variant_votes = [vote for vote in votes if vote != b_sentence]
+        # Only consider variants that differ when compared case-insensitively
+        variant_votes = [vote for vote in votes if vote.lower() != b_sentence.lower()]
         if variant_votes:
             print("Base Sentence:")
             print(b_sentence)
