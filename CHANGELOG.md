@@ -12,3 +12,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.1.53](https://github.com/allenai/olmocr/releases/tag/v0.1.53) - 2025-02-14
 
 - Fixed git checks
+
+- Added gemini and claude runners and a viewer.
