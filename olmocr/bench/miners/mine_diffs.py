@@ -13,6 +13,7 @@ from google import genai
 from google.genai import types
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.bench.tests import TextPresenceTest, save_tests
 
 LABEL_WIDTH = 8  # fixed width for printing labels
 
@@ -95,7 +96,7 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
 
     diffs = []  # list to hold diff entries
     for b_sentence in base_sentences:
-        b_sentence = b_sentence.replace("\n", " ")
+        b_sentence = b_sentence.replace("\n", " ").strip()
 
         votes = []
         for c_sentences in candidate_sentences_list:
@@ -109,6 +110,8 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
                 if ratio > best_ratio:
                     best_ratio = ratio
                     best_candidate = c_sentence  # Keep original capitalization for output
+
+            best_candidate = best_candidate.strip()
 
             # Append the candidate if it passes the similarity threshold (e.g., 0.7)
             if best_ratio > 0.7 and best_candidate is not None:
@@ -127,8 +130,9 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
     # Sort diffs by vote_count descending and take only the top max_diffs
     diffs.sort(key=lambda d: d["vote_count"], reverse=True)
     top_diffs = diffs[:max_diffs]
+    tests = []
 
-    for diff in top_diffs:
+    for index, diff in enumerate(top_diffs):
         base_sentence = diff["base"]
         variant_counter = diff["variants"]
 
@@ -143,6 +147,10 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
         print(f"{'Clean:':<{LABEL_WIDTH}} {cleaned}")
         print("-" * 40)
 
+        tests.append(TextPresenceTest(pdf=os.path.basename(base_pdf_file), page=base_pdf_page,
+                                      id=f"{os.path.basename(base_pdf_file).replace('.pdf', '')}_minediff_{index:02d}", type="present", threshold=1.0, text=cleaned))
+
+    return tests
 
 def get_pdf_from_md(md_path: str) -> str:
     base = os.path.basename(md_path)
@@ -170,6 +178,12 @@ def main():
         default=3,
         help="Maximum number of diffs to display per file."
     )
+    parser.add_argument(
+        "--output",
+        default="mine_diffs_candidates.jsonl",
+        type=str,
+        help="Output of potential candidate test proposals, to be verified or added to dataset"
+    )
     args = parser.parse_args()
 
     base_path = args.base
@@ -186,6 +200,8 @@ def main():
         with open(os.path.join(compare_path, cf), "r", encoding="utf-8") as f:
             candidate_texts.append(f.read())
 
+    all_tests = []
+
     # Process each base file and print out the vote differences
     for bf in base_files:
         base_file_path = os.path.join(base_path, bf)
@@ -195,8 +211,14 @@ def main():
         base_pdf_file = get_pdf_from_md(base_file_path)
         base_pdf_page = 1
         print(f"Results for base file: {bf}")
-        compare_votes_for_file(base_pdf_file, base_pdf_page, base_text, candidate_texts, max_diffs)
+        tests = compare_votes_for_file(base_pdf_file, base_pdf_page, base_text, candidate_texts, max_diffs)
+        all_tests.extend(tests)
         print("")
+
+        break
+
+    # Output test candidates for review
+    save_tests(all_tests, args.output)
 
 if __name__ == "__main__":
     main()

@@ -22,6 +22,7 @@ class ValidationError(Exception):
 class BasePDFTest:
     """Base class for all PDF test types"""
     pdf: str
+    page: int
     id: str
     type: str
     threshold: float
