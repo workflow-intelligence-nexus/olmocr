@@ -42,6 +42,8 @@ class BasePDFTest:
     checked: Optional[TestChecked] = None
 
     def __post_init__(self):
+        self.threshold = float(self.threshold)
+        
         if not self.pdf:
             raise ValidationError("PDF filename cannot be empty")
         if not self.id:

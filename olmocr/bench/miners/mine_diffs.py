@@ -134,7 +134,7 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
             diff_entry = {
                 "base": b_sentence,
                 "variants": Counter(variant_votes),
-                "vote_count": len(variant_votes)
+                "vote_count": len(variant_votes),
             }
             diffs.append(diff_entry)
 
@@ -186,7 +186,7 @@ def main():
     parser.add_argument(
         "--max-diffs",
         type=int,
-        default=4,
+        default=5,
         help="Maximum number of diffs to display per file."
     )
     parser.add_argument(
@@ -228,7 +228,6 @@ def main():
 
         # Output test candidates for review after each file, in case there are errors
         save_tests(all_tests, args.output)
-        break
 
 if __name__ == "__main__":
     main()
