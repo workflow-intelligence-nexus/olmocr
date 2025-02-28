@@ -15,7 +15,7 @@
   <a href="https://olmocr.allenai.org/papers/olmocr.pdf">
     <img alt="Tech Report" src="https://img.shields.io/badge/Paper-olmOCR-blue">
   </a>
-  <a href="https://demo.allenai.org">
+  <a href="https://olmocr.allenai.org">
     <img alt="Demo" src="https://img.shields.io/badge/Ai2-Demo-F0529C">
   </a>
   <a href="https://discord.gg/sZq3jTNVNG">
