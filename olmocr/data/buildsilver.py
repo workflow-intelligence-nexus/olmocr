@@ -48,7 +48,7 @@ def build_page_query(local_pdf_path: str, pretty_pdf_path: str, page: int) -> di
     #     max_tokens=3000,
     #     logprobs=True,
     #     top_logprobs=5,
-    #     response_format=response_format_schema()
+    #     response_format=openai_response_format_schema()
     # )
     # print(response)
 

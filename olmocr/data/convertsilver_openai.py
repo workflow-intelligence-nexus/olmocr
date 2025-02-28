@@ -65,8 +65,8 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
                         obj = build_page_query(local_pdf_path, s3_path, page)
                         # raw_page_text = get_anchor_text(local_pdf_path, page, pdf_engine="pdfreport")
 
-                        # from olmocr.prompts import build_silver_data_prompt
-                        # obj["body"]["messages"][0]["content"][0]["text"] = build_silver_data_prompt(raw_page_text)
+                        # from olmocr.prompts import build_openai_silver_data_prompt
+                        # obj["body"]["messages"][0]["content"][0]["text"] = build_openai_silver_data_prompt(raw_page_text)
 
                 if obj is not None:
                     outfile.write(json.dumps(obj) + "\n")
