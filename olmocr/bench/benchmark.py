@@ -190,6 +190,7 @@ def main():
             else:
                 avg = 0.0
             print(f"    {ttype:8s}: {avg:0.1f}% average pass rate over {len(scores)} tests")
+        print("")
     print("=" * 50)
 
 

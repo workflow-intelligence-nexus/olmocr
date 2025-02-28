@@ -37,9 +37,6 @@ dependencies = [
   "httpx",
   "torch>=2.5.1",
   "transformers>=4.46.2",
-  "fuzzysearch",
-  "rapidfuzz",
-  "sequence_align",
   "beaker-py",
 ]
 license = {file = "LICENSE"}
@@ -77,6 +74,13 @@ dev = [
     "spacy",
 ]
 
+bench = [
+    "fuzzysearch",
+    "rapidfuzz",
+    "sequence_align",
+    "syntok",
+    "google-genai",
+]
 
 train = [
     "torch",

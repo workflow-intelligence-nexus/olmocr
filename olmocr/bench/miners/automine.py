@@ -1,4 +1,5 @@
 import os
+import re
 import argparse
 from difflib import SequenceMatcher
 from collections import Counter
@@ -13,29 +14,30 @@ from google.genai import types
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
-# Uses a gemini prompt to 
+# Uses a gemini prompt to get the most likely clean sentence from a pdf page
 def clean_base_sentence(pdf_path: str, page_num: int, base_sentence: str) -> str:
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
 
     image_base64 = render_pdf_to_base64png(pdf_path, page_num=page_num, target_longest_image_dim=2048)
-    image_part = glm.Part(
-        inline_data=glm.Blob(
+    image_part = types.Part(
+        inline_data=types.Blob(
             mime_type="image/png",
             data=base64.b64decode(image_base64)
         )
     )
-    model = "gemini-2.0-flash-thinking-exp-01-21"
+    #model = "gemini-2.0-flash-thinking-exp-01-21" # Consider using a more stable model for production
+    model="gemini-2.0-flash-001"
     contents = [
         types.Content(
             role="user",
             parts=[
                 image_part,
                 types.Part.from_text(
-                    text="""Base {base_sentence}
+                    text=f"""Base: {base_sentence}
 
-Consider the sentence labeled \"Base\" above in the document image attached. What is the correct reading of this document within the image of the page? I need it to be exact down to the individual character and that's very important to get right. It needs to match the picture, not the provided text. Please just output the correct full sentence exactly how it appears in the document image and nothing else."""
+Consider the sentence labeled "Base" above in the document image attached. What is the correct reading of this document within the image of the page? I need it to be exact down to the individual character and that's very important to get right. It needs to match the picture, not the provided text. Please just output the correct full sentence exactly how it appears in the document image and nothing else. You can merge hyphenated words back together, and don't output any new lines."""
                 ),
             ],
         ),
@@ -48,10 +50,12 @@ Consider the sentence labeled \"Base\" above in the document image attached. Wha
         response_mime_type="text/plain",
     )
 
-
-    response = client.generate_content(request)
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=generate_content_config,
+    )
     result = response.candidates[0].content.parts[0].text
-
     return result
 
 
@@ -121,6 +125,13 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
             cleaned = clean_base_sentence(base_pdf_file, base_pdf_page, b_sentence)
             print("Clean", cleaned)
 
+
+def get_pdf_from_md(md_path: str) -> str:
+    base = os.path.basename(md_path)
+    base = re.sub(r'_\d+\.md$', '.pdf', base)
+
+    return os.path.join(os.path.dirname(md_path), "..", "pdfs", base)
+
 def main():
     parser = argparse.ArgumentParser(
         description="Compares sentences from base and candidate texts, printing differences."
@@ -156,7 +167,7 @@ def main():
         with open(base_file_path, "r", encoding="utf-8") as f:
             base_text = f.read()
 
-        base_pdf_file = os.path.join(os.path.dirname(base_file_path), "..", "pdfs", os.path.basename(base_file_path).replace(".md", ".pdf"))
+        base_pdf_file = get_pdf_from_md(base_file_path)
         base_pdf_page = 1
         print(f"Results for base file: {bf}")
         compare_votes_for_file(base_pdf_file, base_pdf_page, base_text, candidate_texts)
