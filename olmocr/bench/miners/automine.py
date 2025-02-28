@@ -14,6 +14,8 @@ from google.genai import types
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
+LABEL_WIDTH = 8  # fixed width for printing labels
+
 # Uses a gemini prompt to get the most likely clean sentence from a pdf page
 def clean_base_sentence(pdf_path: str, page_num: int, base_sentence: str) -> str:
     client = genai.Client(
@@ -27,8 +29,8 @@ def clean_base_sentence(pdf_path: str, page_num: int, base_sentence: str) -> str
             data=base64.b64decode(image_base64)
         )
     )
-    #model = "gemini-2.0-flash-thinking-exp-01-21" # Consider using a more stable model for production
-    model="gemini-2.0-flash-001"
+    model = "gemini-2.0-flash-thinking-exp-01-21" # Consider using a more stable model for production
+    #model="gemini-2.0-flash-001"
     contents = [
         types.Content(
             role="user",
@@ -59,7 +61,6 @@ Consider the sentence labeled "Base" above in the document image attached. What 
     return result
 
 
-
 def parse_sentences(text: str) -> list[str]:
     """
     Splits a text into a list of sentence strings using syntok.
@@ -78,12 +79,13 @@ def parse_sentences(text: str) -> list[str]:
     return sentences
 
 
-def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: str, candidate_texts: list[str]) -> None:
+def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: str, candidate_texts: list[str], max_diffs: int) -> None:
     """
     For each sentence in the base text, finds the best matching sentence from
     each candidate text (using a similarity threshold). If any candidate sentences
-    differ from the base sentence, prints the base sentence along with each unique
-    variant and the number of times it was chosen.
+    differ from the base sentence, collects that diff (base sentence plus variant
+    votes) for later printing. At the end, prints only the top N diffs (by total vote count)
+    for the file.
     
     Comparison is case-insensitive, but output preserves original capitalization.
     """
@@ -91,6 +93,7 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
     # Parse all candidate texts into lists of sentences
     candidate_sentences_list = [parse_sentences(ct) for ct in candidate_texts]
 
+    diffs = []  # list to hold diff entries
     for b_sentence in base_sentences:
         b_sentence = b_sentence.replace("\n", " ")
 
@@ -114,23 +117,38 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
         # Only consider variants that differ when compared case-insensitively
         variant_votes = [vote for vote in votes if vote.lower() != b_sentence.lower()]
         if variant_votes:
-            print("Base Sentence:")
-            print(b_sentence)
-            print("Variants:")
-            counts = Counter(variant_votes)
-            for variant, count in counts.items():
-                print(f"{count}x: {variant}")
-            print("-" * 40)
+            diff_entry = {
+                "base": b_sentence,
+                "variants": Counter(variant_votes),
+                "vote_count": len(variant_votes)
+            }
+            diffs.append(diff_entry)
 
-            cleaned = clean_base_sentence(base_pdf_file, base_pdf_page, b_sentence)
-            print("Clean", cleaned)
+    # Sort diffs by vote_count descending and take only the top max_diffs
+    diffs.sort(key=lambda d: d["vote_count"], reverse=True)
+    top_diffs = diffs[:max_diffs]
+
+    for diff in top_diffs:
+        base_sentence = diff["base"]
+        variant_counter = diff["variants"]
+
+        # Print base sentence using fixed-width label formatting
+        print(f"{'Base:':<{LABEL_WIDTH}} {base_sentence}")
+        print(f"{'Variants:':<{LABEL_WIDTH}}")
+        for variant, count in variant_counter.items():
+            label = f"{count}x:"
+            print(f"{label:<{LABEL_WIDTH}} {variant}")
+        # Get the clean version of the sentence
+        cleaned = clean_base_sentence(base_pdf_file, base_pdf_page, base_sentence)
+        print(f"{'Clean:':<{LABEL_WIDTH}} {cleaned}")
+        print("-" * 40)
 
 
 def get_pdf_from_md(md_path: str) -> str:
     base = os.path.basename(md_path)
     base = re.sub(r'_\d+\.md$', '.pdf', base)
-
     return os.path.join(os.path.dirname(md_path), "..", "pdfs", base)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -146,10 +164,17 @@ def main():
         default=os.path.join(os.path.dirname(__file__), "olmocr"),
         help="Path to the folder containing candidate .md files."
     )
+    parser.add_argument(
+        "--max-diffs",
+        type=int,
+        default=3,
+        help="Maximum number of diffs to display per file."
+    )
     args = parser.parse_args()
 
     base_path = args.base
     compare_path = args.compare
+    max_diffs = args.max_diffs
 
     # Collect all .md files from the base and compare folders
     base_files = [f for f in os.listdir(base_path) if f.endswith(".md")]
@@ -170,7 +195,7 @@ def main():
         base_pdf_file = get_pdf_from_md(base_file_path)
         base_pdf_page = 1
         print(f"Results for base file: {bf}")
-        compare_votes_for_file(base_pdf_file, base_pdf_page, base_text, candidate_texts)
+        compare_votes_for_file(base_pdf_file, base_pdf_page, base_text, candidate_texts, max_diffs)
         print("")
 
 if __name__ == "__main__":
