@@ -6,6 +6,8 @@ import argparse
 from collections import defaultdict
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
+
+
 def parse_rules_file(file_path):
     """Parse the rules file and organize rules by PDF."""
     pdf_rules = defaultdict(list)
@@ -36,21 +38,18 @@ def get_rule_html(rule, rule_index):
     
     # Determine status button class based on 'checked' value
     checked_status = rule.get('checked')
-    if checked_status == "verified":
-        status_class = "status-verified"
-    elif checked_status == "rejected":
-        status_class = "status-rejected"
-    else:
-        status_class = "status-unchecked"
+    # We won't set active class here; it'll be updated by JS upon interaction.
+    thumbs_up_class = "active" if checked_status == "verified" else ""
+    thumbs_down_class = "active" if checked_status == "rejected" else ""
     
     # Create thumbs up/down buttons
     status_button = f"""
         <div class="status-control">
-            <button class="status-button thumbs-up {checked_status == 'verified' and 'active' or ''}" 
+            <button class="status-button thumbs-up {thumbs_up_class}" 
                     data-rule-id="{rule_id}" 
                     data-action="verified"
                     onclick="toggleStatus(this)"></button>
-            <button class="status-button thumbs-down {checked_status == 'rejected' and 'active' or ''}" 
+            <button class="status-button thumbs-down {thumbs_down_class}" 
                     data-rule-id="{rule_id}" 
                     data-action="rejected"
                     onclick="toggleStatus(this)"></button>
@@ -391,40 +390,35 @@ def generate_html(pdf_rules, rules_file_path):
             
             // Function to toggle status button
             function toggleStatus(button) {{
-                const ruleId = button.dataset.ruleId;
-                const ruleIndex = parseInt(document.querySelector(`[data-rule-id="${{ruleId}}"]`).dataset.ruleIndex);
-                const currentStatus = button.dataset.status;
+                // Find the closest rule row which holds the rule index
+                const ruleRow = button.closest('.rule-row');
+                const ruleIndex = parseInt(ruleRow.dataset.ruleIndex);
+                // Determine which action was clicked (either 'verified' or 'rejected')
+                const action = button.dataset.action;
                 
-                let newStatus;
-                if (currentStatus === 'null') {{
-                    newStatus = 'verified';
-                    button.classList.remove('status-unchecked');
-                    button.classList.add('status-verified');
-                }} else if (currentStatus === 'verified') {{
-                    newStatus = 'rejected';
-                    button.classList.remove('status-verified');
-                    button.classList.add('status-rejected');
-                }} else {{
-                    newStatus = null;
-                    button.classList.remove('status-rejected');
-                    button.classList.add('status-unchecked');
-                }}
+                // Toggle the rule's checked state: if already in that state, set to null; otherwise, set to the clicked action.
+                const currentState = rulesData[ruleIndex].checked;
+                const newState = (currentState === action) ? null : action;
+                rulesData[ruleIndex].checked = newState;
                 
-                // Update button status
-                button.dataset.status = newStatus === null ? 'null' : newStatus;
+                // Update the UI: adjust active classes on buttons in this row
+                const buttons = ruleRow.querySelectorAll('.status-button');
+                buttons.forEach(btn => {{
+                    if (btn.dataset.action === newState) {{
+                        btn.classList.add('active');
+                    }} else {{
+                        btn.classList.remove('active');
+                    }}
+                }});
                 
-                // Update rules data
-                rulesData[ruleIndex].checked = newStatus;
-                
-                // Output updated JSONL to console
                 outputJSON();
             }}
             
             // Function to update rule text
             function updateRuleText(element) {{
-                const ruleId = element.dataset.ruleId;
+                const ruleRow = element.closest('.rule-row');
+                const ruleIndex = parseInt(ruleRow.dataset.ruleIndex);
                 const field = element.dataset.field;
-                const ruleIndex = parseInt(document.querySelector(`[data-rule-id="${{ruleId}}"]`).dataset.ruleIndex);
                 const newText = element.innerText.trim();
                 
                 // Update rules data
@@ -462,6 +456,10 @@ def main():
     if not os.path.exists(args.rules_file):
         print(f"Error: Rules file not found: {args.rules_file}")
         sys.exit(1)
+
+    if os.path.exists(args.output):
+        print(f"Output file {args.output} already exists, attempting to reload it's datastore")
+
     
     pdf_rules = parse_rules_file(args.rules_file)
     html = generate_html(pdf_rules, args.rules_file)

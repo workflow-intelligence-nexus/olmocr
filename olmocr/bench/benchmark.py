@@ -128,7 +128,7 @@ def main():
     # Get PDF basenames (e.g. "doc1.pdf")
     pdf_basenames = [os.path.basename(p) for p in all_pdf_files]
 
-    # Find and validate .jsonl files in the input folder
+    # Find and validate .jsonl files in the inp∂ut folder
     jsonl_files = glob.glob(os.path.join(input_folder, "*.jsonl"))
     if not jsonl_files:
         print(f"Error: No .jsonl files found in {input_folder}.", file=sys.stderr)

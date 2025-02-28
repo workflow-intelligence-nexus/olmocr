@@ -75,6 +75,7 @@ dev = [
 ]
 
 bench = [
+    "tinyhost",
     "fuzzysearch",
     "rapidfuzz",
     "sequence_align",

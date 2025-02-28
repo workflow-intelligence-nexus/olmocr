@@ -142,6 +142,7 @@ def load_tests(jsonl_file: str) -> list[BasePDFTest]:
                 if data["type"] in [TestType.PRESENT.value, TestType.ABSENT.value]:
                     test = TextPresenceTest(
                         pdf=data["pdf"],
+                        page=data["page"],
                         id=data["id"],
                         type=data["type"],
                         threshold=data["threshold"],
@@ -150,6 +151,7 @@ def load_tests(jsonl_file: str) -> list[BasePDFTest]:
                 elif data["type"] == TestType.ORDER.value:
                     test = TextOrderTest(
                         pdf=data["pdf"],
+                        page=data["page"],
                         id=data["id"],
                         type=data["type"],
                         threshold=data["threshold"],
