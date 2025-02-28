@@ -13,14 +13,20 @@ def parse_method_arg(method_arg):
     Parse a method configuration string of the form:
        method_name[:key=value[:key2=value2...]]
     Returns:
-       (method_name, kwargs_dict)
+       (method_name, kwargs_dict, folder_name)
     """
     parts = method_arg.split(":")
     name = parts[0]
     kwargs = {}
+    folder_name = name  # Default folder name is the method name
+    
     for extra in parts[1:]:
         if "=" in extra:
             key, value = extra.split("=", 1)
+            if key == "name":
+                folder_name = value
+                continue
+                
             try:
                 converted = int(value)
             except ValueError:
@@ -31,14 +37,16 @@ def parse_method_arg(method_arg):
             kwargs[key] = converted
         else:
             raise ValueError(f"Extra argument '{extra}' is not in key=value format")
-    return name, kwargs
+    
+    return name, kwargs, folder_name
 
 
 async def process_pdfs(config, pdf_directory, data_directory, repeats):
     """Process PDFs with both sync and async functions"""
     for candidate in config.keys():
         print(f"Starting conversion using {candidate} with kwargs: {config[candidate]['kwargs']}")
-        candidate_output_dir = os.path.join(data_directory, candidate)
+        folder_name = config[candidate]["folder_name"]
+        candidate_output_dir = os.path.join(data_directory, folder_name)
         os.makedirs(candidate_output_dir, exist_ok=True)
         
         method = config[candidate]["method"]
@@ -64,7 +72,9 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run PDF conversion using specified OCR methods and extra parameters.")
-    parser.add_argument("methods", nargs="+", help="Methods to run in the format method[:key=value ...]. " "Example: gotocr mineru:temperature=2 marker:runs=3")
+    parser.add_argument("methods", nargs="+", help="Methods to run in the format method[:key=value ...]. "
+                       "Example: gotocr mineru:temperature=2 marker:runs=3. "
+                       "Use 'name=folder_name' to specify a custom output folder name.")
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
     args = parser.parse_args()
 
@@ -80,14 +90,14 @@ if __name__ == "__main__":
     # Build config by importing only requested methods.
     config = {}
     for method_arg in args.methods:
-        method_name, extra_kwargs = parse_method_arg(method_arg)
+        method_name, extra_kwargs, folder_name = parse_method_arg(method_arg)
         if method_name not in available_methods:
             parser.error(f"Unknown method: {method_name}. " f"Available methods: {', '.join(available_methods.keys())}")
         module_path, function_name = available_methods[method_name]
         # Dynamically import the module and get the function.
         module = importlib.import_module(module_path)
         function = getattr(module, function_name)
-        config[method_name] = {"method": function, "kwargs": extra_kwargs}
+        config[method_name] = {"method": function, "kwargs": extra_kwargs, "folder_name": folder_name}
 
     data_directory = os.path.join(os.path.dirname(__file__), "sample_data")
     pdf_directory = os.path.join(data_directory, "pdfs")

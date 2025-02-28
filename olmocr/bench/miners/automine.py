@@ -6,6 +6,56 @@ from collections import Counter
 import syntok.segmenter as segmenter
 import syntok.tokenizer as tokenizer
 
+import base64
+import os
+from google import genai
+from google.genai import types
+
+from olmocr.data.renderpdf import render_pdf_to_base64png
+
+# Uses a gemini prompt to 
+def clean_base_sentence(pdf_path: str, page_num: int, base_sentence: str) -> str:
+    client = genai.Client(
+        api_key=os.environ.get("GEMINI_API_KEY"),
+    )
+
+    image_base64 = render_pdf_to_base64png(pdf_path, page_num=page_num, target_longest_image_dim=2048)
+    image_part = glm.Part(
+        inline_data=glm.Blob(
+            mime_type="image/png",
+            data=base64.b64decode(image_base64)
+        )
+    )
+    model = "gemini-2.0-flash-thinking-exp-01-21"
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                image_part,
+                types.Part.from_text(
+                    text="""Base {base_sentence}
+
+Consider the sentence labeled \"Base\" above in the document image attached. What is the correct reading of this document within the image of the page? I need it to be exact down to the individual character and that's very important to get right. It needs to match the picture, not the provided text. Please just output the correct full sentence exactly how it appears in the document image and nothing else."""
+                ),
+            ],
+        ),
+    ]
+    generate_content_config = types.GenerateContentConfig(
+        temperature=0.7,
+        top_p=0.95,
+        top_k=64,
+        max_output_tokens=500,
+        response_mime_type="text/plain",
+    )
+
+
+    response = client.generate_content(request)
+    result = response.candidates[0].content.parts[0].text
+
+    return result
+
+
+
 def parse_sentences(text: str) -> list[str]:
     """
     Splits a text into a list of sentence strings using syntok.
@@ -23,7 +73,8 @@ def parse_sentences(text: str) -> list[str]:
             sentences.append(sentence_str)
     return sentences
 
-def compare_votes_for_file(base_text: str, candidate_texts: list[str]) -> None:
+
+def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: str, candidate_texts: list[str]) -> None:
     """
     For each sentence in the base text, finds the best matching sentence from
     each candidate text (using a similarity threshold). If any candidate sentences
@@ -37,6 +88,8 @@ def compare_votes_for_file(base_text: str, candidate_texts: list[str]) -> None:
     candidate_sentences_list = [parse_sentences(ct) for ct in candidate_texts]
 
     for b_sentence in base_sentences:
+        b_sentence = b_sentence.replace("\n", " ")
+
         votes = []
         for c_sentences in candidate_sentences_list:
             best_ratio = 0.0
@@ -64,6 +117,9 @@ def compare_votes_for_file(base_text: str, candidate_texts: list[str]) -> None:
             for variant, count in counts.items():
                 print(f"{count}x: {variant}")
             print("-" * 40)
+
+            cleaned = clean_base_sentence(base_pdf_file, base_pdf_page, b_sentence)
+            print("Clean", cleaned)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -100,9 +156,11 @@ def main():
         with open(base_file_path, "r", encoding="utf-8") as f:
             base_text = f.read()
 
+        base_pdf_file = os.path.join(os.path.dirname(base_file_path), "..", "pdfs", os.path.basename(base_file_path).replace(".md", ".pdf"))
+        base_pdf_page = 1
         print(f"Results for base file: {bf}")
-        compare_votes_for_file(base_text, candidate_texts)
-        print("=" * 80)
+        compare_votes_for_file(base_pdf_file, base_pdf_page, base_text, candidate_texts)
+        print("")
 
 if __name__ == "__main__":
     main()
