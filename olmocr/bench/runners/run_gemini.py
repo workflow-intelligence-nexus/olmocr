@@ -6,7 +6,7 @@ from google.api_core import client_options
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import (  # gemini_response_format_schema,
+from prompts import (  # gemini_response_format_schema,
     build_openai_silver_data_prompt,
 )
 
