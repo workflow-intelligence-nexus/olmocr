@@ -16,11 +16,7 @@ import numpy as np
 import torch
 from transformers import AutoTokenizer
 from transformers.image_utils import ImageInput
-from transformers.processing_utils import (
-    ProcessingKwargs,
-    ProcessorMixin,
-    TextKwargs,
-)
+from transformers.processing_utils import ProcessingKwargs, ProcessorMixin, TextKwargs
 from transformers.tokenization_utils_base import PreTokenizedInput, TextInput
 from transformers.utils import logging
 

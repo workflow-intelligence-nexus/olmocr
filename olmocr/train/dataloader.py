@@ -5,10 +5,7 @@ import re
 from typing import Optional
 
 import boto3
-from datasets import (
-    Dataset,
-    load_dataset,
-)
+from datasets import Dataset, load_dataset
 from filelock import FileLock
 
 from olmocr.data.renderpdf import get_pdf_media_box_width_height

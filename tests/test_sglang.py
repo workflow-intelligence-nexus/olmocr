@@ -8,13 +8,13 @@ import base64
 import json
 import math
 import os
-import tempfile
 import unittest
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import numpy as np
+import pytest
 import torch
 import torch.nn.functional as F
 from httpx import AsyncClient
@@ -36,7 +36,7 @@ MODEL_FINETUNED_PATH = (
 )
 
 
-@unittest.skip("Skip these tests when running CI, they are mostly for experimentation")
+@pytest.mark.nonci
 class TestSglangServer(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         # Mock arguments
@@ -110,6 +110,7 @@ class TestSglangServer(unittest.IsolatedAsyncioTestCase):
         #     os.rmdir(self.args.workspace)
 
 
+@pytest.mark.nonci
 class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         # Set up the Hugging Face model and tokenizer
@@ -248,6 +249,7 @@ class TestHuggingFaceModel(unittest.IsolatedAsyncioTestCase):
         torch.cuda.empty_cache()
 
 
+@pytest.mark.nonci
 class RawSGLangTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         # Set up the Hugging Face model and tokenizer

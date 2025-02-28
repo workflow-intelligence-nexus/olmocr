@@ -147,7 +147,6 @@ def run_train(config: TrainConfig):
     save_config(config, join_path("", save_path, "config.yaml"))  # pyright: ignore
 
     with TemporaryDirectory() as output_dir:
-
         training_args = TrainingArguments(
             run_name=run_name.run,
             logging_steps=config.hparams.log_every_steps,

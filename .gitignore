@@ -13,6 +13,7 @@ pdelfin_testset/*
 localworkspace/*
 gpt4otestset/*
 gpt4otestset_output/*
+pdfs/*
 /*.html
 scoreelo.csv
 debug.log

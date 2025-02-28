@@ -1,10 +1,29 @@
-# olmOCR
-
-A toolkit for training language models to work with PDF documents in the wild.
-
-
+<div align="center">
+  <!-- <img src="https://github.com/allenai/OLMo/assets/8812459/774ac485-a535-4768-8f7c-db7be20f5cc3" width="300"/> -->
 <img src="https://github.com/user-attachments/assets/d70c8644-3e64-4230-98c3-c52fddaeccb6" alt="olmOCR Logo" width="300"/>
 <br/>
+  <br>
+  <h1>olmOCR</h1>
+</div>
+<p align="center">
+  <a href="https://github.com/allenai/OLMo/blob/main/LICENSE">
+    <img alt="GitHub License" src="https://img.shields.io/github/license/allenai/OLMo">
+  </a>
+  <a href="https://github.com/allenai/olmocr/releases">
+    <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/olmocr.svg">
+  </a>
+  <a href="https://olmocr.allenai.org/papers/olmocr.pdf">
+    <img alt="Tech Report" src="https://img.shields.io/badge/Paper-olmOCR-blue">
+  </a>
+  <a href="https://olmocr.allenai.org">
+    <img alt="Demo" src="https://img.shields.io/badge/Ai2-Demo-F0529C">
+  </a>
+  <a href="https://discord.gg/sZq3jTNVNG">
+    <img alt="Discord" src="https://img.shields.io/badge/Discord%20-%20blue?style=flat&logo=discord&label=Ai2&color=%235B65E9">
+  </a>
+</p>
+
+A toolkit for training language models to work with PDF documents in the wild.
 
 Try the online demo: [https://olmocr.allenai.org/](https://olmocr.allenai.org/)
 
@@ -46,25 +65,19 @@ pip install sgl-kernel==0.0.3.post1 --force-reinstall --no-deps
 pip install "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
 
-**BETA TESTER NOTE:**
-
-If you are a beta tester, you will need to login using the hugging-face CLI
-to make sure you have access to https://huggingface.co/allenai/olmOCR-7B-0225-preview
- 
-`huggingface-cli login`
-
 ### Local Usage Example
 
 For quick testing, try the [web demo](https://olmocr.allen.ai/). To run locally, a GPU is required, as inference is powered by [sglang](https://github.com/sgl-project/sglang) under the hood.
 Convert a Single PDF:
 ```bash
-python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf # will convert one PDF into a directory called `localworkspace`
+python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf
 ```
 
 Convert Multiple PDFs:
 ```bash
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/*.pdf
 ```
+Results will be stored as JSON in `./localworkspace`.
 
 #### Viewing Results
 
@@ -165,11 +178,21 @@ options:
 ```
 
 
-#### TODOs for future versions
- - Ask model to predict footnotes in a structured format separately
- - Add training data for complex tables
- - More training augmentations to improve performance
- - Fix pages which are all-references sometimes rendering as empty-text
- - Automated benchmarking
- - More efficient inference with 8-bit KV cache
- 
+## Team
+
+<!-- start team -->
+
+**olmOCR** is developed and maintained by the AllenNLP team, backed by [the Allen Institute for Artificial Intelligence (AI2)](https://allenai.org/).
+AI2 is a non-profit institute with the mission to contribute to humanity through high-impact AI research and engineering.
+To learn more about who specifically contributed to this codebase, see [our contributors](https://github.com/allenai/olmocr/graphs/contributors) page.
+
+<!-- end team -->
+
+## License
+
+<!-- start license -->
+
+**olmOCR** is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+A full copy of the license can be found [on GitHub](https://github.com/allenai/olmocr/blob/main/LICENSE).
+
+<!-- end license -->

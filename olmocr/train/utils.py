@@ -224,7 +224,6 @@ class TruncatingCollator:
 
 @contextmanager
 def get_local_dir(output_dir: str):
-
     with TemporaryDirectory() as tmp_dir:
         if is_local(output_dir):
             yield output_dir

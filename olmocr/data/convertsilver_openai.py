@@ -34,7 +34,6 @@ def process_file(input_file: str, output_file: str, rewrite_prompt_str: bool):
 
     try:
         with smart_open.open(input_file, "r", encoding="utf-8") as infile, smart_open.open(output_file, "w", encoding="utf-8") as outfile:
-
             for line_number, line in enumerate(infile, 1):
                 line = line.strip()
                 if not line:

@@ -1,5 +1,6 @@
 import unittest
 
+import pytest
 import requests
 from PIL import Image
 from transformers import (
@@ -10,6 +11,7 @@ from transformers import (
 )
 
 
+@pytest.mark.nonci
 class MolmoProcessorTest(unittest.TestCase):
     def test_molmo_demo(self):
         # load the processor

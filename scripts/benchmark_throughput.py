@@ -362,7 +362,6 @@ async def run_vllm_async(
     )
 
     async with build_async_engine_client_from_engine_args(engine_args, disable_frontend_multiprocessing) as llm:
-
         # Add the requests to the engine.
         prompts: List[str] = []
         sampling_params: List[SamplingParams] = []
