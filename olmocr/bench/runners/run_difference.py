@@ -5,7 +5,7 @@ from openai import OpenAI
 
 from run_gemini import run_gemini
 from run_chatgpt import run_chatgpt
-from olmocr.prompts.prompts import build_find_difference_prompt, PageResponse
+from olmocr.prompts.prompts import build_find_difference_prompt
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
 
@@ -50,40 +50,8 @@ def run_difference(pdf_path: str, page_num: int = 1, model: str = "gpt-4o-2024-0
         ],
         temperature=temperature,
         max_tokens=3000,
-        # response_format=openai_response_format_schema(),
     )
 
     raw_response = response.choices[0].message.content
 
-    # assert len(response.choices) > 0
-    # assert response.choices[0].message.refusal is None
-    # assert response.choices[0].finish_reason == "stop"
-
-    # data = json.loads(raw_response)
-    # data = PageResponse(**data)
-
     return raw_response
-
-if __name__ == "__main__":
-    import argparse
-    
-    # Set up command-line argument parsing
-    parser = argparse.ArgumentParser(description="Extract text from a PDF using OpenAI OCR")
-    parser.add_argument("pdf_path", help="Path to the PDF file")
-    parser.add_argument("--page", type=int, default=1, help="Page number to process (default: 1)")
-    parser.add_argument("--model", default="gpt-4o-2024-08-06", help="OpenAI model to use")
-    parser.add_argument("--temperature", type=float, default=0.1, help="Temperature for generation")
-    
-    # Parse the arguments
-    args = parser.parse_args()
-    
-    # Run the OCR function
-    result = run_difference(
-        pdf_path=args.pdf_path,
-        page_num=args.page,
-        model=args.model,
-        temperature=args.temperature
-    )
-    
-    # Print the result
-    print(result)

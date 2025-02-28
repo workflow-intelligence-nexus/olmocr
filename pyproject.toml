@@ -73,8 +73,6 @@ dev = [
     "peft",
     "datasets",
     "omegaconf",
-    "openai",
-    "google-generativeai"
 ]
 
 

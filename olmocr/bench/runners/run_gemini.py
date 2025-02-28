@@ -3,9 +3,8 @@ import json
 import base64
 from google.ai import generativelanguage as glm
 from google.api_core import client_options
-from google.auth import credentials as auth_credentials
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import build_silver_data_prompt, gemini_response_format_schema, PageResponse
+from olmocr.prompts.prompts import gemini_response_format_schema
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
 def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", temperature: float=0.1) -> str:
@@ -38,10 +37,6 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", 
             data=base64.b64decode(image_base64)
         )
     )
-    
-    # text_part = glm.Part(
-    #     text=f"Extract all the text from this document image and format it in markdown. Preserve the layout as much as possible. Context: {build_gemini_silver_data_prompt(anchor_text)}"
-    # )
 
     text_part = glm.Part(
         text=f"""{build_silver_data_prompt(anchor_text)}"""
@@ -83,24 +78,4 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", 
 
     response = client.generate_content(request)
     result = response.candidates[0].content.parts[0].text
-    
     return result
-
-if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Extract text from a PDF using Gemini OCR")
-    parser.add_argument("pdf_path", help="Path to the PDF file")
-    parser.add_argument("--page", type=int, default=1, help="Page number to process (default: 1)")
-    parser.add_argument("--model", default="gemini-1.5-pro", help="Gemini model to use")
-    parser.add_argument("--temperature", type=float, default=0.1, help="Temperature for generation")
-    
-    args = parser.parse_args()
-
-    result = run_gemini(
-        pdf_path=args.pdf_path,
-        page_num=args.page,
-        model=args.model,
-        temperature=args.temperature
-    )
-    print(result)

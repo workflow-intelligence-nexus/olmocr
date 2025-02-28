@@ -3,7 +3,7 @@ import json
 import base64
 from anthropic import Anthropic
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import build_silver_data_prompt, claude_response_format_schema, PageResponse
+from olmocr.prompts.prompts import build_openai_silver_data_prompt, claude_response_format_schema, PageResponse
 from olmocr.data.renderpdf import render_pdf_to_base64png
 
 def run_claude(pdf_path: str, page_num: int = 1, model: str = "claude-3-7-sonnet-20250219", temperature: float=0.1) -> str:
@@ -61,32 +61,3 @@ def run_claude(pdf_path: str, page_num: int = 1, model: str = "claude-3-7-sonnet
     if json_sentiment:
         response = json.dumps(json_sentiment, indent=2)
         return response
-
-    # Extract and validate the response
-    # raw_response = response.content[0].text
-    # return raw_response
-    
-
-if __name__ == "__main__":
-    import argparse
-    
-    # Set up command-line argument parsing
-    parser = argparse.ArgumentParser(description="Extract text from a PDF using Claude OCR")
-    parser.add_argument("pdf_path", help="Path to the PDF file")
-    parser.add_argument("--page", type=int, default=1, help="Page number to process (default: 1)")
-    parser.add_argument("--model", default="claude-3-7-sonnet-20250219", help="Claude model to use")
-    parser.add_argument("--temperature", type=float, default=0.1, help="Temperature for generation")
-    
-    # Parse the arguments
-    args = parser.parse_args()
-    
-    # Run the OCR function
-    result = run_claude(
-        pdf_path=args.pdf_path,
-        page_num=args.page,
-        model=args.model,
-        temperature=args.temperature
-    )
-    
-    # Print the result
-    print(result)
