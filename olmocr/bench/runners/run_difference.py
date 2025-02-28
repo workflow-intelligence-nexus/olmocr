@@ -1,25 +1,20 @@
 import os
-import json
 
 from openai import OpenAI
-
-from run_gemini import run_gemini
 from run_chatgpt import run_chatgpt
-from olmocr.prompts.prompts import build_find_difference_prompt
+from run_gemini import run_gemini
+
 from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts.prompts import build_find_difference_prompt
 
 
 def combined_output(pdf_path: str) -> str:
     chatgpt_output = run_chatgpt(pdf_path)
     gemini_output = run_gemini(pdf_path)
-    return (
-        f"ChatGPT OUTPUT: \n"
-        f"{chatgpt_output}\n\n"
-        f"Gemini OUTPUT: \n"
-        f"{gemini_output}"
-    )
+    return f"ChatGPT OUTPUT: \n" f"{chatgpt_output}\n\n" f"Gemini OUTPUT: \n" f"{gemini_output}"
 
-def run_difference(pdf_path: str, page_num: int = 1, model: str = "gpt-4o-2024-08-06", temperature: float=0.1) -> str:
+
+def run_difference(pdf_path: str, page_num: int = 1, model: str = "gpt-4o-2024-08-06", temperature: float = 0.1) -> str:
     """
     Convert page of a PDF file to markdown using GOT-OCR.
 

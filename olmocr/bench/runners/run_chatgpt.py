@@ -1,14 +1,18 @@
-import os
 import json
+import os
 
 from openai import OpenAI
 
-from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import build_openai_silver_data_prompt, openai_response_format_schema, PageResponse
 from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.prompts.prompts import (
+    PageResponse,
+    build_openai_silver_data_prompt,
+    openai_response_format_schema,
+)
 
 
-def run_chatgpt(pdf_path: str, page_num: int = 1, model: str = "gpt-4o-2024-08-06", temperature: float=0.1) -> str:
+def run_chatgpt(pdf_path: str, page_num: int = 1, model: str = "gpt-4o-2024-08-06", temperature: float = 0.1) -> str:
     """
     Convert page of a PDF file to markdown using GOT-OCR.
 

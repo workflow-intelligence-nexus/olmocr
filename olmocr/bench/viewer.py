@@ -1,35 +1,38 @@
 #!/usr/bin/env python3
-import json
-import sys
-import os
 import argparse
+import json
+import os
+import sys
 from collections import defaultdict
+
 from olmocr.data.renderpdf import render_pdf_to_base64png
+
 
 def parse_rules_file(file_path):
     """Parse the rules file and organize rules by PDF."""
     pdf_rules = defaultdict(list)
-    
-    with open(file_path, 'r') as f:
+
+    with open(file_path, "r") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            
+
             try:
                 rule = json.loads(line)
-                if 'pdf' in rule:
-                    pdf_rules[rule['pdf']].append(rule)
+                if "pdf" in rule:
+                    pdf_rules[rule["pdf"]].append(rule)
             except json.JSONDecodeError:
                 print(f"Warning: Could not parse line as JSON: {line}")
-    
+
     return pdf_rules
+
 
 def get_rule_html(rule):
     """Generate HTML representation for a rule."""
-    rule_type = rule.get('type', 'unknown')
-    
-    if rule_type == 'present':
+    rule_type = rule.get("type", "unknown")
+
+    if rule_type == "present":
         return f"""
         <tr class="rule-row present-rule">
             <td><span class="rule-type present">PRESENT</span></td>
@@ -37,7 +40,7 @@ def get_rule_html(rule):
             <td>Threshold: {rule.get('threshold', 'N/A')}</td>
         </tr>
         """
-    elif rule_type == 'absent':
+    elif rule_type == "absent":
         return f"""
         <tr class="rule-row absent-rule">
             <td><span class="rule-type absent">ABSENT</span></td>
@@ -45,7 +48,7 @@ def get_rule_html(rule):
             <td>Threshold: {rule.get('threshold', 'N/A')}</td>
         </tr>
         """
-    elif rule_type == 'order':
+    elif rule_type == "order":
         return f"""
         <tr class="rule-row order-rule">
             <td><span class="rule-type order">ORDER</span></td>
@@ -65,11 +68,12 @@ def get_rule_html(rule):
         </tr>
         """
 
+
 def generate_html(pdf_rules, rules_file_path):
     """Generate the HTML page with PDF renderings and rules."""
     # Limit to 10 unique PDFs
     pdf_names = list(pdf_rules.keys())[:10]
-    
+
     html = """
     <!DOCTYPE html>
     <html lang="en">
@@ -193,18 +197,18 @@ def generate_html(pdf_rules, rules_file_path):
         <div class="container">
             <h1>PDF Rules Visualizer</h1>
     """
-    
+
     for pdf_name in pdf_names:
         rules = pdf_rules[pdf_name]
-        
+
         # Render the PDF (first page only) from the /pdfs folder
         try:
-            pdf_path = os.path.join(os.path.dirname(rules_file_path), 'pdfs', pdf_name)
+            pdf_path = os.path.join(os.path.dirname(rules_file_path), "pdfs", pdf_name)
             base64_img = render_pdf_to_base64png(pdf_path, 0)
             img_html = f'<img src="data:image/png;base64,{base64_img}" alt="{pdf_name}">'
         except Exception as e:
             img_html = f'<div class="error">Error rendering PDF: {str(e)}</div>'
-        
+
         html += f"""
         <div class="pdf-container">
             <div class="pdf-header">{pdf_name}</div>
@@ -223,10 +227,10 @@ def generate_html(pdf_rules, rules_file_path):
                         </thead>
                         <tbody>
         """
-        
+
         for rule in rules:
             html += get_rule_html(rule)
-        
+
         html += """
                         </tbody>
                     </table>
@@ -234,33 +238,35 @@ def generate_html(pdf_rules, rules_file_path):
             </div>
         </div>
         """
-    
+
     html += """
         </div>
     </body>
     </html>
     """
-    
+
     return html
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Generate an HTML visualization of PDF rules.')
-    parser.add_argument('rules_file', help='Path to the rules file (JSON lines format)')
-    parser.add_argument('-o', '--output', help='Output HTML file path', default='pdf_rules_visualization.html')
-    
+    parser = argparse.ArgumentParser(description="Generate an HTML visualization of PDF rules.")
+    parser.add_argument("rules_file", help="Path to the rules file (JSON lines format)")
+    parser.add_argument("-o", "--output", help="Output HTML file path", default="pdf_rules_visualization.html")
+
     args = parser.parse_args()
-    
+
     if not os.path.exists(args.rules_file):
         print(f"Error: Rules file not found: {args.rules_file}")
         sys.exit(1)
-    
+
     pdf_rules = parse_rules_file(args.rules_file)
     html = generate_html(pdf_rules, args.rules_file)
-    
-    with open(args.output, 'w') as f:
+
+    with open(args.output, "w") as f:
         f.write(html)
-    
+
     print(f"HTML visualization created: {args.output}")
+
 
 if __name__ == "__main__":
     main()

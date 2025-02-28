@@ -1,24 +1,28 @@
-import os
-import json
 import base64
+import os
+
 from google.ai import generativelanguage as glm
 from google.api_core import client_options
-from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import gemini_response_format_schema
-from olmocr.data.renderpdf import render_pdf_to_base64png
 
-def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", temperature: float=0.1) -> str:
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts.anchor import get_anchor_text
+from olmocr.prompts.prompts import (  # gemini_response_format_schema,
+    build_openai_silver_data_prompt,
+)
+
+
+def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", temperature: float = 0.1) -> str:
     """
     Convert page of a PDF file to markdown using Gemini's vision capabilities.
     This function renders the specified page of the PDF to an image, runs OCR on that image,
     and returns the OCR result as a markdown-formatted string.
-    
+
     Args:
         pdf_path (str): The local path to the PDF file.
         page_num (int): The page number to process (starting from 1).
         model (str): The Gemini model to use.
         temperature (float): The temperature parameter for generation.
-        
+
     Returns:
         str: The OCR result in markdown format.
     """
@@ -31,29 +35,22 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", 
         ),
     )
 
-    image_part = glm.Part(
-        inline_data=glm.Blob(
-            mime_type="image/png",
-            data=base64.b64decode(image_base64)
-        )
-    )
+    image_part = glm.Part(inline_data=glm.Blob(mime_type="image/png", data=base64.b64decode(image_base64)))
 
-    text_part = glm.Part(
-        text=f"""{build_silver_data_prompt(anchor_text)}"""
-    )
+    text_part = glm.Part(text=f"""{build_openai_silver_data_prompt(anchor_text)}""")
     generation_config = glm.GenerationConfig(
         temperature=temperature,
         top_p=1.0,
         top_k=32,
         max_output_tokens=4096,
     )
-    response_schema = gemini_response_format_schema()
+    # response_schema = gemini_response_format_schema()
     request = glm.GenerateContentRequest(
         model=f"models/{model}",
         contents=[glm.Content(parts=[image_part, text_part])],
         generation_config=generation_config,
     )
-    
+
     # request = glm.GenerateContentRequest(
     #     model=f"models/{model}",
     #     contents=[glm.Content(parts=[image_part, text_part])],

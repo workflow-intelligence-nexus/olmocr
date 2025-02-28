@@ -1,40 +1,42 @@
 #!/usr/bin/env python3
-import json
-import sys
-import os
 import argparse
 import glob
+import json
+import os
+import sys
 from collections import defaultdict
-from olmocr.data.renderpdf import render_pdf_to_base64png
-from runners.run_gemini import run_gemini
+
 from runners.run_chatgpt import run_chatgpt
+from runners.run_gemini import run_gemini
+
+from olmocr.data.renderpdf import render_pdf_to_base64png
+
 
 def parse_rules_file(file_path):
     """Parse the rules file and organize rules by PDF."""
     pdf_rules = defaultdict(list)
-    
-    with open(file_path, 'r') as f:
+
+    with open(file_path, "r") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            
             try:
                 rule = json.loads(line)
-                if 'pdf' in rule:
-                    pdf_rules[rule['pdf']].append(rule)
+                if "pdf" in rule:
+                    pdf_rules[rule["pdf"]].append(rule)
             except json.JSONDecodeError:
                 print(f"Warning: Could not parse line as JSON: {line}")
-    
+
     return pdf_rules
+
 
 def get_model_outputs(pdf_path):
     """Get outputs from both models for a given PDF."""
     try:
-        # Debug information
-        print(f"DEBUG: Attempting to process PDF: {pdf_path}")
-        print(f"DEBUG: File exists: {os.path.exists(pdf_path)}")
-        
+        print(f"Attempting to process PDF: {pdf_path}")
+        print(f"File exists: {os.path.exists(pdf_path)}")
+
         chatgpt_output = run_chatgpt(pdf_path)
         gemini_output = run_gemini(pdf_path)
         return chatgpt_output, gemini_output
@@ -42,52 +44,43 @@ def get_model_outputs(pdf_path):
         print(f"Error getting model outputs for {pdf_path}: {str(e)}")
         return f"Error: {str(e)}", f"Error: {str(e)}"
 
+
 def find_pdfs_in_directory(directory):
     """Find all PDF files in the given directory."""
     if not os.path.isdir(directory):
         print(f"Warning: {directory} is not a directory.")
         return []
-    
-    # Find all files with .pdf extension (case insensitive)
     pdf_files = []
-    for ext in ['pdf', 'PDF']:
-        pattern = os.path.join(directory, f'*.{ext}')
+    for ext in ["pdf", "PDF"]:
+        pattern = os.path.join(directory, f"*.{ext}")
         pdf_files.extend(glob.glob(pattern))
-    
-    print(f"DEBUG: Found {len(pdf_files)} PDF files in {directory}")
+
+    print(f"Found {len(pdf_files)} PDF files in {directory}")
     for pdf in pdf_files:
         print(f"  - {pdf}")
-    
     return pdf_files
+
 
 def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
     """Generate the HTML page with PDF renderings and model outputs."""
-    # Process the input PDFs parameter
     pdf_paths = []
-    
+
     if pdfs_to_process:
         for pdf_item in pdfs_to_process:
             if os.path.isdir(pdf_item):
-                # If it's a directory, find all PDFs within it
                 pdf_paths.extend(find_pdfs_in_directory(pdf_item))
             elif os.path.isfile(pdf_item):
-                # If it's a file, add it directly
                 pdf_paths.append(pdf_item)
             else:
                 print(f"Warning: {pdf_item} is neither a valid file nor directory")
     else:
-        # Get PDF names from rules and construct paths
-        pdf_base_dir = os.path.join(os.path.dirname(rules_file_path), 'pdfs')
+        pdf_base_dir = os.path.join(os.path.dirname(rules_file_path), "pdfs")
         pdf_paths = [os.path.join(pdf_base_dir, pdf_name) for pdf_name in list(pdf_rules.keys())[:10]]
-    
-    # Ensure we have unique paths
     pdf_paths = list(set(pdf_paths))
-    
-    # Debug information
-    print(f"DEBUG: Processing the following PDFs:")
+    print("Processing the following PDFs:")
     for path in pdf_paths:
         print(f"  - {path} (exists: {os.path.exists(path)})")
-    
+
     html = """
     <!DOCTYPE html>
     <html lang="en">
@@ -301,30 +294,23 @@ def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
         <div class="container">
             <h1>PDF Model Comparison</h1>
     """
-    
+
     for pdf_path in pdf_paths:
-        # Skip if the path doesn't exist
         if not os.path.exists(pdf_path) or not os.path.isfile(pdf_path):
             print(f"Skipping non-existent or non-file path: {pdf_path}")
             continue
-            
-        # Use basename for display
         pdf_name = os.path.basename(pdf_path)
-        pdf_id = pdf_name.replace('.', '-')
-        
-        # Render the PDF (first page only)
+        pdf_id = pdf_name.replace(".", "-")
         try:
-            print(f"DEBUG: Rendering PDF: {pdf_path}")
+            print(f"Rendering PDF: {pdf_path}")
             base64_img = render_pdf_to_base64png(pdf_path, 0)
             img_html = f'<img src="data:image/png;base64,{base64_img}" alt="{pdf_name}">'
         except Exception as e:
-            print(f"DEBUG: Error rendering PDF: {str(e)}")
+            print(f"Error rendering PDF: {str(e)}")
             img_html = f'<div class="error">Error rendering PDF: {str(e)}</div>'
-        
-        # Get model outputs
-        print(f"DEBUG: Getting model outputs for: {pdf_path}")
+        print(f"Getting model outputs for: {pdf_path}")
         chatgpt_output, gemini_output = get_model_outputs(pdf_path)
-        
+
         html += f"""
         <div class="pdf-container" id="pdf-{pdf_id}">
             <div class="pdf-header">
@@ -364,7 +350,7 @@ def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
             </div>
         </div>
         """
-    
+
     html += """
         </div>
         
@@ -447,36 +433,36 @@ def generate_html(pdf_rules, rules_file_path, pdfs_to_process=None):
     </body>
     </html>
     """
-    
+
     return html
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Generate an HTML visualization for comparing AI model outputs on PDFs.')
-    parser.add_argument('-r', '--rules_file', help='Rules file path', default='./sample_data/dataset.jsonl')
-    parser.add_argument('-o', '--output', help='Output HTML file path', default='pdf_model_comparison.html')
-    parser.add_argument('-p', '--pdfs', nargs='+', help='Specific PDF files or directories to process')
-    parser.add_argument('-l', '--limit', type=int, help='Limit the number of PDFs to process', default=10)
-    
+    parser = argparse.ArgumentParser(description="Generate an HTML visualization for comparing AI model outputs on PDFs.")
+    parser.add_argument("-r", "--rules_file", help="Rules file path", default="./sample_data/dataset.jsonl")
+    parser.add_argument("-o", "--output", help="Output HTML file path", default="pdf_model_comparison.html")
+    parser.add_argument("-p", "--pdfs", nargs="+", help="Specific PDF files or directories to process")
+    parser.add_argument("-l", "--limit", type=int, help="Limit the number of PDFs to process", default=10)
+
     args = parser.parse_args()
-    
+
     if not os.path.exists(args.rules_file):
         print(f"Error: Rules file not found: {args.rules_file}")
         sys.exit(1)
-    
-    # Validate PDF paths exist
     if args.pdfs:
         for pdf_path in args.pdfs:
             if not os.path.exists(pdf_path):
                 print(f"WARNING: Path not found: {pdf_path}")
-    
+
     pdf_rules = parse_rules_file(args.rules_file)
     html = generate_html(pdf_rules, args.rules_file, args.pdfs)
-    
-    with open(args.output, 'w') as f:
+
+    with open(args.output, "w") as f:
         f.write(html)
-    
+
     print(f"HTML visualization created: {args.output}")
     print("Open this file in a web browser to view and rate model outputs.")
+
 
 if __name__ == "__main__":
     main()
