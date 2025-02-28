@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import argparse
 from difflib import SequenceMatcher
 from collections import Counter
@@ -8,7 +9,6 @@ import syntok.segmenter as segmenter
 import syntok.tokenizer as tokenizer
 
 import base64
-import os
 from google import genai
 from google.genai import types
 
@@ -18,6 +18,8 @@ from olmocr.bench.tests import TextPresenceTest, save_tests
 LABEL_WIDTH = 8  # fixed width for printing labels
 
 # Uses a gemini prompt to get the most likely clean sentence from a pdf page
+last_gemini_call = time.perf_counter()
+
 def clean_base_sentence(pdf_path: str, page_num: int, base_sentence: str) -> str:
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
@@ -58,8 +60,19 @@ Consider the sentence labeled "Base" above in the document image attached. What 
         contents=contents,
         config=generate_content_config,
     )
-    result = response.candidates[0].content.parts[0].text
-    return result
+
+    # Basic rate limitting
+    global last_gemini_call
+    if time.perf_counter() - last_gemini_call < 6:
+        time.sleep(6 - (time.perf_counter() - last_gemini_call))
+
+    last_gemini_call = time.perf_counter()
+
+    # Return response
+    if response is not None and response.candidates is not None and len(response.candidates) > 0:
+        return response.candidates[0].content.parts[0].text
+    else:
+        return None
 
 
 def parse_sentences(text: str) -> list[str]:
@@ -111,11 +124,9 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
                     best_ratio = ratio
                     best_candidate = c_sentence  # Keep original capitalization for output
 
-            best_candidate = best_candidate.strip()
-
             # Append the candidate if it passes the similarity threshold (e.g., 0.7)
             if best_ratio > 0.7 and best_candidate is not None:
-                votes.append(best_candidate)
+                votes.append(best_candidate.strip())
 
         # Only consider variants that differ when compared case-insensitively
         variant_votes = [vote for vote in votes if vote.lower() != b_sentence.lower()]
@@ -175,7 +186,7 @@ def main():
     parser.add_argument(
         "--max-diffs",
         type=int,
-        default=3,
+        default=4,
         help="Maximum number of diffs to display per file."
     )
     parser.add_argument(
@@ -215,10 +226,9 @@ def main():
         all_tests.extend(tests)
         print("")
 
+        # Output test candidates for review after each file, in case there are errors
+        save_tests(all_tests, args.output)
         break
-
-    # Output test candidates for review
-    save_tests(all_tests, args.output)
 
 if __name__ == "__main__":
     main()

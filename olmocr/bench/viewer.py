@@ -2,10 +2,14 @@
 import json
 import sys
 import os
+import re
 import argparse
-from collections import defaultdict
-from olmocr.data.renderpdf import render_pdf_to_base64png
+import requests
 
+from collections import defaultdict
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+
+from olmocr.data.renderpdf import render_pdf_to_base64png
 
 
 def parse_rules_file(file_path):
@@ -31,6 +35,7 @@ def parse_rules_file(file_path):
     
     return pdf_rules
 
+
 def get_rule_html(rule, rule_index):
     """Generate HTML representation for a rule with interactive elements."""
     rule_type = rule.get('type', 'unknown')
@@ -38,7 +43,6 @@ def get_rule_html(rule, rule_index):
     
     # Determine status button class based on 'checked' value
     checked_status = rule.get('checked')
-    # We won't set active class here; it'll be updated by JS upon interaction.
     thumbs_up_class = "active" if checked_status == "verified" else ""
     thumbs_down_class = "active" if checked_status == "rejected" else ""
     
@@ -120,6 +124,7 @@ def get_rule_html(rule, rule_index):
             <td></td>
         </tr>
         """
+
 
 def generate_html(pdf_rules, rules_file_path):
     """Generate the HTML page with PDF renderings and interactive rules."""
@@ -380,28 +385,24 @@ def generate_html(pdf_rules, rules_file_path):
         </div>
         """
     
-    # Add JavaScript to manage interactivity
+    # Add JavaScript to manage interactivity and datastore integration
     html += f"""
         </div>
         
         <script>
-            // Store all rules data
+            // Store all rules data (initially injected from the JSON file)
             let rulesData = {rules_json};
             
             // Function to toggle status button
             function toggleStatus(button) {{
-                // Find the closest rule row which holds the rule index
                 const ruleRow = button.closest('.rule-row');
                 const ruleIndex = parseInt(ruleRow.dataset.ruleIndex);
-                // Determine which action was clicked (either 'verified' or 'rejected')
                 const action = button.dataset.action;
-                
-                // Toggle the rule's checked state: if already in that state, set to null; otherwise, set to the clicked action.
                 const currentState = rulesData[ruleIndex].checked;
                 const newState = (currentState === action) ? null : action;
                 rulesData[ruleIndex].checked = newState;
                 
-                // Update the UI: adjust active classes on buttons in this row
+                // Update UI for status buttons
                 const buttons = ruleRow.querySelectorAll('.status-button');
                 buttons.forEach(btn => {{
                     if (btn.dataset.action === newState) {{
@@ -411,6 +412,8 @@ def generate_html(pdf_rules, rules_file_path):
                     }}
                 }});
                 
+                // Upload updated data to datastore
+                uploadRulesData();
                 outputJSON();
             }}
             
@@ -421,10 +424,11 @@ def generate_html(pdf_rules, rules_file_path):
                 const field = element.dataset.field;
                 const newText = element.innerText.trim();
                 
-                // Update rules data
+                // Update the rules data
                 rulesData[ruleIndex][field] = newText;
                 
-                // Output updated JSONL to console
+                // Upload updated data to datastore
+                uploadRulesData();
                 outputJSON();
             }}
             
@@ -437,14 +441,83 @@ def generate_html(pdf_rules, rules_file_path):
                 }});
             }}
             
-            // Output initial JSONL when page loads
-            document.addEventListener('DOMContentLoaded', outputJSON);
+            // Function to upload rulesData to datastore using putDatastore
+            async function uploadRulesData() {{
+                try {{
+                    await putDatastore(rulesData);
+                    console.log("Datastore updated successfully");
+                }} catch (error) {{
+                    console.error("Failed to update datastore", error);
+                }}
+            }}
+            
+            // Function to update UI from rulesData (used after fetching datastore state)
+            function updateUIFromRulesData() {{
+                document.querySelectorAll('.rule-row').forEach(ruleRow => {{
+                    const ruleIndex = parseInt(ruleRow.dataset.ruleIndex);
+                    const rule = rulesData[ruleIndex];
+                    // Update status buttons
+                    const buttons = ruleRow.querySelectorAll('.status-button');
+                    buttons.forEach(btn => {{
+                        if (btn.dataset.action === rule.checked) {{
+                            btn.classList.add('active');
+                        }} else {{
+                            btn.classList.remove('active');
+                        }}
+                    }});
+                    // Update editable text fields
+                    ruleRow.querySelectorAll('.editable-text').forEach(div => {{
+                        const field = div.dataset.field;
+                        if (rule[field] !== undefined) {{
+                            div.innerText = rule[field];
+                        }}
+                    }});
+                }});
+            }}
+            
+            // On page load, fetch data from the datastore and update UI accordingly
+            document.addEventListener('DOMContentLoaded', async function() {{
+                try {{
+                    const datastoreState = await fetchDatastore();
+                    if (datastoreState.length) {{
+                        rulesData = datastoreState;
+                        updateUIFromRulesData();
+                        outputJSON();
+                    }}
+                }} catch (error) {{
+                    console.error("Error fetching datastore", error);
+                }}
+            }});
         </script>
     </body>
     </html>
     """
     
     return html
+
+def get_page_datastore(html: str):
+    """
+    Fetch the JSON datastore from the presigned URL.
+    Returns a dict. If any error or no content, returns {}.
+    """
+    match = re.search(r"const presignedGetUrl = \"(.*?)\";", html)
+    if not match:
+        return None
+    presigned_url = match.group(1)
+
+    try:
+        # Clean up the presigned URL (sometimes the signature may need re-encoding)
+        url_parts = urlsplit(presigned_url)
+        query_params = parse_qs(url_parts.query)
+        encoded_query = urlencode(query_params, doseq=True)
+        cleaned_url = urlunsplit((url_parts.scheme, url_parts.netloc, url_parts.path, encoded_query, url_parts.fragment))
+
+        resp = requests.get(cleaned_url)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        print(f"Error fetching datastore from {presigned_url}: {e}")
+        return None
 
 def main():
     parser = argparse.ArgumentParser(description='Generate an interactive HTML visualization of PDF rules.')
@@ -459,8 +532,21 @@ def main():
 
     if os.path.exists(args.output):
         print(f"Output file {args.output} already exists, attempting to reload it's datastore")
+        with open(args.output, "r") as df:
+            datastore = get_page_datastore(df.read())
 
-    
+        if datastore is None:
+            print(f"Datastore for {args.output} is empty, please run tinyhost and verify your rules and then rerun the script")
+            sys.exit(1)
+
+        print(f"Loaded {len(datastore)} entries from datastore, updating {args.rules_file}")
+
+        with open(args.rules_file, 'w') as of:
+            for rule in datastore:
+                of.write(json.dumps(rule) + "\n")
+
+        return
+
     pdf_rules = parse_rules_file(args.rules_file)
     html = generate_html(pdf_rules, args.rules_file)
     
@@ -468,6 +554,7 @@ def main():
         f.write(html)
     
     print(f"Interactive HTML visualization created: {args.output}")
+
 
 if __name__ == "__main__":
     main()
