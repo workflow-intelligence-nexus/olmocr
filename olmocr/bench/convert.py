@@ -1,9 +1,9 @@
 import argparse
+import asyncio
 import glob
 import importlib
-import os
-import asyncio
 import inspect
+import os
 
 from tqdm import tqdm
 
@@ -19,14 +19,14 @@ def parse_method_arg(method_arg):
     name = parts[0]
     kwargs = {}
     folder_name = name  # Default folder name is the method name
-    
+
     for extra in parts[1:]:
         if "=" in extra:
             key, value = extra.split("=", 1)
             if key == "name":
                 folder_name = value
                 continue
-                
+
             try:
                 converted = int(value)
             except ValueError:
@@ -37,7 +37,7 @@ def parse_method_arg(method_arg):
             kwargs[key] = converted
         else:
             raise ValueError(f"Extra argument '{extra}' is not in key=value format")
-    
+
     return name, kwargs, folder_name
 
 
@@ -48,14 +48,14 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats):
         folder_name = config[candidate]["folder_name"]
         candidate_output_dir = os.path.join(data_directory, folder_name)
         os.makedirs(candidate_output_dir, exist_ok=True)
-        
+
         method = config[candidate]["method"]
         kwargs = config[candidate]["kwargs"]
         is_async = asyncio.iscoroutinefunction(method)
-        
+
         for pdf_path in tqdm(glob.glob(os.path.join(pdf_directory, "*.pdf")), desc=candidate):
             base_name = os.path.basename(pdf_path).replace(".pdf", "")
-            
+
             for i in range(1, repeats + 1):
                 try:
                     if is_async:
@@ -70,7 +70,7 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats):
                 if markdown is None:
                     print(f"Warning, did not get output for {base_name}_{i}")
                     continue
-                
+
                 output_filename = f"{base_name}_{i}.md"
                 output_path = os.path.join(candidate_output_dir, output_filename)
                 with open(output_path, "w") as out_f:
@@ -79,9 +79,13 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run PDF conversion using specified OCR methods and extra parameters.")
-    parser.add_argument("methods", nargs="+", help="Methods to run in the format method[:key=value ...]. "
-                       "Example: gotocr mineru:temperature=2 marker:runs=3. "
-                       "Use 'name=folder_name' to specify a custom output folder name.")
+    parser.add_argument(
+        "methods",
+        nargs="+",
+        help="Methods to run in the format method[:key=value ...]. "
+        "Example: gotocr mineru:temperature=2 marker:runs=3. "
+        "Use 'name=folder_name' to specify a custom output folder name.",
+    )
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
     args = parser.parse_args()
 

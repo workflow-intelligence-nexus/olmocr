@@ -1,24 +1,24 @@
+import argparse
+import base64
 import os
 import re
 import time
-import argparse
-from difflib import SequenceMatcher
 from collections import Counter
+from difflib import SequenceMatcher
 
 import syntok.segmenter as segmenter
 import syntok.tokenizer as tokenizer
-
-import base64
 from google import genai
 from google.genai import types
 
-from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.bench.tests import TextPresenceTest, save_tests
+from olmocr.data.renderpdf import render_pdf_to_base64png
 
 LABEL_WIDTH = 8  # fixed width for printing labels
 
 # Uses a gemini prompt to get the most likely clean sentence from a pdf page
 last_gemini_call = time.perf_counter()
+
 
 def clean_base_sentence(pdf_path: str, page_num: int, base_sentence: str) -> str:
     client = genai.Client(
@@ -26,14 +26,9 @@ def clean_base_sentence(pdf_path: str, page_num: int, base_sentence: str) -> str
     )
 
     image_base64 = render_pdf_to_base64png(pdf_path, page_num=page_num, target_longest_image_dim=2048)
-    image_part = types.Part(
-        inline_data=types.Blob(
-            mime_type="image/png",
-            data=base64.b64decode(image_base64)
-        )
-    )
-    model = "gemini-2.0-flash-thinking-exp-01-21" # Consider using a more stable model for production
-    #model="gemini-2.0-flash-001"
+    image_part = types.Part(inline_data=types.Blob(mime_type="image/png", data=base64.b64decode(image_base64)))
+    model = "gemini-2.0-flash-thinking-exp-01-21"  # Consider using a more stable model for production
+    # model="gemini-2.0-flash-001"
     contents = [
         types.Content(
             role="user",
@@ -100,7 +95,7 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
     differ from the base sentence, collects that diff (base sentence plus variant
     votes) for later printing. At the end, prints only the top N diffs (by total vote count)
     for the file.
-    
+
     Comparison is case-insensitive, but output preserves original capitalization.
     """
     base_sentences = parse_sentences(base_text)
@@ -161,42 +156,33 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
         if cleaned is None:
             cleaned = base_sentence
 
-        tests.append(TextPresenceTest(pdf=os.path.basename(base_pdf_file), page=base_pdf_page,
-                                      id=f"{os.path.basename(base_pdf_file).replace('.pdf', '')}_minediff_{index:02d}", type="present", threshold=1.0, text=cleaned))
+        tests.append(
+            TextPresenceTest(
+                pdf=os.path.basename(base_pdf_file),
+                page=base_pdf_page,
+                id=f"{os.path.basename(base_pdf_file).replace('.pdf', '')}_minediff_{index:02d}",
+                type="present",
+                threshold=1.0,
+                text=cleaned,
+            )
+        )
 
     return tests
 
+
 def get_pdf_from_md(md_path: str) -> str:
     base = os.path.basename(md_path)
-    base = re.sub(r'_\d+\.md$', '.pdf', base)
+    base = re.sub(r"_\d+\.md$", ".pdf", base)
     return os.path.join(os.path.dirname(md_path), "..", "pdfs", base)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Compares sentences from base and candidate texts, printing differences."
-    )
+    parser = argparse.ArgumentParser(description="Compares sentences from base and candidate texts, printing differences.")
+    parser.add_argument("--base", default=os.path.join(os.path.dirname(__file__), "chatgpt"), help="Path to the folder containing base .md files.")
+    parser.add_argument("--compare", default=os.path.join(os.path.dirname(__file__), "olmocr"), help="Path to the folder containing candidate .md files.")
+    parser.add_argument("--max-diffs", type=int, default=5, help="Maximum number of diffs to display per file.")
     parser.add_argument(
-        "--base",
-        default=os.path.join(os.path.dirname(__file__), "chatgpt"),
-        help="Path to the folder containing base .md files."
-    )
-    parser.add_argument(
-        "--compare",
-        default=os.path.join(os.path.dirname(__file__), "olmocr"),
-        help="Path to the folder containing candidate .md files."
-    )
-    parser.add_argument(
-        "--max-diffs",
-        type=int,
-        default=5,
-        help="Maximum number of diffs to display per file."
-    )
-    parser.add_argument(
-        "--output",
-        default="mine_diffs_candidates.jsonl",
-        type=str,
-        help="Output of potential candidate test proposals, to be verified or added to dataset"
+        "--output", default="mine_diffs_candidates.jsonl", type=str, help="Output of potential candidate test proposals, to be verified or added to dataset"
     )
     args = parser.parse_args()
 
@@ -231,6 +217,7 @@ def main():
 
         # Output test candidates for review after each file, in case there are errors
         save_tests(all_tests, args.output)
+
 
 if __name__ == "__main__":
     main()

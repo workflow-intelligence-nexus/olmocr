@@ -1,7 +1,7 @@
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 from fuzzysearch import find_near_matches
 from rapidfuzz import fuzz
@@ -12,6 +12,7 @@ class TestType(str, Enum):
     ABSENT = "absent"
     ORDER = "order"
 
+
 class TestChecked(str, Enum):
     VERIFIED = "verified"
     REJECTED = "rejected"
@@ -19,6 +20,7 @@ class TestChecked(str, Enum):
 
 class ValidationError(Exception):
     """Exception raised for validation errors."""
+
     pass
 
 
@@ -26,7 +28,7 @@ class ValidationError(Exception):
 class BasePDFTest:
     """
     Base class for all PDF test types.
-    
+
     Attributes:
         pdf: The PDF filename.
         page: The page number for the test.
@@ -34,6 +36,7 @@ class BasePDFTest:
         type: The type of test.
         threshold: A float between 0 and 1 representing the threshold for fuzzy matching.
     """
+
     pdf: str
     page: int
     id: str
@@ -43,7 +46,7 @@ class BasePDFTest:
 
     def __post_init__(self):
         self.threshold = float(self.threshold)
-        
+
         if not self.pdf:
             raise ValidationError("PDF filename cannot be empty")
         if not self.id:
@@ -56,10 +59,10 @@ class BasePDFTest:
     def run(self, md_content: str) -> Tuple[bool, str]:
         """
         Run the test on the provided markdown content.
-        
+
         Args:
             md_content: The content of the .md file.
-            
+
         Returns:
             A tuple (passed, explanation) where 'passed' is True if the test passes,
             and 'explanation' provides details when the test fails.
@@ -71,10 +74,11 @@ class BasePDFTest:
 class TextPresenceTest(BasePDFTest):
     """
     Test to verify the presence or absence of specific text in a PDF.
-    
+
     Attributes:
         text: The text string to search for.
     """
+
     text: str
 
     def __post_init__(self):
@@ -93,19 +97,13 @@ class TextPresenceTest(BasePDFTest):
             if best_ratio >= threshold:
                 return True, ""
             else:
-                msg = (
-                    f"Expected '{reference_query[:40]}...' with threshold {threshold} "
-                    f"but best match ratio was {best_ratio:.3f}"
-                )
+                msg = f"Expected '{reference_query[:40]}...' with threshold {threshold} " f"but best match ratio was {best_ratio:.3f}"
                 return False, msg
         else:  # ABSENT
             if best_ratio < threshold:
                 return True, ""
             else:
-                msg = (
-                    f"Expected absence of '{reference_query[:40]}...' with threshold {threshold} "
-                    f"but best match ratio was {best_ratio:.3f}"
-                )
+                msg = f"Expected absence of '{reference_query[:40]}...' with threshold {threshold} " f"but best match ratio was {best_ratio:.3f}"
                 return False, msg
 
 
@@ -113,11 +111,12 @@ class TextPresenceTest(BasePDFTest):
 class TextOrderTest(BasePDFTest):
     """
     Test to verify that one text appears before another in a PDF.
-    
+
     Attributes:
         before: The text expected to appear first.
         after: The text expected to appear after the 'before' text.
     """
+
     before: str
     after: str
 
@@ -145,19 +144,16 @@ class TextOrderTest(BasePDFTest):
             for after_match in after_matches:
                 if before_match.start < after_match.start:
                     return True, ""
-        return False, (
-            f"Could not find a location where '{self.before[:40]}...' appears before "
-            f"'{self.after[:40]}...'."
-        )
+        return False, (f"Could not find a location where '{self.before[:40]}...' appears before " f"'{self.after[:40]}...'.")
 
 
 def load_tests(jsonl_file: str) -> List[BasePDFTest]:
     """
     Load tests from a JSONL file.
-    
+
     Args:
         jsonl_file: Path to the JSONL file containing test definitions.
-        
+
     Returns:
         A list of test objects.
     """
@@ -192,7 +188,7 @@ def load_tests(jsonl_file: str) -> List[BasePDFTest]:
 def save_tests(tests: List[BasePDFTest], jsonl_file: str) -> None:
     """
     Save tests to a JSONL file using asdict for conversion.
-    
+
     Args:
         tests: A list of test objects.
         jsonl_file: Path to the output JSONL file.

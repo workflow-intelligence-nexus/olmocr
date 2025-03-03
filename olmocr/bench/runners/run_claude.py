@@ -2,13 +2,13 @@ import json
 import os
 
 from anthropic import Anthropic
-
-from olmocr.data.renderpdf import render_pdf_to_base64png
-from olmocr.prompts.anchor import get_anchor_text
 from prompts import (
     build_openai_silver_data_prompt,
     claude_response_format_schema,
 )
+
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts.anchor import get_anchor_text
 
 
 def run_claude(pdf_path: str, page_num: int = 1, model: str = "claude-3-7-sonnet-20250219", temperature: float = 0.1) -> str:

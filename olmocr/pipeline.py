@@ -25,6 +25,7 @@ import boto3
 import httpx
 import torch
 from botocore.exceptions import ClientError
+from huggingface_hub import snapshot_download
 from PIL import Image
 from pypdf import PdfReader
 from tqdm import tqdm
@@ -649,6 +650,12 @@ async def sglang_server_ready():
     raise Exception("sglang server did not become ready after waiting.")
 
 
+async def download_model(model_name_or_path: str):
+    logger.info(f"Downloading model '{model_name_or_path}'")
+    snapshot_download(repo_id=model_name_or_path)
+    logger.info(f"Model download complete '{model_name_or_path}'")
+
+
 async def metrics_reporter(work_queue):
     while True:
         # Leading newlines preserve table formatting in logs
@@ -1027,6 +1034,9 @@ async def main():
     check_torch_gpu_available()
 
     logger.info(f"Starting pipeline with PID {os.getpid()}")
+
+    # Download the model before you do anything else
+    await download_model(args.model)
 
     # Initialize the work queue
     await work_queue.initialize_queue()

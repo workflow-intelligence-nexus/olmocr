@@ -5,8 +5,9 @@ import regex as re
 from tqdm import tqdm
 
 from .aligners import BaseAligner
-from .segmenters import BaseSegmenter, SegmenterRegistry
 from .registry import BaseRegistry
+from .segmenters import BaseSegmenter, SegmenterRegistry
+
 
 class TextMetricRegistry(BaseRegistry[Type["BaseTextMetric"]]):
     """A registry for text metrics."""
@@ -217,9 +218,7 @@ class ParagraphEditSimilarity(DocumentEditSimilarity):
             sent_locs = find_sentences(tokens=seq_tokens, sentences=sentences, gap_token=self.gap_token)
             gaps_locs = find_align_gaps(aligned_text=seq_tokens, gap_token=self.gap_token, gap_threshold=3)
 
-            sentences_with_gaps = make_sentences_around_gaps(
-                sent_locs=sent_locs, gaps_locs=gaps_locs, window=self.sent_window
-            )
+            sentences_with_gaps = make_sentences_around_gaps(sent_locs=sent_locs, gaps_locs=gaps_locs, window=self.sent_window)
             all_spans.extend(sentences_with_gaps)
 
         return [(seq_a_tokens[start:end], seq_b_tokens[start:end]) for start, end in merge_spans(all_spans)]

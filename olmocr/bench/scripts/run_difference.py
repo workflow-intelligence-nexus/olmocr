@@ -1,11 +1,11 @@
 import os
 
 from openai import OpenAI
+from prompts import build_find_difference_prompt
 from runners.run_chatgpt import run_chatgpt
 from runners.run_gemini import run_gemini
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
-from prompts import build_find_difference_prompt
 
 
 def combined_output(pdf_path: str) -> str:

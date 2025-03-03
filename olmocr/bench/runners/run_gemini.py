@@ -3,12 +3,12 @@ import os
 
 from google.ai import generativelanguage as glm
 from google.api_core import client_options
-
-from olmocr.data.renderpdf import render_pdf_to_base64png
-from olmocr.prompts.anchor import get_anchor_text
 from prompts import (  # gemini_response_format_schema,
     build_openai_silver_data_prompt,
 )
+
+from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.prompts.anchor import get_anchor_text
 
 
 def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-1.5-pro", temperature: float = 0.1) -> str:

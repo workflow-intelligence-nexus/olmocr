@@ -15,12 +15,14 @@ import argparse
 import glob
 import os
 import sys
-from typing import Tuple, List, Dict
+from typing import Dict, List, Tuple
 
 from .tests import BasePDFTest, load_tests
 
 
-def evaluate_candidate(candidate_folder: str, all_tests: List[BasePDFTest], pdf_basenames: List[str]) -> Tuple[float, int, List[str], List[str], Dict[str, List[float]]]:
+def evaluate_candidate(
+    candidate_folder: str, all_tests: List[BasePDFTest], pdf_basenames: List[str]
+) -> Tuple[float, int, List[str], List[str], Dict[str, List[float]]]:
     """
     For the candidate folder (pipeline tool output), validate that it contains at least one .md file
     (i.e. repeated generations like _1.md, _2.md, etc.) for every PDF in the pdf folder.
@@ -88,7 +90,7 @@ def evaluate_candidate(candidate_folder: str, all_tests: List[BasePDFTest], pdf_
             except Exception as e:
                 candidate_errors.append(f"Error running test {test.id} on {md_path}: {e}")
                 explanations.append(str(e))
-        
+
         test_avg = repeat_passes / num_repeats if num_repeats > 0 else 0.0
         total_test_score += test_avg
         if test_avg < 1.0:
@@ -160,9 +162,7 @@ def main():
     print("\nRunning tests for each candidate:")
     for candidate in candidate_folders:
         candidate_name = os.path.basename(candidate)
-        overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown = evaluate_candidate(
-            candidate, all_tests, pdf_basenames
-        )
+        overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown = evaluate_candidate(candidate, all_tests, pdf_basenames)
         summary.append((candidate_name, overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown))
         print(f"\nCandidate: {candidate_name}")
         if candidate_errors:

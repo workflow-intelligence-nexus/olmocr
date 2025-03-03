@@ -13,12 +13,12 @@ from typing import Dict, List, Optional
 
 import boto3
 import zstandard
-from .dolma_refine.aligners import HirschbergAligner
-from .dolma_refine.metrics import DocumentEditSimilarity
-from .dolma_refine.segmenters import SpacySegmenter
 from smart_open import register_compressor, smart_open
 from tqdm import tqdm
 
+from .dolma_refine.aligners import HirschbergAligner
+from .dolma_refine.metrics import DocumentEditSimilarity
+from .dolma_refine.segmenters import SpacySegmenter
 from .evalhtml import create_review_html
 
 logging.getLogger("pypdf").setLevel(logging.ERROR)
