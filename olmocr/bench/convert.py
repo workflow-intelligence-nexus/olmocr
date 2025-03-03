@@ -57,12 +57,19 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats):
             base_name = os.path.basename(pdf_path).replace(".pdf", "")
             
             for i in range(1, repeats + 1):
-                if is_async:
-                    # Run async function
-                    markdown = await method(pdf_path, page_num=1, **kwargs)
-                else:
-                    # Run synchronous function
-                    markdown = method(pdf_path, page_num=1, **kwargs)
+                try:
+                    if is_async:
+                        # Run async function
+                        markdown = await method(pdf_path, page_num=1, **kwargs)
+                    else:
+                        # Run synchronous function
+                        markdown = method(pdf_path, page_num=1, **kwargs)
+                except:
+                    markdown = None
+
+                if markdown is None:
+                    print(f"Warning, did not get output for {base_name}_{i}")
+                    continue
                 
                 output_filename = f"{base_name}_{i}.md"
                 output_path = os.path.join(candidate_output_dir, output_filename)
@@ -99,7 +106,7 @@ if __name__ == "__main__":
         function = getattr(module, function_name)
         config[method_name] = {"method": function, "kwargs": extra_kwargs, "folder_name": folder_name}
 
-    data_directory = os.path.join(os.path.dirname(__file__), "sample_data")
+    data_directory = os.path.join(os.path.dirname(__file__), "mining_data")
     pdf_directory = os.path.join(data_directory, "pdfs")
 
     # Run the async process function
