@@ -158,6 +158,9 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
         print(f"{'Clean:':<{LABEL_WIDTH}} {cleaned}")
         print("-" * 40)
 
+        if cleaned is None:
+            cleaned = base_sentence
+
         tests.append(TextPresenceTest(pdf=os.path.basename(base_pdf_file), page=base_pdf_page,
                                       id=f"{os.path.basename(base_pdf_file).replace('.pdf', '')}_minediff_{index:02d}", type="present", threshold=1.0, text=cleaned))
 
