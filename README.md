@@ -196,3 +196,17 @@ To learn more about who specifically contributed to this codebase, see [our cont
 A full copy of the license can be found [on GitHub](https://github.com/allenai/olmocr/blob/main/LICENSE).
 
 <!-- end license -->
+
+## Citing
+
+```bibtex
+@misc{olmocr,
+      title={olmOCR: Unlocking Trillions of Tokens in PDFs with Vision Language Models}, 
+      author={Jake Poznanski and Jon Borchardt and Jason Dunkelberger and Regan Huff and Daniel Lin and Aman Rangapur and Christopher Wilhelm and Kyle Lo and Luca Soldaini},
+      year={2025},
+      eprint={2502.18443},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2502.18443}, 
+}
+```
