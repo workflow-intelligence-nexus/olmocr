@@ -27,7 +27,7 @@ def check_sglang_version():
         sys.exit(1)
 
 
-def check_torch_gpu_available(min_gpu_memory: int = 8 * 1024**3):
+def check_torch_gpu_available(min_gpu_memory: int = 20 * 1024**3):
     try:
         import torch
     except:
