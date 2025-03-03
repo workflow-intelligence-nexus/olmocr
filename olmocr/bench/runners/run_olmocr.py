@@ -1,12 +1,7 @@
-import argparse
 import asyncio
 import json
 import logging
-import os
-import tempfile
 from dataclasses import dataclass
-from functools import partial
-from typing import Optional
 
 # Import necessary components from olmocr
 from olmocr.pipeline import (
@@ -58,13 +53,13 @@ async def run_olmocr(pdf_path: str, page_num: int = 1, temperature: float = 0.8)
     semaphore = asyncio.Semaphore(1)
 
     # Ensure server is running
-    server_task = None
+    _server_task = None
     try:
         await asyncio.wait_for(sglang_server_ready(), timeout=5)
         print("Using existing sglang server")
     except Exception:
         print("Starting new sglang server")
-        server_task = asyncio.create_task(sglang_server_host(args, semaphore))
+        _server_task = asyncio.create_task(sglang_server_host(args, semaphore))
         await sglang_server_ready()
 
     try:

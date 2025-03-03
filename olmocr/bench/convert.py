@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import glob
 import importlib
-import inspect
 import os
 
 from tqdm import tqdm
@@ -83,7 +82,7 @@ if __name__ == "__main__":
         "methods",
         nargs="+",
         help="Methods to run in the format method[:key=value ...]. "
-        "Example: gotocr mineru:temperature=2 marker:runs=3. "
+        "Example: gotocr mineru:temperature=2 marker:u=3. "
         "Use 'name=folder_name' to specify a custom output folder name.",
     )
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")

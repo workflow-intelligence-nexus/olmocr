@@ -50,7 +50,7 @@ def query_infinigram(ngram, index="v4_rpj_llama_s4", retries=3):
                 result = response.json()
                 if "count" in result:
                     return result["count"]
-        except Exception as e:  # type: ignore
+        except Exception:  # type: ignore
             time.sleep(1)
     return 0
 
