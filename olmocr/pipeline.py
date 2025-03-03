@@ -981,13 +981,18 @@ async def main():
                 logger.info(f"Expanding s3 glob at {pdf_path}")
                 pdf_work_paths |= set(expand_s3_glob(pdf_s3, pdf_path))
             elif os.path.exists(pdf_path):
-                if open(pdf_path, "rb").read(4) == b"%PDF":
-                    logger.info(f"Loading file at {pdf_path} as PDF document")
-                    pdf_work_paths.add(pdf_path)
-                else:
-                    logger.info(f"Loading file at {args.pdfs} as list of paths")
-                    with open(args.pdfs, "r") as f:
+                if pdf_path.endswith(".pdf"):
+                    if open(pdf_path, "rb").read(4) == b"%PDF":
+                        logger.info(f"Loading file at {pdf_path} as PDF document")
+                        pdf_work_paths.add(pdf_path)
+                    else:
+                        logger.warning(f"File at {pdf_path} is not a valid PDF")
+                elif pdf_path.endswith(".txt"):
+                    logger.info(f"Loading file at {pdf_path} as list of paths")
+                    with open(pdf_path, "r") as f:
                         pdf_work_paths |= set(filter(None, (line.strip() for line in f)))
+                else:
+                    raise ValueError(f"Unsupported file extension for {pdf_path}")
             else:
                 raise ValueError("pdfs argument needs to be either a local path, an s3 path, or an s3 glob pattern...")
 
