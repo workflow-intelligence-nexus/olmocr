@@ -4,7 +4,7 @@ from typing import Type
 import regex as re
 from tqdm import tqdm
 
-from .aligners import BaseAligner, AlignerRegistry
+from .aligners import AlignerRegistry, BaseAligner
 from .registry import BaseRegistry
 from .segmenters import BaseSegmenter, SegmenterRegistry
 
