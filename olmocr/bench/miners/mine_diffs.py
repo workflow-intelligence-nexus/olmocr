@@ -119,7 +119,7 @@ def compare_votes_for_file(base_pdf_file: str, base_pdf_page: int, base_text: st
                     best_candidate = c_sentence  # Keep original capitalization for output
 
             # Append the candidate if it passes the similarity threshold (e.g., 0.7)
-            if best_ratio > 0.7 and best_candidate is not None:
+            if best_ratio > 0.5 and best_candidate is not None:
                 votes.append(best_candidate.strip())
 
         # Only consider variants that differ when compared case-insensitively
@@ -191,13 +191,6 @@ def main():
 
     # Collect all .md files from the base and compare folders
     base_files = [f for f in os.listdir(base_path) if f.endswith(".md")]
-    compare_files = [f for f in os.listdir(compare_path) if f.endswith(".md")]
-
-    # Read all candidate texts at once
-    candidate_texts = []
-    for cf in compare_files:
-        with open(os.path.join(compare_path, cf), "r", encoding="utf-8") as f:
-            candidate_texts.append(f.read())
 
     all_tests = []
 
@@ -206,6 +199,17 @@ def main():
         base_file_path = os.path.join(base_path, bf)
         with open(base_file_path, "r", encoding="utf-8") as f:
             base_text = f.read()
+
+        compare_files = [f for f in os.listdir(compare_path) if f.endswith(".md") and re.sub(r"_\d+\.md$", "", f) == re.sub(r"_\d+\.md$", "", bf)]
+        
+        if not compare_files:
+            print(f"skipping {bf} nothing to compare against")
+
+        # Read all candidate texts at once
+        candidate_texts = []
+        for cf in compare_files:
+            with open(os.path.join(compare_path, cf), "r", encoding="utf-8") as f:
+                candidate_texts.append(f.read())
 
         base_pdf_file = get_pdf_from_md(base_file_path)
         base_pdf_page = 1
