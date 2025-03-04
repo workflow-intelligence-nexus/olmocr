@@ -6,7 +6,7 @@ from playwright.async_api import async_playwright
 
 # Simple configuration
 CONFIG = {
-    "input_file": os.path.join(os.path.dirname(__file__), "templates", "bookpage.js"),  # React component file
+    "input_file": os.path.join(os.path.dirname(__file__), "templates", "listpage.js"),  # React component file
     "output_pdf": "book-page.pdf",     # Output PDF filename
     "temp_html": "temp-render.html",   # Temporary HTML file
     "wait_time": 1500,                 # Time to wait for rendering (ms)

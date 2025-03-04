@@ -96,7 +96,7 @@ def evaluate_candidate(
         if test_avg < 1.0:
             test_failures.append(
                 f"Test {test.id} on {md_base} average pass ratio: {test_avg:.3f} ({repeat_passes}/{num_repeats} repeats passed). "
-                f"Example explanation: {explanations[0] if explanations else 'No explanation'}"
+                f"Ex: {explanations[0] if explanations else 'No explanation'}"
             )
         test_type_breakdown[test_type].append(test_avg)
 
