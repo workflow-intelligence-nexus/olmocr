@@ -52,7 +52,10 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats):
         kwargs = config[candidate]["kwargs"]
         is_async = asyncio.iscoroutinefunction(method)
 
-        for pdf_path in tqdm(glob.glob(os.path.join(pdf_directory, "*.pdf")), desc=candidate):
+        all_pdfs = glob.glob(os.path.join(pdf_directory, "*.pdf"))
+        all_pdfs.sort()
+
+        for pdf_path in tqdm(all_pdfs, desc=candidate):
             base_name = os.path.basename(pdf_path).replace(".pdf", "")
 
             for i in range(1, repeats + 1):
@@ -86,6 +89,7 @@ if __name__ == "__main__":
         "Use 'name=folder_name' to specify a custom output folder name.",
     )
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
+    parser.add_argument("--dir", type=str, default=os.path.join(os.path.dirname(__file__), "mining_data"), help="Path to the data folder in which to save outputs, pdfs should be in /pdfs folder within it.")
     args = parser.parse_args()
 
     # Mapping of method names to a tuple: (module path, function name)
@@ -109,7 +113,7 @@ if __name__ == "__main__":
         function = getattr(module, function_name)
         config[method_name] = {"method": function, "kwargs": extra_kwargs, "folder_name": folder_name}
 
-    data_directory = os.path.join(os.path.dirname(__file__), "mining_data")
+    data_directory = args.dir
     pdf_directory = os.path.join(data_directory, "pdfs")
 
     # Run the async process function
