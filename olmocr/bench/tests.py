@@ -281,21 +281,40 @@ class TableTest(BasePDFTest):
                 
                 # Check top heading relationship
                 if self.top_heading and row_idx > 0:
-                    # The top heading is the cell in the first row with the same column
-                    top_heading_cell = table_array[0, col_idx]
-                    top_similarity = fuzz.ratio(self.top_heading, top_heading_cell) / 100.0
-                    if top_similarity < threshold:
+                    # Find the first non-empty cell in the same column (starting from the top)
+                    top_heading_cell = ""
+                    for i in range(row_idx):
+                        if table_array[i, col_idx].strip():
+                            top_heading_cell = table_array[i, col_idx]
+                            break
+                    
+                    if not top_heading_cell:
                         all_relationships_satisfied = False
-                        failed_reasons.append(f"Top heading '{top_heading_cell}' doesn't match expected '{self.top_heading}' (similarity: {top_similarity:.2f})")
+                        failed_reasons.append(f"No non-empty top heading found in column {col_idx}")
+                    else:
+                        top_similarity = fuzz.ratio(self.top_heading, top_heading_cell) / 100.0
+                        if top_similarity < threshold:
+                            all_relationships_satisfied = False
+                            failed_reasons.append(f"Top heading '{top_heading_cell}' doesn't match expected '{self.top_heading}' (similarity: {top_similarity:.2f})")
                 
                 # Check left heading relationship
                 if self.left_heading and col_idx > 0:
-                    # The left heading is the cell in the first column with the same row
-                    left_heading_cell = table_array[row_idx, 0]
-                    left_heading_similarity = fuzz.ratio(self.left_heading, left_heading_cell) / 100.0
-                    if left_heading_similarity < threshold:
+                    # Find the first non-empty cell in the same row (starting from the left)
+                    left_heading_cell = ""
+                    for j in range(col_idx):
+                        if table_array[row_idx, j].strip():
+                            left_heading_cell = table_array[row_idx, j]
+                            break
+                    
+                    if not left_heading_cell:
                         all_relationships_satisfied = False
-                        failed_reasons.append(f"Left heading '{left_heading_cell}' doesn't match expected '{self.left_heading}' (similarity: {left_heading_similarity:.2f})")
+                        failed_reasons.append(f"No non-empty left heading found in row {row_idx}")
+                    else:
+                        left_heading_similarity = fuzz.ratio(self.left_heading, left_heading_cell) / 100.0
+                        if left_heading_similarity < threshold:
+                            all_relationships_satisfied = False
+                            failed_reasons.append(f"Left heading '{left_heading_cell}' doesn't match expected '{self.left_heading}' (similarity: {left_heading_similarity:.2f})")
+            
                 
                 # If all relationships are satisfied for this cell, the test passes
                 if all_relationships_satisfied:
