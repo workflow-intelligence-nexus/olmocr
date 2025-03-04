@@ -40,7 +40,7 @@ What is included:
 Requirements:
  - Recent NVIDIA GPU (tested on RTX 4090, L40S, A100, H100) with at least 20 GB of GPU RAM
  - 30GB of free disk space
- 
+
 You will need to install poppler-utils and additional fonts for rendering PDF images.
 
 Install dependencies (Ubuntu/Debian)
@@ -84,7 +84,7 @@ Results will be stored as JSON in `./localworkspace`.
 Extracted text is stored as [Dolma](https://github.com/allenai/dolma)-style JSONL inside of the `./localworkspace/results` directory.
 
 ```bash
-cat localworkspace/results/output_*.jsonl  
+cat localworkspace/results/output_*.jsonl
 ```
 
 View results side-by-side with the original PDFs (uses `dolmaviewer` command):
@@ -110,7 +110,7 @@ a simple work queue in your AWS bucket and start converting PDFs.
 python -m olmocr.pipeline s3://my_s3_bucket/pdfworkspaces/exampleworkspace --pdfs s3://my_s3_bucket/jakep/gnarly_pdfs/*.pdf
 ```
 
-Now on any subsequent nodes, just run this and they will start grabbing items from the same workspace queue. 
+Now on any subsequent nodes, just run this and they will start grabbing items from the same workspace queue.
 ```bash
 python -m olmocr.pipeline s3://my_s3_bucket/pdfworkspaces/exampleworkspace
 ```
@@ -201,12 +201,12 @@ A full copy of the license can be found [on GitHub](https://github.com/allenai/o
 
 ```bibtex
 @misc{olmocr,
-      title={olmOCR: Unlocking Trillions of Tokens in PDFs with Vision Language Models}, 
+      title={{olmOCR: Unlocking Trillions of Tokens in PDFs with Vision Language Models}},
       author={Jake Poznanski and Jon Borchardt and Jason Dunkelberger and Regan Huff and Daniel Lin and Aman Rangapur and Christopher Wilhelm and Kyle Lo and Luca Soldaini},
       year={2025},
       eprint={2502.18443},
       archivePrefix={arXiv},
       primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2502.18443}, 
+      url={https://arxiv.org/abs/2502.18443},
 }
 ```
