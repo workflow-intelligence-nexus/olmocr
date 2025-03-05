@@ -74,7 +74,8 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, force):
                     else:
                         # Run synchronous function
                         markdown = method(pdf_path, page_num=1, **kwargs)
-                except:
+                except Exception as ex:
+                    print(f"Exception {str(ex)} occurred while processing {base_name}_{i}")
                     markdown = None
 
                 if markdown is None:
@@ -106,6 +107,7 @@ if __name__ == "__main__":
         "marker": ("olmocr.bench.runners.run_marker", "run_marker"),
         "mineru": ("olmocr.bench.runners.run_mineru", "run_mineru"),
         "chatgpt": ("olmocr.bench.runners.run_chatgpt", "run_chatgpt"),
+        "server": ("olmocr.bench.runners.run_server", "run_server"),
     }
 
     # Build config by importing only requested methods.

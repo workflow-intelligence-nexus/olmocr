@@ -32,7 +32,10 @@ class Args:
 
 async def run_olmocr(pdf_path: str, page_num: int = 1, temperature: float = 0.8) -> str:
     """
-    Process a single page of a PDF using the olmocr pipeline.
+    Process a single page of a PDF using the official olmocr pipeline, as in pipeline.py
+
+    The idea is that this is getting called exactly how it is in the pipeline script, so we can do comparisons. 
+    Though, this method is slow, because it only does one request at a time.
 
     Args:
         pdf_path: Path to the PDF file

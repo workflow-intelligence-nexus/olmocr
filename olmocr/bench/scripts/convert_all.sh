@@ -1,6 +1,32 @@
 #!/bin/bash
 
+# Exit on error but allow the trap to execute
 set -e
+
+# Global variable to track server PID
+SERVER_PID=""
+
+# Trap function to handle Ctrl+C (SIGINT)
+cleanup() {
+    echo -e "\n[INFO] Received interrupt signal. Cleaning up..."
+    
+    # Find and kill any Python processes started by this script
+    echo "[INFO] Stopping any running Python processes"
+    pkill -P $$ python || true
+    
+    # Stop sglang server if running
+    if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+        echo "[INFO] Stopping sglang server (PID: $SERVER_PID)"
+        kill -TERM "$SERVER_PID" 2>/dev/null || true
+        wait "$SERVER_PID" 2>/dev/null || true
+    fi
+    
+    echo "[INFO] Cleanup complete. Exiting."
+    exit 1
+}
+
+# Set the trap for SIGINT (Ctrl+C)
+trap cleanup SIGINT
 
 # Function to create conda environment if it doesn't exist
 create_conda_env() {
@@ -16,10 +42,62 @@ create_conda_env() {
     fi
 }
 
-# # Create and activate olmocr environment
-# create_conda_env "olmocr" "3.11"
-# source $(conda info --base)/etc/profile.d/conda.sh
-# source activate olmocr
+# Function to start sglang server with OpenAI API for a specific model
+start_sglang_server() {
+    model_name=$1
+    echo "Starting sglang server for model: $model_name"
+    
+    # Start the server in the background and save the PID
+    python -m sglang.launch_server --model $model_name --chat-template qwen2-vl &
+    SERVER_PID=$!
+    
+    # Check if the server process is running
+    if ! kill -0 $SERVER_PID 2>/dev/null; then
+        echo "Failed to start server process. Exiting."
+        exit 1
+    fi
+    
+    # Wait for the server to be ready by checking the models endpoint
+    echo "Waiting for server to be ready..."
+    max_attempts=300
+    attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+        # Try to reach the models endpoint with an API key header
+        if curl -s "http://localhost:30000/v1/models" \
+           -o /dev/null -w "%{http_code}" | grep -q "200"; then
+            echo "Server is ready!"
+            return 0
+        fi
+        
+        attempt=$((attempt + 1))
+        echo "Waiting for server... attempt $attempt/$max_attempts"
+        sleep 2
+    done
+    
+    echo "Server failed to become ready after multiple attempts. Exiting."
+    kill $SERVER_PID
+    SERVER_PID=""
+    exit 1
+}
+
+# Function to stop the sglang server
+stop_sglang_server() {
+    echo "Stopping sglang server with PID: $SERVER_PID"
+    if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+        kill $SERVER_PID
+        wait $SERVER_PID 2>/dev/null || true
+        echo "Server stopped."
+    else
+        echo "No server to stop."
+    fi
+    SERVER_PID=""
+}
+
+# Create and activate olmocr environment
+create_conda_env "olmocr" "3.11"
+source $(conda info --base)/etc/profile.d/conda.sh
+source activate olmocr
 
 # # Run olmocr benchmarks
 # echo "Running olmocr benchmarks..."
@@ -39,9 +117,28 @@ create_conda_env() {
 # echo "Running chatgpt benchmarks..."
 # python -m olmocr.bench.convert chatgpt
 
+# Run raw server benchmarks with sglang server
+# For each model, start server, run benchmark, then stop server
+
+# olmocr_base_temp0_1
+start_sglang_server "allenai/olmOCR-7B-0225-preview"
+python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:response_template=json --repeats 5
+python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:response_template=json --repeats 5
+stop_sglang_server
+
+# qwen2_vl_7b
+start_sglang_server "Qwen/Qwen2-VL-7B-Instruct"
+python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:response_template=plain --repeats 5
+stop_sglang_server
+
+# qwen25_vl_7b
+start_sglang_server "Qwen/Qwen2.5-VL-7B-Instruct"
+python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:response_template=plain --repeats 5
+stop_sglang_server
+
 # Create and activate mineru environment
-create_conda_env "mineru" "3.11"
-source activate mineru
+# create_conda_env "mineru" "3.11"
+# source activate mineru
 
 # Install magic-pdf and run benchmarks
 # TODO: Fix this, I was not able to get it to all install successfully
@@ -52,5 +149,10 @@ source activate mineru
 # wget https://github.com/opendatalab/MinerU/raw/master/scripts/download_models_hf.py -O download_models_hf.py
 # python download_models_hf.py
 # python -m olmocr.bench.convert mineru
+
+# Final cleanup
+if [ -n "$SERVER_PID" ] && kill -0 $SERVER_PID 2>/dev/null; then
+    stop_sglang_server
+fi
 
 echo "All benchmarks completed successfully."

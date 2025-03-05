@@ -11,13 +11,11 @@ from olmocr.prompts.prompts import (
     openai_response_format_schema,
 )
 
-
 def run_chatgpt(pdf_path: str, page_num: int = 1, model: str = "gpt-4o-2024-08-06", temperature: float = 0.1) -> str:
     """
-    Convert page of a PDF file to markdown using GOT-OCR.
+    Convert page of a PDF file to markdown using the commercial openAI APIs.
 
-    This function renders the first page of the PDF to an image, runs OCR on that image,
-    and returns the OCR result as a markdown-formatted string.
+    See run_server.py for running against an openai compatible server
 
     Args:
         pdf_path (str): The local path to the PDF file.
