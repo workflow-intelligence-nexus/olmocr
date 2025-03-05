@@ -152,23 +152,24 @@ create_conda_env "olmocr" "3.11"
 source $(conda info --base)/etc/profile.d/conda.sh
 source activate olmocr
 
-# # Run olmocr benchmarks
-# echo "Running olmocr benchmarks..."
-# python -m olmocr.bench.convert olmocr --repeats 5
+# Run olmocr benchmarks
+echo "Running olmocr benchmarks..."
+python -m olmocr.bench.convert olmocr --repeats 5
 
-# # Install marker-pdf and run benchmarks
-# echo "Installing marker-pdf and running benchmarks..."
-# pip install marker-pdf
-# python -m olmocr.bench.convert marker
+# Install marker-pdf and run benchmarks
+echo "Installing marker-pdf and running benchmarks..."
+pip install marker-pdf
+python -m olmocr.bench.convert marker
 
-# # Install verovio and run benchmarks
-# echo "Installing verovio and running benchmarks..."
-# pip install verovio
-# python -m olmocr.bench.convert gotocr
+# Install verovio and run benchmarks
+echo "Installing verovio and running benchmarks..."
+pip install verovio
+python -m olmocr.bench.convert gotocr
 
-# # Run chatgpt benchmarks
-# echo "Running chatgpt benchmarks..."
-# python -m olmocr.bench.convert chatgpt
+# Run chatgpt benchmarks
+echo "Running chatgpt benchmarks..."
+python -m olmocr.bench.convert chatgpt
+python -m olmocr.bench.convert chatgpt:name=chatgpt45:model=gpt-4.5-preview-2025-02-27
 
 # Run raw server benchmarks with sglang server
 # For each model, start server, run benchmark, then stop server
@@ -176,18 +177,23 @@ source activate olmocr
 # Check port availability at script start
 check_port || exit 1
 
-# olmocr_base_temp0_1
-start_sglang_server "allenai/olmOCR-7B-0225-preview" --chat-template qwen2-vl --mem-fraction-static 0.7
-python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
-python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
-stop_sglang_server
+# # olmocr_base_temp0_1
+# start_sglang_server "allenai/olmOCR-7B-0225-preview" --chat-template qwen2-vl --mem-fraction-static 0.7
+# python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
+# python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
+# stop_sglang_server
 
-# qwen2_vl_7b
-start_sglang_server "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
-python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
-stop_sglang_server
+# # qwen2_vl_7b
+# start_sglang_server "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
+# python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
+# stop_sglang_server
 
 # qwen25_vl_7b
+# needs to run in separate conda env for now, honestly it's broken and doesn't work right
+create_conda_env "qwen25" "3.11"
+source activate qwen25
+pip install olmocr
+pip install "sglang[all]>=0.4.3.post2" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python transformers==4.48.3
 start_sglang_server "Qwen/Qwen2.5-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
 python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
 stop_sglang_server
