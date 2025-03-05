@@ -152,9 +152,9 @@ create_conda_env "olmocr" "3.11"
 source $(conda info --base)/etc/profile.d/conda.sh
 source activate olmocr
 
-# Run olmocr benchmarks
+# Run olmocr benchmarks, exactly as the pipeline.py does it
 echo "Running olmocr benchmarks..."
-python -m olmocr.bench.convert olmocr --repeats 5
+python -m olmocr.bench.convert olmocr_pipeline --repeats 5
 
 # Install marker-pdf and run benchmarks
 echo "Installing marker-pdf and running benchmarks..."
@@ -177,33 +177,34 @@ python -m olmocr.bench.convert chatgpt:name=chatgpt45:model=gpt-4.5-preview-2025
 # Check port availability at script start
 check_port || exit 1
 
-# # olmocr_base_temp0_1
-# start_sglang_server "allenai/olmOCR-7B-0225-preview" --chat-template qwen2-vl --mem-fraction-static 0.7
-# python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
-# python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
-# stop_sglang_server
-
-# # qwen2_vl_7b
-# start_sglang_server "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
-# python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
-# stop_sglang_server
-
-# qwen25_vl_7b
-# needs to run in separate conda env for now, honestly it's broken and doesn't work right
-create_conda_env "qwen25" "3.11"
-source activate qwen25
-pip install olmocr
-pip install "sglang[all]>=0.4.3.post2" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python transformers==4.48.3
-start_sglang_server "Qwen/Qwen2.5-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
-python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
+# olmocr_base_temp0_1
+start_sglang_server "allenai/olmOCR-7B-0225-preview" --chat-template qwen2-vl --mem-fraction-static 0.7
+python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
+python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
 stop_sglang_server
 
+# qwen2_vl_7b
+start_sglang_server "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
+python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
+stop_sglang_server
+
+# TODO: Not working right now either in sglang
+# qwen25_vl_7b
+# create_conda_env "qwen25" "3.11"
+# source activate qwen25
+# pip install olmocr
+# pip install "sglang[all]>=0.4.3.post2" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python transformers==4.48.3
+# start_sglang_server "Qwen/Qwen2.5-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
+# python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
+# stop_sglang_server
+
+
+# TODO: Fix this, I was not able to get it to all install successfully
 # Create and activate mineru environment
 # create_conda_env "mineru" "3.11"
 # source activate mineru
 
 # Install magic-pdf and run benchmarks
-# TODO: Fix this, I was not able to get it to all install successfully
 # echo "Installing magic-pdf and running mineru benchmarks..."
 # pip install -U "magic-pdf[full]==1.2.2" --extra-index-url https://wheels.myhloli.com
 # python -m pip install paddlepaddle==3.0.0rc1 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/

@@ -155,12 +155,12 @@ if __name__ == "__main__":
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
     parser.add_argument("--dir", type=str, default=os.path.join(os.path.dirname(__file__), "sample_data"), help="Path to the data folder in which to save outputs, pdfs should be in /pdfs folder within it.")
     parser.add_argument("--force", action="store_true", default=False, help="Force regenerating of output files, even if they already exist")
-    parser.add_argument("--parallel", type=int, default=10, help="Maximum number of concurrent tasks")
+    parser.add_argument("--parallel", type=int, default=1, help="Maximum number of concurrent tasks")
     args = parser.parse_args()
 
     # Mapping of method names to a tuple: (module path, function name)
     available_methods = {
-        "olmocr": ("olmocr.bench.runners.run_olmocr", "run_olmocr"),
+        "olmocr_pipeline": ("olmocr.bench.runners.run_olmocr_pipeline", "run_olmocr_pipeline"),
         "gotocr": ("olmocr.bench.runners.run_gotocr", "run_gotocr"),
         "marker": ("olmocr.bench.runners.run_marker", "run_marker"),
         "mineru": ("olmocr.bench.runners.run_mineru", "run_mineru"),
