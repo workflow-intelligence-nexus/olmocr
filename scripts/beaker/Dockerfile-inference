@@ -30,15 +30,12 @@ RUN apt-get update && apt-get -y install python3.11-venv
 ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
 RUN /install.sh && rm /install.sh
 
-# Flash inference install sooner
-RUN /root/.local/bin/uv pip install --system flashinfer -i https://flashinfer.ai/whl/cu121/torch2.4/
-
 ENV PYTHONUNBUFFERED=1
 WORKDIR /root
 COPY pyproject.toml pyproject.toml
 COPY olmocr/version.py olmocr/version.py
 
-RUN /root/.local/bin/uv pip install --system --no-cache -e .[inference]
+RUN /root/.local/bin/uv pip install --system --no-cache -e .
 
 RUN /root/.local/bin/uv pip install --system --no-cache sgl-kernel==0.0.3.post1 --force-reinstall --no-deps
 RUN /root/.local/bin/uv pip install --system --no-cache "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
