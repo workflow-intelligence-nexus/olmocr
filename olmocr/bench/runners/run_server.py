@@ -57,17 +57,14 @@ async def run_server(pdf_path: str, page_num: int = 1, server: str = "localhost:
     async with httpx.AsyncClient(timeout=300) as client:
         response = await client.post(url, json=request)
 
-        print(response.status_code)
+        response.raise_for_status()
         data = response.json()
 
-        print(data)
         choice = data["choices"][0]
-        print(choice)
         assert choice["finish_reason"] == "stop", "Response from server did not finish with finish_reason stop as expected, this is probably going to lead to bad data"
      
         if response_template == "json":
-            data = choice["message"]["content"]
-            page_data = json.loads(page_data)
+            page_data = json.loads(choice["message"]["content"])
             page_response = PageResponse(**page_data)
             return page_response.natural_text
         elif response_template == "plain":

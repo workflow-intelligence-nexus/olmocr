@@ -43,12 +43,16 @@ create_conda_env() {
 }
 
 # Function to start sglang server with OpenAI API for a specific model
+# Now accepting additional arguments after the model name
 start_sglang_server() {
     model_name=$1
-    echo "Starting sglang server for model: $model_name"
+    shift  # Remove the first argument (model_name) from the argument list
     
-    # Start the server in the background and save the PID
-    python -m sglang.launch_server --model $model_name --chat-template qwen2-vl &
+    echo "Starting sglang server for model: $model_name"
+    echo "Additional arguments: $@"
+    
+    # Start the server in the background with all remaining arguments and save the PID
+    python -m sglang.launch_server --model $model_name $@ &
     SERVER_PID=$!
     
     # Check if the server process is running
@@ -121,19 +125,19 @@ source activate olmocr
 # For each model, start server, run benchmark, then stop server
 
 # olmocr_base_temp0_1
-start_sglang_server "allenai/olmOCR-7B-0225-preview"
-python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:response_template=json --repeats 5
-python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:response_template=json --repeats 5
+start_sglang_server "allenai/olmOCR-7B-0225-preview" --mem-fraction-static 0.7
+python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
+python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
 stop_sglang_server
 
 # qwen2_vl_7b
-start_sglang_server "Qwen/Qwen2-VL-7B-Instruct"
-python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:response_template=plain --repeats 5
+start_sglang_server "Qwen/Qwen2-VL-7B-Instruct" --mem-fraction-static 0.7
+python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
 stop_sglang_server
 
 # qwen25_vl_7b
-start_sglang_server "Qwen/Qwen2.5-VL-7B-Instruct"
-python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:response_template=plain --repeats 5
+start_sglang_server "Qwen/Qwen2.5-VL-7B-Instruct" --mem-fraction-static 0.7
+python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
 stop_sglang_server
 
 # Create and activate mineru environment
