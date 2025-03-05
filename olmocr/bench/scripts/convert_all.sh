@@ -28,6 +28,55 @@ cleanup() {
 # Set the trap for SIGINT (Ctrl+C)
 trap cleanup SIGINT
 
+# Function to check if port 30000 is in use
+check_port() {
+    port=30000
+    echo "[INFO] Checking if port $port is available..."
+    
+    if command -v lsof >/dev/null 2>&1; then
+        # Linux/macOS
+        if lsof -i :$port >/dev/null 2>&1; then
+            echo "[ERROR] Port $port is already in use. Process details:"
+            lsof -i :$port
+            echo "[ERROR] Please stop the process using this port and try again."
+            echo "        You can use: kill -9 <PID>"
+            return 1
+        fi
+    elif command -v netstat >/dev/null 2>&1; then
+        # Windows/other systems with netstat
+        if netstat -an | grep -q ":$port "; then
+            echo "[ERROR] Port $port is already in use. Process details:"
+            if command -v findstr >/dev/null 2>&1; then
+                # Windows
+                netstat -ano | findstr ":$port"
+                echo "[ERROR] Please stop the process using this port and try again."
+                echo "        You can use: taskkill /F /PID <PID>"
+            else
+                netstat -an | grep ":$port "
+                echo "[ERROR] Please stop the process using this port and try again."
+            fi
+            return 1
+        fi
+    else
+        # Fallback method using nc if available
+        if command -v nc >/dev/null 2>&1; then
+            nc -z localhost $port >/dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                echo "[ERROR] Port $port is already in use, but cannot determine which process."
+                echo "[ERROR] Please ensure port $port is available before continuing."
+                return 1
+            fi
+        else
+            echo "[WARNING] Cannot check if port $port is in use (neither lsof, netstat, nor nc available)."
+            echo "[WARNING] Continuing anyway, but this might fail if the port is already in use."
+            return 0
+        fi
+    fi
+    
+    echo "[INFO] Port $port is available."
+    return 0
+}
+
 # Function to create conda environment if it doesn't exist
 create_conda_env() {
     env_name=$1
@@ -52,7 +101,7 @@ start_sglang_server() {
     echo "Additional arguments: $@"
     
     # Start the server in the background with all remaining arguments and save the PID
-    python -m sglang.launch_server --model $model_name $@ &
+    python -m sglang.launch_server --port 30000 --model $model_name $@ &
     SERVER_PID=$!
     
     # Check if the server process is running
@@ -123,6 +172,9 @@ source activate olmocr
 
 # Run raw server benchmarks with sglang server
 # For each model, start server, run benchmark, then stop server
+
+# Check port availability at script start
+check_port || exit 1
 
 # olmocr_base_temp0_1
 start_sglang_server "allenai/olmOCR-7B-0225-preview" --chat-template qwen2-vl --mem-fraction-static 0.7

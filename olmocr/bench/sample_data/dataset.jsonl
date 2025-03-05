@@ -48,5 +48,11 @@
 
 {"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t00", "type": "table", "cell": "Interact with a moving agent", "top_heading": "Unit Test Topic"}
 
+{"pdf": "earnings.pdf", "page": 1, "id": "earnings_table00", "type": "table", "cell": "1,136", "top_heading": "Year Ended"}
+{"pdf": "earnings.pdf", "page": 1, "id": "earnings_table01", "type": "table", "cell": "Year Ended"}
+{"pdf": "earnings.pdf", "page": 1, "id": "earnings_table02", "type": "table", "cell": "680", "up": "1,892"}
+{"pdf": "earnings.pdf", "page": 1, "id": "earnings_table02", "type": "table", "cell": "2,532", "left_heading": "Research and development"}
+
+
 
 
