@@ -125,18 +125,18 @@ source activate olmocr
 # For each model, start server, run benchmark, then stop server
 
 # olmocr_base_temp0_1
-start_sglang_server "allenai/olmOCR-7B-0225-preview" --mem-fraction-static 0.7
+start_sglang_server "allenai/olmOCR-7B-0225-preview" --chat-template qwen2-vl --mem-fraction-static 0.7
 python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
 python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
 stop_sglang_server
 
 # qwen2_vl_7b
-start_sglang_server "Qwen/Qwen2-VL-7B-Instruct" --mem-fraction-static 0.7
+start_sglang_server "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
 python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
 stop_sglang_server
 
 # qwen25_vl_7b
-start_sglang_server "Qwen/Qwen2.5-VL-7B-Instruct" --mem-fraction-static 0.7
+start_sglang_server "Qwen/Qwen2.5-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
 python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
 stop_sglang_server
 
