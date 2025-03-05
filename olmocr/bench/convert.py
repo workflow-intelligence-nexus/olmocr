@@ -40,7 +40,7 @@ def parse_method_arg(method_arg):
     return name, kwargs, folder_name
 
 
-async def process_pdfs(config, pdf_directory, data_directory, repeats):
+async def process_pdfs(config, pdf_directory, data_directory, repeats, force):
     """Process PDFs with both sync and async functions"""
     for candidate in config.keys():
         print(f"Starting conversion using {candidate} with kwargs: {config[candidate]['kwargs']}")
@@ -52,10 +52,21 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats):
         kwargs = config[candidate]["kwargs"]
         is_async = asyncio.iscoroutinefunction(method)
 
-        for pdf_path in tqdm(glob.glob(os.path.join(pdf_directory, "*.pdf")), desc=candidate):
+        all_pdfs = glob.glob(os.path.join(pdf_directory, "*.pdf"))
+        all_pdfs.sort()
+
+        for pdf_path in tqdm(all_pdfs, desc=candidate):
             base_name = os.path.basename(pdf_path).replace(".pdf", "")
 
             for i in range(1, repeats + 1):
+                output_filename = f"{base_name}_{i}.md"
+                output_path = os.path.join(candidate_output_dir, output_filename)
+
+                if os.path.exists(output_path) and not force:
+                    print(f"Skipping {base_name}_{i} for {candidate}, file already exists")
+                    print("Rerun with --force flag to force regeneration")
+                    continue
+
                 try:
                     if is_async:
                         # Run async function
@@ -70,8 +81,6 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats):
                     print(f"Warning, did not get output for {base_name}_{i}")
                     continue
 
-                output_filename = f"{base_name}_{i}.md"
-                output_path = os.path.join(candidate_output_dir, output_filename)
                 with open(output_path, "w") as out_f:
                     out_f.write(markdown)
 
@@ -86,6 +95,8 @@ if __name__ == "__main__":
         "Use 'name=folder_name' to specify a custom output folder name.",
     )
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
+    parser.add_argument("--dir", type=str, default=os.path.join(os.path.dirname(__file__), "sample_data"), help="Path to the data folder in which to save outputs, pdfs should be in /pdfs folder within it.")
+    parser.add_argument("--force", action="store_true", default=False, help="Force regenerating of output files, even if they already exist")
     args = parser.parse_args()
 
     # Mapping of method names to a tuple: (module path, function name)
@@ -109,8 +120,8 @@ if __name__ == "__main__":
         function = getattr(module, function_name)
         config[method_name] = {"method": function, "kwargs": extra_kwargs, "folder_name": folder_name}
 
-    data_directory = os.path.join(os.path.dirname(__file__), "mining_data")
+    data_directory = args.dir
     pdf_directory = os.path.join(data_directory, "pdfs")
 
     # Run the async process function
-    asyncio.run(process_pdfs(config, pdf_directory, data_directory, args.repeats))
+    asyncio.run(process_pdfs(config, pdf_directory, data_directory, args.repeats, args.force))

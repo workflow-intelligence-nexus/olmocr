@@ -643,7 +643,7 @@ async def sglang_server_ready():
                 else:
                     logger.info(f"Attempt {attempt}: Unexpected status code {response.status_code}")
         except Exception as e:
-            logger.warning(f"Attempt {attempt}: {e}")
+            logger.warning(f"Attempt {attempt}: Please wait for sglang server to become ready...")
 
         await asyncio.sleep(delay_sec)
 
