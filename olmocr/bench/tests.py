@@ -297,7 +297,7 @@ class TableTest(BasePDFTest):
         
         # If no tables found, return failure
         if not tables_to_check:
-            return False, f"No tables found in the content at all"
+            return False, f"No tables found in the content"
             
         # Check each table
         for table_array in tables_to_check:
