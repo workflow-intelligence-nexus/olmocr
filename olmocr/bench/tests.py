@@ -12,6 +12,7 @@ from rapidfuzz import fuzz
 
 from olmocr.repeatdetect import RepeatDetector
 from .katex.render import render_equation
+from .katex.compare import find_image_match
 
 class TestType(str, Enum):
     PRESENT = "present"
@@ -432,6 +433,11 @@ class MathTest(BasePDFTest):
         if len(self.math.strip()) == 0:
             raise ValidationError(f"Math test must have non-empty math expression")
 
+        self.reference_render = render_equation(self.math)
+
+        if self.reference_render is None:
+            raise ValidationError(f"Math equation {self.math} was not able to render")
+
 
     def run(self, content: str) -> Tuple[bool, str]:
         # Store both the search pattern and the full pattern to replace
@@ -452,8 +458,6 @@ class MathTest(BasePDFTest):
             
             # Replace all instances of this pattern with empty strings
             modified_content = re.sub(replace_pattern, '', modified_content, flags=re.DOTALL)
-        
-        print("All equations", equations)
 
         # If an equation in the markdown exactly matches our math string, then that's good enough
         # we don't have to do a more expensive comparison
@@ -461,10 +465,15 @@ class MathTest(BasePDFTest):
             return True, ""
 
         # If not, then let's render the math equation itself and now compare to each hypothesis
-        reference_render = render_equation(self.math)
-
         for hypothesis in equations:
             hypothesis_render = render_equation(hypothesis)
+
+            if not hypothesis_render:
+                continue
+
+            # Now, let's see what the matchup is between the two images
+            match = find_image_match(hypothesis_render, self.reference_render)
+            print(f"Match score for {self.math} vs {hypothesis}, {match}")
 
         return False, f"No match found for {self.math} anywhere in content"    
 
