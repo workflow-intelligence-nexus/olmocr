@@ -98,6 +98,10 @@ class TextPresenceTest(BasePDFTest):
 
     def run(self, md_content: str) -> Tuple[bool, str]:
         reference_query = self.text
+
+        # Normalize whitespace in the md_content
+        md_content = re.sub(r'\s+', " ", md_content)
+
         # Threshold for fuzzy matching derived from max_diffs
         threshold = 1.0 - (self.max_diffs / (len(reference_query) if len(reference_query) > 0 else 1))
         best_ratio = fuzz.partial_ratio(reference_query, md_content) / 100.0
@@ -473,7 +477,7 @@ class MathTest(BasePDFTest):
 
             # Now, let's see what the matchup is between the two images
             match = find_image_match(hypothesis_render, self.reference_render)
-            print(f"Match score for {self.math} vs {hypothesis}, {match}")
+            # print(f"Match score for {self.math} vs {hypothesis}, {match}")
 
         return False, f"No match found for {self.math} anywhere in content"    
 

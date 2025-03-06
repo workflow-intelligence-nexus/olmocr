@@ -171,6 +171,10 @@ echo "Running chatgpt benchmarks..."
 python -m olmocr.bench.convert chatgpt
 python -m olmocr.bench.convert chatgpt:name=chatgpt45:model=gpt-4.5-preview-2025-02-27
 
+echo "Running mistral..."
+pip install mistralai
+python -m olmocr.bench.convert mistral
+
 # Run raw server benchmarks with sglang server
 # For each model, start server, run benchmark, then stop server
 
