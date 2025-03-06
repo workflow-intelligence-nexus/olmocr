@@ -429,6 +429,7 @@ class RepetitionTest(BasePDFTest):
 @dataclass
 class MathTest(BasePDFTest):
     math: str
+    threshold: float=0.95
 
     def __post_init__(self):
         super().__post_init__()
@@ -476,8 +477,10 @@ class MathTest(BasePDFTest):
                 continue
 
             # Now, let's see what the matchup is between the two images
-            match = find_image_match(hypothesis_render, self.reference_render)
-            # print(f"Match score for {self.math} vs {hypothesis}, {match}")
+            match_score, x, y = find_image_match(hypothesis_render, self.reference_render)
+
+            if match_score >= self.threshold:
+                return True, ""
 
         return False, f"No match found for {self.math} anywhere in content"    
 
