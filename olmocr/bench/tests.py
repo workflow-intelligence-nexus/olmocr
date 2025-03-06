@@ -194,7 +194,7 @@ class TableTest(BasePDFTest):
             A list of numpy arrays, each representing a parsed table
         """
         # Extract all tables from markdown
-        table_pattern = r'(\|(?:[^|]*\|)+)\s*\n\|(?:[:-]+\|)+\s*\n((?:\|(?:[^|]*\|)+\s*\n)+)'
+        table_pattern = r'(\|(?:[^|]*\|)+)\s*\n\|(?:[ :-]+\|)+\s*\n((?:\|(?:[^|]*\|)+\s*\n)+)'
         table_matches = re.finditer(table_pattern, md_content)
         
         parsed_tables = []
