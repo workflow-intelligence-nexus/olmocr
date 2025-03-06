@@ -1,34 +1,79 @@
 #!/usr/bin/env python3
 """
-Render LaTeX equations to PNG images using Playwright and KaTeX
+Render LaTeX equations to Pillow images using Playwright and KaTeX
+with SHA1-based caching mechanism.
 
 Requirements:
-    pip install playwright
+    pip install playwright pillow
     python -m playwright install chromium
     
     Place katex.min.css and katex.min.js in the same directory as this script
 """
 
 import os
+import hashlib
+import pathlib
+from PIL import Image
 from playwright.sync_api import sync_playwright
 
-def render_equation_to_png(
-    equation, 
-    output_path="equation.png", 
-    bg_color="white",
-    text_color="black",
-    font_size=24,
-):
+def get_equation_hash(equation, bg_color="white", text_color="black", font_size=24):
     """
-    Render a LaTeX equation to a PNG file using Playwright and KaTeX.
+    Calculate SHA1 hash of the equation string and rendering parameters.
     
     Args:
-        equation (str): LaTeX equation to render
-        output_path (str): Path to save the PNG file
+        equation (str): LaTeX equation to hash
         bg_color (str): Background color
         text_color (str): Text color
         font_size (int): Font size in pixels
+        
+    Returns:
+        str: SHA1 hash of the equation and parameters
     """
+    # Combine all parameters that affect the output into a single string
+    params_str = f"{equation}|{bg_color}|{text_color}|{font_size}"
+    return hashlib.sha1(params_str.encode('utf-8')).hexdigest()
+
+def get_cache_dir():
+    """
+    Get the cache directory for equations, creating it if it doesn't exist.
+    
+    Returns:
+        pathlib.Path: Path to the cache directory
+    """
+    cache_dir = pathlib.Path.home() / '.cache' / 'olmocr' / 'bench' / 'equations'
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
+
+def render_equation(
+    equation, 
+    bg_color="white",
+    text_color="black",
+    font_size=24,
+    use_cache=True
+):
+    """
+    Render a LaTeX equation to a Pillow Image using Playwright and KaTeX.
+    Uses caching based on SHA1 hash of the equation.
+    
+    Args:
+        equation (str): LaTeX equation to render
+        bg_color (str): Background color
+        text_color (str): Text color
+        font_size (int): Font size in pixels
+        use_cache (bool): Whether to use caching
+        
+    Returns:
+        PIL.Image.Image: Pillow image of the rendered equation
+    """
+    # Calculate the equation's hash for caching, including all rendering parameters
+    eq_hash = get_equation_hash(equation, bg_color, text_color, font_size)
+    cache_dir = get_cache_dir()
+    cache_file = cache_dir / f"{eq_hash}.png"
+    
+    # Check if the equation is already cached
+    if use_cache and cache_file.exists():
+        return Image.open(cache_file)
+
     # We need to escape backslashes for JavaScript string
     escaped_equation = equation.replace("\\", "\\\\")
     
@@ -40,6 +85,9 @@ def render_equation_to_png(
     # Check if the files exist
     if not os.path.exists(katex_css_path) or not os.path.exists(katex_js_path):
         raise FileNotFoundError(f"KaTeX files not found. Please ensure katex.min.css and katex.min.js are in {script_dir}")
+    
+    # Temporary file to save the screenshot
+    temp_path = str(cache_file)
     
     with sync_playwright() as p:
         # Launch a headless browser
@@ -89,15 +137,29 @@ def render_equation_to_png(
         if not katex_loaded:
             raise RuntimeError("KaTeX library failed to load. Check your katex.min.js file.")
         
-        # Render the equation
-        page.evaluate(f"""
+        # Render the equation and check for errors
+        has_error = page.evaluate(f"""
         () => {{
-            katex.render("{escaped_equation}", document.getElementById("equation-container"), {{
-                displayMode: true,
-                throwOnError: false
-            }});
+            try {{
+                katex.render("{escaped_equation}", document.getElementById("equation-container"), {{
+                    displayMode: true,
+                    throwOnError: true
+                }});
+                return false; // No error
+            }} catch (error) {{
+                console.error("KaTeX error:", error.message);
+                return true; // Error occurred
+            }}
         }}
         """)
+        
+        if has_error:
+            print(f"Error rendering equation: '{equation}'")
+            # Clean up any partially created cache file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            browser.close()
+            return None
         
         # Wait for the equation to be rendered
         page.wait_for_selector(".katex", state="attached")
@@ -105,16 +167,14 @@ def render_equation_to_png(
         # Get the container element and take a screenshot
         container = page.query_selector("#equation-container")
         
-        # Make sure the output directory exists
-        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-        
         # Take the screenshot
-        container.screenshot(path=output_path)
+        container.screenshot(path=temp_path)
         
         # Close the browser
         browser.close()
         
-        return output_path
+        # Return the image as a Pillow Image
+        return Image.open(temp_path)
 
 def main():
     # Example equation: Einstein's famous equation
@@ -127,11 +187,42 @@ def main():
     maxwell_equation = "\\begin{aligned} \\nabla \\cdot \\vec{E} &= \\frac{\\rho}{\\epsilon_0} \\\\ \\nabla \\cdot \\vec{B} &= 0 \\\\ \\nabla \\times \\vec{E} &= -\\frac{\\partial\\vec{B}}{\\partial t} \\\\ \\nabla \\times \\vec{B} &= \\mu_0 \\vec{J} + \\mu_0\\epsilon_0\\frac{\\partial\\vec{E}}{\\partial t} \\end{aligned}"
     
     # Render the equations
-    render_equation_to_png(simple_equation, "einstein_equation.png")
-    render_equation_to_png(complex_equation, "quadratic_formula.png")
-    render_equation_to_png(
-        maxwell_equation, 
-        "maxwell_equations.png")
+    # Default parameters
+    bg_color = "white"
+    text_color = "black"
+    font_size = 24
+    
+    image1 = render_equation(simple_equation, bg_color, text_color, font_size)
+    image1.save("einstein_equation.png")
+    print(f"Einstein's equation hash: {get_equation_hash(simple_equation, bg_color, text_color, font_size)}")
+    
+    image2 = render_equation(complex_equation, bg_color, text_color, font_size)
+    image2.save("quadratic_formula.png")
+    print(f"Quadratic formula hash: {get_equation_hash(complex_equation, bg_color, text_color, font_size)}")
+    
+    # Different styling for Maxwell's equations
+    maxwell_bg = "black"
+    maxwell_text = "white"
+    maxwell_size = 20
+    
+    image3 = render_equation(maxwell_equation, maxwell_bg, maxwell_text, maxwell_size)
+    image3.save("maxwell_equations.png")
+    print(f"Maxwell's equations hash: {get_equation_hash(maxwell_equation, maxwell_bg, maxwell_text, maxwell_size)}")
+    
+    # Example of retrieving from cache with same parameters
+    image_from_cache = render_equation(simple_equation, bg_color, text_color, font_size)
+    print("Retrieved Einstein's equation from cache.")
+    
+    # Example of different styling for the same equation (will render and cache separately)
+    alt_bg = "lightblue"
+    alt_text = "darkblue"
+    alt_size = 30
+    
+    image_alt_style = render_equation(simple_equation, alt_bg, alt_text, alt_size)
+    image_alt_style.save("einstein_equation_alt_style.png")
+    print(f"Einstein's equation with alternate style hash: {get_equation_hash(simple_equation, alt_bg, alt_text, alt_size)}")
+
+    invalid = render_equation("$150. \quad s(t) = 2t^3 - 3t^2 - 12t + 8")
     
     print("All equations rendered successfully!")
 

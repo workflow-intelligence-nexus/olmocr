@@ -11,7 +11,7 @@ from fuzzysearch import find_near_matches
 from rapidfuzz import fuzz
 
 from olmocr.repeatdetect import RepeatDetector
-
+from .katex.render import render_equation
 
 class TestType(str, Enum):
     PRESENT = "present"
@@ -19,6 +19,7 @@ class TestType(str, Enum):
     ORDER = "order"
     TABLE = "table"
     REPEAT = "repeat"
+    MATH = "math"
 
 
 class TestChecked(str, Enum):
@@ -151,95 +152,6 @@ class TextOrderTest(BasePDFTest):
                     return True, ""
         return False, (f"Could not find a location where '{self.before[:40]}...' appears before " f"'{self.after[:40]}...'.")
 
-def parse_markdown_tables(md_content: str) -> List[np.ndarray]:
-    """
-    Extract and parse all markdown tables from the provided content.
-    
-    Args:
-        md_content: The markdown content containing tables
-        
-    Returns:
-        A list of numpy arrays, each representing a parsed table
-    """
-    # Extract all tables from markdown
-    table_pattern = r'(\|(?:[^|]*\|)+)\s*\n\|(?:[:-]+\|)+\s*\n((?:\|(?:[^|]*\|)+\s*\n)+)'
-    table_matches = re.finditer(table_pattern, md_content)
-    
-    parsed_tables = []
-    
-    for table_match in table_matches:
-        # Extract header and body from the table match
-        header_row = table_match.group(1).strip()
-        body_rows = table_match.group(2).strip().split('\n')
-        
-        # Process header and rows to remove leading/trailing |
-        header_cells = [cell.strip() for cell in header_row.split('|')]
-        if header_cells[0] == '':
-            header_cells = header_cells[1:]
-        if header_cells[-1] == '':
-            header_cells = header_cells[:-1]
-            
-        # Process table body rows
-        table_data = []
-        for row in [header_row] + body_rows:
-            if '|' not in row:  # Skip separator row
-                continue
-                
-            cells = [cell.strip() for cell in row.split('|')]
-            if cells[0] == '':
-                cells = cells[1:]
-            if cells[-1] == '':
-                cells = cells[:-1]
-                
-            table_data.append(cells)
-        
-        # Skip separator row (second row with dashes)
-        if len(table_data) > 1 and all('-' in cell for cell in table_data[1]):
-            table_data = [table_data[0]] + table_data[2:]
-            
-        # Convert to numpy array for easier manipulation
-        # First ensure all rows have the same number of columns by padding if necessary
-        max_cols = max(len(row) for row in table_data)
-        padded_data = [row + [''] * (max_cols - len(row)) for row in table_data]
-        table_array = np.array(padded_data)
-        
-        parsed_tables.append(table_array)
-    
-    return parsed_tables
-
-
-def parse_html_tables(html_content: str) -> List[np.ndarray]:
-    """
-    Extract and parse all HTML tables from the provided content.
-    
-    Args:
-        html_content: The HTML content containing tables
-        
-    Returns:
-        A list of numpy arrays, each representing a parsed table
-    """
-    soup = BeautifulSoup(html_content, 'html.parser')
-    tables = soup.find_all('table')
-    
-    parsed_tables = []
-    
-    for table in tables:
-        rows = table.find_all(['tr'])
-        table_data = []
-        
-        for row in rows:
-            cells = row.find_all(['th', 'td'])
-            row_data = [cell.get_text().strip() for cell in cells]
-            table_data.append(row_data)
-        
-        # Ensure all rows have the same number of columns
-        if table_data:
-            max_cols = max(len(row) for row in table_data)
-            padded_data = [row + [''] * (max_cols - len(row)) for row in table_data]
-            table_array = np.array(padded_data)
-            parsed_tables.append(table_array)
-    
-    return parsed_tables
 
 
 @dataclass
@@ -266,6 +178,96 @@ class TableTest(BasePDFTest):
         if self.type != TestType.TABLE.value:
             raise ValidationError(f"Invalid type for TableTest: {self.type}")
 
+    def parse_markdown_tables(self, md_content: str) -> List[np.ndarray]:
+        """
+        Extract and parse all markdown tables from the provided content.
+        
+        Args:
+            md_content: The markdown content containing tables
+            
+        Returns:
+            A list of numpy arrays, each representing a parsed table
+        """
+        # Extract all tables from markdown
+        table_pattern = r'(\|(?:[^|]*\|)+)\s*\n\|(?:[:-]+\|)+\s*\n((?:\|(?:[^|]*\|)+\s*\n)+)'
+        table_matches = re.finditer(table_pattern, md_content)
+        
+        parsed_tables = []
+        
+        for table_match in table_matches:
+            # Extract header and body from the table match
+            header_row = table_match.group(1).strip()
+            body_rows = table_match.group(2).strip().split('\n')
+            
+            # Process header and rows to remove leading/trailing |
+            header_cells = [cell.strip() for cell in header_row.split('|')]
+            if header_cells[0] == '':
+                header_cells = header_cells[1:]
+            if header_cells[-1] == '':
+                header_cells = header_cells[:-1]
+                
+            # Process table body rows
+            table_data = []
+            for row in [header_row] + body_rows:
+                if '|' not in row:  # Skip separator row
+                    continue
+                    
+                cells = [cell.strip() for cell in row.split('|')]
+                if cells[0] == '':
+                    cells = cells[1:]
+                if cells[-1] == '':
+                    cells = cells[:-1]
+                    
+                table_data.append(cells)
+            
+            # Skip separator row (second row with dashes)
+            if len(table_data) > 1 and all('-' in cell for cell in table_data[1]):
+                table_data = [table_data[0]] + table_data[2:]
+                
+            # Convert to numpy array for easier manipulation
+            # First ensure all rows have the same number of columns by padding if necessary
+            max_cols = max(len(row) for row in table_data)
+            padded_data = [row + [''] * (max_cols - len(row)) for row in table_data]
+            table_array = np.array(padded_data)
+            
+            parsed_tables.append(table_array)
+        
+        return parsed_tables
+
+
+    def parse_html_tables(self, html_content: str) -> List[np.ndarray]:
+        """
+        Extract and parse all HTML tables from the provided content.
+        
+        Args:
+            html_content: The HTML content containing tables
+            
+        Returns:
+            A list of numpy arrays, each representing a parsed table
+        """
+        soup = BeautifulSoup(html_content, 'html.parser')
+        tables = soup.find_all('table')
+        
+        parsed_tables = []
+        
+        for table in tables:
+            rows = table.find_all(['tr'])
+            table_data = []
+            
+            for row in rows:
+                cells = row.find_all(['th', 'td'])
+                row_data = [cell.get_text().strip() for cell in cells]
+                table_data.append(row_data)
+            
+            # Ensure all rows have the same number of columns
+            if table_data:
+                max_cols = max(len(row) for row in table_data)
+                padded_data = [row + [''] * (max_cols - len(row)) for row in table_data]
+                table_array = np.array(padded_data)
+                parsed_tables.append(table_array)
+        
+        return parsed_tables
+
     def run(self, content: str) -> Tuple[bool, str]:
         """
         Run the table test on provided content.
@@ -288,10 +290,10 @@ class TableTest(BasePDFTest):
         threshold = 1.0 - (self.max_diffs / (len(self.cell) if len(self.cell) > 0 else 1))
         
         # Parse tables based on content_type
-        md_tables = parse_markdown_tables(content)
+        md_tables = self.parse_markdown_tables(content)
         tables_to_check.extend(md_tables)
         
-        html_tables = parse_html_tables(content)
+        html_tables = self.parse_html_tables(content)
         tables_to_check.extend(html_tables)
         
         # If no tables found, return failure
@@ -406,6 +408,8 @@ class RepetitionTest(BasePDFTest):
 
     def run(self, content: str) -> Tuple[bool, str]:
         # Makes sure that the content has no egregious repeated ngrams at the end, which indicate a degradation of quality
+        # Honestly, this test doesn't seem to catch anything at the moment, maybe it can be refactored to a "text-quality"
+        # test or something, that measures repetition, non-blanks, charsets, etc
         d = RepeatDetector(max_ngram_size=5)
         d.add_letters(content)
         repeats = d.ngram_repeats()
@@ -415,6 +419,55 @@ class RepetitionTest(BasePDFTest):
                 return False, f"Text ends with {count} repeating {index+1}-grams, invalid"
 
         return True, ""
+
+
+@dataclass
+class MathTest(BasePDFTest):
+    math: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.type != TestType.MATH.value:
+            raise ValidationError(f"Invalid type for MathTest: {self.type}")
+        if len(self.math.strip()) == 0:
+            raise ValidationError(f"Math test must have non-empty math expression")
+
+
+    def run(self, content: str) -> Tuple[bool, str]:
+        # Store both the search pattern and the full pattern to replace
+        patterns = [
+            (r'\$\$(.+?)\$\$', r'\$\$(.+?)\$\$'),        # $$...$$
+            (r'\\\((.+?)\\\)', r'\\\((.+?)\\\)'),        # \(...\)
+            (r'\\\[(.+?)\\\]', r'\\\[(.+?)\\\]'),        # \[...\]
+            (r'\$(.+?)\$', r'\$(.+?)\$')                 # $...$
+        ]
+
+        equations = []
+        modified_content = content
+        
+        for search_pattern, replace_pattern in patterns:
+            # Find all matches for the current pattern
+            matches = re.findall(search_pattern, modified_content, re.DOTALL)
+            equations.extend([e.strip() for e in matches])
+            
+            # Replace all instances of this pattern with empty strings
+            modified_content = re.sub(replace_pattern, '', modified_content, flags=re.DOTALL)
+        
+        print("All equations", equations)
+
+        # If an equation in the markdown exactly matches our math string, then that's good enough
+        # we don't have to do a more expensive comparison
+        if any(hyp == self.math for hyp in equations):
+            return True, ""
+
+        # If not, then let's render the math equation itself and now compare to each hypothesis
+        reference_render = render_equation(self.math)
+
+        for hypothesis in equations:
+            hypothesis_render = render_equation(hypothesis)
+
+        return False, f"No match found for {self.math} anywhere in content"    
+
 
 
 def load_tests(jsonl_file: str) -> List[BasePDFTest]:
@@ -444,6 +497,8 @@ def load_tests(jsonl_file: str) -> List[BasePDFTest]:
                     test = TextOrderTest(**data)
                 elif test_type == TestType.TABLE.value:
                     test = TableTest(**data)
+                elif test_type == TestType.MATH.value:
+                    test = MathTest(**data)
                 else:
                     raise ValidationError(f"Unknown test type: {test_type}")
 
