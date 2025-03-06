@@ -69,10 +69,15 @@ def render_equation(
     eq_hash = get_equation_hash(equation, bg_color, text_color, font_size)
     cache_dir = get_cache_dir()
     cache_file = cache_dir / f"{eq_hash}.png"
+    cache_error_file = cache_dir / f"{eq_hash}_error"
     
     # Check if the equation is already cached
-    if use_cache and cache_file.exists():
-        return Image.open(cache_file)
+    if use_cache:
+        if cache_error_file.exists():
+            return None
+            
+        if cache_file.exists():
+            return Image.open(cache_file)
 
     # We need to escape backslashes for JavaScript string
     escaped_equation = equation.replace("\\", "\\\\")
@@ -85,9 +90,6 @@ def render_equation(
     # Check if the files exist
     if not os.path.exists(katex_css_path) or not os.path.exists(katex_js_path):
         raise FileNotFoundError(f"KaTeX files not found. Please ensure katex.min.css and katex.min.js are in {script_dir}")
-    
-    # Temporary file to save the screenshot
-    temp_path = str(cache_file)
     
     with sync_playwright() as p:
         # Launch a headless browser
@@ -155,9 +157,7 @@ def render_equation(
         
         if has_error:
             print(f"Error rendering equation: '{equation}'")
-            # Clean up any partially created cache file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+            cache_error_file.touch()
             browser.close()
             return None
         
@@ -168,13 +168,13 @@ def render_equation(
         container = page.query_selector("#equation-container")
         
         # Take the screenshot
-        container.screenshot(path=temp_path)
+        container.screenshot(path=str(cache_file))
         
         # Close the browser
         browser.close()
         
         # Return the image as a Pillow Image
-        return Image.open(temp_path)
+        return Image.open(cache_file)
 
 def main():
     # Example equation: Einstein's famous equation
