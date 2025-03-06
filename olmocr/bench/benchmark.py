@@ -10,54 +10,18 @@ Then, we will read each one, and check if they pass against all the rules.
 If a rule fails on some of the repeats, a short explanation is printed.
 The final score is averaged over the repeated generations.
 Statistical analysis including bootstrap confidence intervals are provided for the results.
+Pairwise permutation tests are conducted between specific candidate pairs.
 """
 
 import argparse
 import glob
 import os
 import sys
-import numpy as np
-from typing import Dict, List, Tuple
+
+from typing import Dict, List, Tuple, Optional
 
 from .tests import BasePDFTest, load_tests
-
-
-def calculate_bootstrap_ci(
-    test_scores: List[float], 
-    n_bootstrap: int = 1000, 
-    ci_level: float = 0.95
-) -> Tuple[float, float]:
-    """
-    Calculate bootstrap confidence interval for test scores.
-    
-    Args:
-        test_scores: List of test scores (0.0 to 1.0 for each test)
-        n_bootstrap: Number of bootstrap samples to generate
-        ci_level: Confidence interval level (default: 0.95 for 95% CI)
-    
-    Returns:
-        Tuple of (lower_bound, upper_bound) representing the confidence interval
-    """
-    if not test_scores:
-        return (0.0, 0.0)
-    
-    # Convert to numpy array for efficiency
-    scores = np.array(test_scores)
-
-    # Generate bootstrap samples
-    bootstrap_means = []
-    for _ in range(n_bootstrap):
-        # Sample with replacement
-        sample = np.random.choice(scores, size=len(scores), replace=True)
-        bootstrap_means.append(np.mean(sample))
-    
-    # Calculate confidence interval
-    alpha = (1 - ci_level) / 2
-    lower_bound = np.percentile(bootstrap_means, alpha * 100)
-    upper_bound = np.percentile(bootstrap_means, (1 - alpha) * 100)
-    
-    return (lower_bound, upper_bound)
-
+from .utils import calculate_bootstrap_ci, perform_permutation_test
 
 def evaluate_candidate(
     candidate_folder: str, all_tests: List[BasePDFTest], pdf_basenames: List[str]
@@ -165,11 +129,18 @@ def main():
         default=0.95,
         help="Confidence level for interval calculation (default: 0.95 for 95% CI).",
     )
+    parser.add_argument(
+        "--permutation_tests",
+        type=int,
+        default=10000,
+        help="Number of permutations for statistical test (default: 10000).",
+    )
     args = parser.parse_args()
 
     input_folder = args.input_folder
     n_bootstrap = args.bootstrap_samples
     ci_level = args.confidence_level
+    n_permutations = args.permutation_tests
     pdf_folder = os.path.join(input_folder, "pdfs")
 
     # Check that the pdfs folder exists
@@ -228,7 +199,7 @@ def main():
         else:
             ci = (0.0, 0.0)
             
-        summary.append((candidate_name, overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, ci))
+        summary.append((candidate_name, overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, ci, all_test_scores))
         
         print(f"\nCandidate: {candidate_name}")
         if candidate_errors:
@@ -243,10 +214,11 @@ def main():
     # Print final summary with breakdown by test type
     print("\n" + "=" * 60)
     print("Final Summary with 95% Confidence Intervals:")
-    for candidate_name, overall_score, total_tests, candidate_errors, _, test_type_breakdown, ci in summary:
+    for candidate_name, overall_score, total_tests, candidate_errors, _, test_type_breakdown, ci, _ in summary:
         if candidate_errors:
             status = "FAILED (errors)"
             ci_str = "N/A"
+            ciw_str = ""
         else:
             status = f"{overall_score * 100:0.1f}%"
             half_width = ((ci[1] - ci[0]) / 2) * 100
@@ -264,6 +236,63 @@ def main():
             print(f"    {ttype:8s}: {avg:0.1f}% average pass rate over {len(scores)} tests")
         
         print("")
+    
+    # Perform pairwise permutation tests
+    print("\n" + "=" * 60)
+    print("Pairwise Permutation Tests:")
+    
+    valid_candidates = [c for c in summary if not c[3]]  # Filter out candidates with errors
+    olmocr_candidates = sorted([c for c in valid_candidates if "olmocr" in c[0].lower()], key=lambda x: x[1], reverse=True)
+    non_olmocr_candidates = sorted([c for c in valid_candidates if "olmocr" not in c[0].lower()], key=lambda x: x[1], reverse=True)
+    
+    top_olmocr = olmocr_candidates[0] if olmocr_candidates else None
+    top_non_olmocr = non_olmocr_candidates[0] if non_olmocr_candidates else None
+    top_two_olmocr = olmocr_candidates[:2]
+
+    # Test 1: Top olmocr vs Top non-olmocr
+    if top_olmocr and top_non_olmocr:
+        olmocr_name, olmocr_score = top_olmocr[0], top_olmocr[1]
+        non_olmocr_name, non_olmocr_score = top_non_olmocr[0], top_non_olmocr[1]
+        olmocr_scores = top_olmocr[7]  # all_test_scores
+        non_olmocr_scores = top_non_olmocr[7]  # all_test_scores
+        
+        diff, p_value = perform_permutation_test(
+            olmocr_scores, non_olmocr_scores, n_permutations=n_permutations
+        )
+        
+        print(f"\nComparison 1: Top olmocr vs Top non-olmocr candidate")
+        print(f"  {olmocr_name} ({olmocr_score*100:.1f}%) vs {non_olmocr_name} ({non_olmocr_score*100:.1f}%)")
+        print(f"  Difference: {diff*100:.2f}% (positive means {olmocr_name} is better)")
+        print(f"  p-value: {p_value:.4f}")
+        if p_value < 0.05:
+            print(f"  Result: Statistically significant difference (p < 0.05)")
+        else:
+            print(f"  Result: No statistically significant difference (p ≥ 0.05)")
+    else:
+        print("\nCannot perform olmocr vs non-olmocr comparison: Missing candidates")
+    
+    # Test 2: Top two olmocr candidates (if there are at least two)
+    if len(top_two_olmocr) >= 2:
+        olmocr1_name, olmocr1_score = top_two_olmocr[0][0], top_two_olmocr[0][1]
+        olmocr2_name, olmocr2_score = top_two_olmocr[1][0], top_two_olmocr[1][1]
+        olmocr1_scores = top_two_olmocr[0][7]  # all_test_scores
+        olmocr2_scores = top_two_olmocr[1][7]  # all_test_scores
+        
+        diff, p_value = perform_permutation_test(
+            olmocr1_scores, olmocr2_scores, n_permutations=n_permutations
+        )
+        
+        print(f"\nComparison 2: Top two olmocr candidates")
+        print(f"  {olmocr1_name} ({olmocr1_score*100:.1f}%) vs {olmocr2_name} ({olmocr2_score*100:.1f}%)")
+        print(f"  Difference: {diff*100:.2f}% (positive means {olmocr1_name} is better)")
+        print(f"  p-value: {p_value:.4f}")
+        if p_value < 0.05:
+            print(f"  Result: Statistically significant difference (p < 0.05)")
+        else:
+            print(f"  Result: No statistically significant difference (p ≥ 0.05)")
+    else:
+        print("\nCannot perform top two olmocr comparison: Not enough olmocr candidates")
+    
     print("=" * 60)
 
 
