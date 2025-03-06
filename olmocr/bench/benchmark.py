@@ -9,37 +9,78 @@ corresponding to its parse for every .pdf in the /pdfs folder.
 Then, we will read each one, and check if they pass against all the rules.
 If a rule fails on some of the repeats, a short explanation is printed.
 The final score is averaged over the repeated generations.
+Statistical analysis including bootstrap confidence intervals are provided for the results.
 """
 
 import argparse
 import glob
 import os
 import sys
+import numpy as np
 from typing import Dict, List, Tuple
 
 from .tests import BasePDFTest, load_tests
 
 
+def calculate_bootstrap_ci(
+    test_scores: List[float], 
+    n_bootstrap: int = 1000, 
+    ci_level: float = 0.95
+) -> Tuple[float, float]:
+    """
+    Calculate bootstrap confidence interval for test scores.
+    
+    Args:
+        test_scores: List of test scores (0.0 to 1.0 for each test)
+        n_bootstrap: Number of bootstrap samples to generate
+        ci_level: Confidence interval level (default: 0.95 for 95% CI)
+    
+    Returns:
+        Tuple of (lower_bound, upper_bound) representing the confidence interval
+    """
+    if not test_scores:
+        return (0.0, 0.0)
+    
+    # Convert to numpy array for efficiency
+    scores = np.array(test_scores)
+
+    # Generate bootstrap samples
+    bootstrap_means = []
+    for _ in range(n_bootstrap):
+        # Sample with replacement
+        sample = np.random.choice(scores, size=len(scores), replace=True)
+        bootstrap_means.append(np.mean(sample))
+    
+    # Calculate confidence interval
+    alpha = (1 - ci_level) / 2
+    lower_bound = np.percentile(bootstrap_means, alpha * 100)
+    upper_bound = np.percentile(bootstrap_means, (1 - alpha) * 100)
+    
+    return (lower_bound, upper_bound)
+
+
 def evaluate_candidate(
     candidate_folder: str, all_tests: List[BasePDFTest], pdf_basenames: List[str]
-) -> Tuple[float, int, List[str], List[str], Dict[str, List[float]]]:
+) -> Tuple[float, int, List[str], List[str], Dict[str, List[float]], List[float]]:
     """
     For the candidate folder (pipeline tool output), validate that it contains at least one .md file
     (i.e. repeated generations like _1.md, _2.md, etc.) for every PDF in the pdf folder.
     Then, run each rule against all corresponding .md files and average the results.
 
     Returns a tuple:
-      (overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown)
+      (overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores)
 
       - overall_score: Average fraction of tests passed (averaged over repeats and tests).
       - total_tests: Total number of tests evaluated.
       - candidate_errors: List of candidate errors (e.g. missing files).
       - test_failures: List of failure messages for tests not passing on all repeats.
       - test_type_breakdown: Dictionary mapping test type to list of average pass ratios for tests of that type.
+      - all_test_scores: List of all individual test scores (used for bootstrapping).
     """
     candidate_errors = []
     test_failures = []
     test_type_breakdown = {}  # key: test type, value: list of average pass ratios
+    all_test_scores = []  # Store all individual test scores for bootstrapping
     candidate_name = os.path.basename(candidate_folder)
 
     # Map each PDF to its corresponding MD repeats (e.g., doc1_1.md, doc1_2.md, etc.)
@@ -54,7 +95,7 @@ def evaluate_candidate(
             pdf_to_md_files[pdf_name] = md_files
 
     if candidate_errors:
-        return (0.0, len(all_tests), candidate_errors, test_failures, test_type_breakdown)
+        return (0.0, len(all_tests), candidate_errors, test_failures, test_type_breakdown, all_test_scores)
 
     total_test_score = 0.0
 
@@ -92,6 +133,7 @@ def evaluate_candidate(
                 explanations.append(str(e))
 
         test_avg = repeat_passes / num_repeats if num_repeats > 0 else 0.0
+        all_test_scores.append(test_avg)  # Add to list for bootstrapping
         total_test_score += test_avg
         if test_avg < 1.0:
             test_failures.append(
@@ -101,7 +143,7 @@ def evaluate_candidate(
         test_type_breakdown[test_type].append(test_avg)
 
     overall_score = total_test_score / len(all_tests) if all_tests else 0.0
-    return (overall_score, len(all_tests), candidate_errors, test_failures, test_type_breakdown)
+    return (overall_score, len(all_tests), candidate_errors, test_failures, test_type_breakdown, all_test_scores)
 
 
 def main():
@@ -111,9 +153,23 @@ def main():
         default=os.path.join(os.path.dirname(__file__), "sample_data"),
         help="Path to the folder containing .jsonl files, /pdfs folder, and pipeline tool subfolders.",
     )
+    parser.add_argument(
+        "--bootstrap_samples",
+        type=int,
+        default=1000,
+        help="Number of bootstrap samples for confidence interval calculation (default: 1000).",
+    )
+    parser.add_argument(
+        "--confidence_level",
+        type=float,
+        default=0.95,
+        help="Confidence level for interval calculation (default: 0.95 for 95% CI).",
+    )
     args = parser.parse_args()
 
     input_folder = args.input_folder
+    n_bootstrap = args.bootstrap_samples
+    ci_level = args.confidence_level
     pdf_folder = os.path.join(input_folder, "pdfs")
 
     # Check that the pdfs folder exists
@@ -130,7 +186,7 @@ def main():
     # Get PDF basenames (e.g. "doc1.pdf")
     pdf_basenames = [os.path.basename(p) for p in all_pdf_files]
 
-    # Find and validate .jsonl files in the inp∂ut folder
+    # Find and validate .jsonl files in the input folder
     jsonl_files = glob.glob(os.path.join(input_folder, "*.jsonl"))
     if not jsonl_files:
         print(f"Error: No .jsonl files found in {input_folder}.", file=sys.stderr)
@@ -162,8 +218,18 @@ def main():
     print("\nRunning tests for each candidate:")
     for candidate in candidate_folders:
         candidate_name = os.path.basename(candidate)
-        overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown = evaluate_candidate(candidate, all_tests, pdf_basenames)
-        summary.append((candidate_name, overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown))
+        overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores = evaluate_candidate(
+            candidate, all_tests, pdf_basenames
+        )
+        
+        # Calculate confidence interval
+        if all_test_scores:
+            ci = calculate_bootstrap_ci(all_test_scores, n_bootstrap=n_bootstrap, ci_level=ci_level)
+        else:
+            ci = (0.0, 0.0)
+            
+        summary.append((candidate_name, overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, ci))
+        
         print(f"\nCandidate: {candidate_name}")
         if candidate_errors:
             for err in candidate_errors:
@@ -172,25 +238,33 @@ def main():
             if test_failures:
                 for fail in test_failures:
                     print(f"  [FAIL] {fail}")
-            print(f"  Average Score: {overall_score * 100:.1f}% over {total_tests} tests.")
+            print(f"  Average Score: {overall_score * 100:.1f}% (95% CI: [{ci[0] * 100:.1f}%, {ci[1] * 100:.1f}%]) over {total_tests} tests.")
 
     # Print final summary with breakdown by test type
-    print("\n" + "=" * 50)
-    print("Final Summary:")
-    for candidate_name, overall_score, total_tests, candidate_errors, _, test_type_breakdown in summary:
+    print("\n" + "=" * 60)
+    print("Final Summary with 95% Confidence Intervals:")
+    for candidate_name, overall_score, total_tests, candidate_errors, _, test_type_breakdown, ci in summary:
         if candidate_errors:
             status = "FAILED (errors)"
+            ci_str = "N/A"
         else:
             status = f"{overall_score * 100:0.1f}%"
-        print(f"{candidate_name:20s} : Average Score: {overall_score * 100:0.1f}% over {total_tests:3d} tests - {status}")
+            half_width = ((ci[1] - ci[0]) / 2) * 100
+            ciw_str = f"± {half_width:0.1f}%"
+            ci_str = f"[{ci[0] * 100:0.1f}%, {ci[1] * 100:0.1f}%]"
+        
+        print(f"{candidate_name:20s} : Average Score: {status} {ciw_str}")
+        
         for ttype, scores in test_type_breakdown.items():
             if scores:
                 avg = sum(scores) / len(scores) * 100
             else:
                 avg = 0.0
+            
             print(f"    {ttype:8s}: {avg:0.1f}% average pass rate over {len(scores)} tests")
+        
         print("")
-    print("=" * 50)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

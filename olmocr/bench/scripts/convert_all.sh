@@ -159,7 +159,7 @@ python -m olmocr.bench.convert olmocr_pipeline --repeats 5
 # Install marker-pdf and run benchmarks
 echo "Installing marker-pdf and running benchmarks..."
 pip install marker-pdf
-python -m olmocr.bench.convert marker
+python -m olmocr.bench.convert marker --repeats 5
 
 # Install verovio and run benchmarks
 echo "Installing verovio and running benchmarks..."
