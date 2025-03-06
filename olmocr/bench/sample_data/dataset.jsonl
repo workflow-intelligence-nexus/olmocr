@@ -22,6 +22,9 @@
 
 {"pdf": "openstax_caculus_pg_273.pdf", "page": 1, "id": "openstax_caculus_pg_273_minediff_02", "type": "present", "checked": "verified", "text": "Use the graph of the position function to determine the time intervals when the velocity is positive, negative, or zero."}
 {"pdf": "openstax_caculus_pg_273.pdf", "page": 1, "id": "openstax_caculus_pg_273_minediff_03", "type": "present", "checked": "verified", "text": "Use the graph of the velocity function to determine the time intervals when the acceleration is positive, negative, or zero."}
+{"pdf": "openstax_caculus_pg_273.pdf", "page": 1, "id": "openstax_caculus_pg_273_minediff_04", "type": "order", "before": "150.", "after": "157."}
+{"pdf": "openstax_caculus_pg_273.pdf", "page": 1, "id": "openstax_caculus_pg_273_minediff_05", "type": "order", "before": "150.", "after": "158."}
+{"pdf": "openstax_caculus_pg_273.pdf", "page": 1, "id": "openstax_caculus_pg_273_minediff_06", "type": "order", "before": "150.", "after": "159."}
 
 {"pdf": "multi_column_miss.pdf", "page": 1, "id": "multi_column_miss_minediff_01", "type": "present", "checked": "verified", "text": "This report first provides the context and development of CSR; then, from internal company documents, examines how PM came to its own version."}
 {"pdf": "multi_column_miss.pdf", "page": 1, "id": "multi_column_miss_minediff_02", "type": "present", "checked": "verified", "text": "This paper examines whether a tobacco company espousing CSR should be judged simply as a corporate entity along standards of business ethics, or as an irretrievably negative force in the realm of public health, thereby rendering CSR an oxymoron."}
@@ -39,20 +42,18 @@
 {"pdf": "olmo2-pg4.pdf", "page": 1, "id": "olmo2-pg4_table08", "type": "table", "cell": "Math proofs code", "left_heading": "Algebraic Stack"}
 
 {"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t00", "type": "table", "cell": "Quadratic regression", "left": "Challenge"}
-{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t00", "type": "table", "cell": "Instrument Use", "left": "Normal"}
-{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t00", "type": "table", "cell": "0.87", "top_heading": "Procedure"}
-{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t00", "type": "table", "cell": "0.87", "top_heading": "ReACT"}
-
-{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t00", "type": "table", "cell": "Pick-and-place object", "left_heading": "27"}
-{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t00", "type": "table", "cell": "0.66", "right": "0.44"}
-
-{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t00", "type": "table", "cell": "Interact with a moving agent", "top_heading": "Unit Test Topic"}
+{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t01", "type": "table", "cell": "Instrument Use", "left": "Normal"}
+{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t02", "type": "table", "cell": "0.87", "top_heading": "Procedure"}
+{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t03", "type": "table", "cell": "0.87", "top_heading": "ReACT"}
+{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t04", "type": "table", "cell": "Pick-and-place object", "left_heading": "27"}
+{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t05", "type": "table", "cell": "0.66", "right": "0.44"}
+{"pdf": "discoverworld_crazy_table4.pdf", "page": 1, "id": "olmo2-discoverworld_crazy_table4_t06", "type": "table", "cell": "Interact with a moving agent", "top_heading": "Unit Test Topic"}
 
 {"pdf": "earnings.pdf", "page": 1, "id": "earnings_table00", "type": "table", "cell": "1,136", "top_heading": "Year Ended"}
 {"pdf": "earnings.pdf", "page": 1, "id": "earnings_table01", "type": "table", "cell": "Year Ended"}
 {"pdf": "earnings.pdf", "page": 1, "id": "earnings_table02", "type": "table", "cell": "680", "up": "1,892"}
-{"pdf": "earnings.pdf", "page": 1, "id": "earnings_table02", "type": "table", "cell": "2,532", "left_heading": "Research and development"}
-
+{"pdf": "earnings.pdf", "page": 1, "id": "earnings_table03", "type": "table", "cell": "2,532", "left_heading": "Research and development"}
+{"pdf": "earnings.pdf", "page": 1, "id": "earnings_table04", "type": "absent", "text": "62"}
 
 
 

@@ -20,7 +20,7 @@ import sys
 
 from typing import Dict, List, Tuple, Optional
 
-from .tests import BasePDFTest, load_tests
+from .tests import BasePDFTest, RepetitionTest, load_tests
 from .utils import calculate_bootstrap_ci, perform_permutation_test
 
 def evaluate_candidate(
@@ -118,6 +118,12 @@ def main():
         help="Path to the folder containing .jsonl files, /pdfs folder, and pipeline tool subfolders.",
     )
     parser.add_argument(
+        "--candidate",
+        type=str,
+        default=None,
+        help="Run test only for a single candidate"
+    )
+    parser.add_argument(
         "--bootstrap_samples",
         type=int,
         default=1000,
@@ -131,16 +137,14 @@ def main():
     )
     parser.add_argument(
         "--permutation_tests",
-        type=int,
-        default=10000,
-        help="Number of permutations for statistical test (default: 10000).",
+        action="store_true",
+        help="Run permutation testing",
     )
     args = parser.parse_args()
 
     input_folder = args.input_folder
     n_bootstrap = args.bootstrap_samples
     ci_level = args.confidence_level
-    n_permutations = args.permutation_tests
     pdf_folder = os.path.join(input_folder, "pdfs")
 
     # Check that the pdfs folder exists
@@ -173,16 +177,27 @@ def main():
         print("No valid tests found. Exiting.", file=sys.stderr)
         sys.exit(1)
 
+    # Add in a default repeat test for every PDF that doesn't already have one
+    for pdf in pdf_basenames:
+        if not any(t.type == "repeat" for t in all_tests if t.pdf == pdf):
+            all_tests.append(RepetitionTest(id=f"{pdf}_repeat", pdf=pdf, page=1, type="repeat"))
+
     # Identify candidate pipeline folders (subdirectories of input_folder excluding /pdfs)
     candidate_folders = []
     for entry in os.listdir(input_folder):
         full_path = os.path.join(input_folder, entry)
-        if os.path.isdir(full_path) and entry != "pdfs":
-            candidate_folders.append(full_path)
+        if args.candidate is not None:
+            if entry == args.candidate:
+                candidate_folders.append(full_path) 
+        else:
+            if os.path.isdir(full_path) and entry != "pdfs":
+                candidate_folders.append(full_path)
 
     if not candidate_folders:
         print("Error: No candidate pipeline folders found (subdirectories besides 'pdfs').", file=sys.stderr)
         sys.exit(1)
+
+    candidate_folders.sort()
 
     # Evaluate each candidate
     summary = []
@@ -238,62 +253,63 @@ def main():
         print("")
     
     # Perform pairwise permutation tests
-    print("\n" + "=" * 60)
-    print("Pairwise Permutation Tests:")
-    
-    valid_candidates = [c for c in summary if not c[3]]  # Filter out candidates with errors
-    olmocr_candidates = sorted([c for c in valid_candidates if "olmocr" in c[0].lower()], key=lambda x: x[1], reverse=True)
-    non_olmocr_candidates = sorted([c for c in valid_candidates if "olmocr" not in c[0].lower()], key=lambda x: x[1], reverse=True)
-    
-    top_olmocr = olmocr_candidates[0] if olmocr_candidates else None
-    top_non_olmocr = non_olmocr_candidates[0] if non_olmocr_candidates else None
-    top_two_olmocr = olmocr_candidates[:2]
+    if args.permutation_tests:
+        print("\n" + "=" * 60)
+        print("Pairwise Permutation Tests:")
+        
+        valid_candidates = [c for c in summary if not c[3]]  # Filter out candidates with errors
+        olmocr_candidates = sorted([c for c in valid_candidates if "olmocr" in c[0].lower()], key=lambda x: x[1], reverse=True)
+        non_olmocr_candidates = sorted([c for c in valid_candidates if "olmocr" not in c[0].lower()], key=lambda x: x[1], reverse=True)
+        
+        top_olmocr = olmocr_candidates[0] if olmocr_candidates else None
+        top_non_olmocr = non_olmocr_candidates[0] if non_olmocr_candidates else None
+        top_two_olmocr = olmocr_candidates[:2]
 
-    # Test 1: Top olmocr vs Top non-olmocr
-    if top_olmocr and top_non_olmocr:
-        olmocr_name, olmocr_score = top_olmocr[0], top_olmocr[1]
-        non_olmocr_name, non_olmocr_score = top_non_olmocr[0], top_non_olmocr[1]
-        olmocr_scores = top_olmocr[7]  # all_test_scores
-        non_olmocr_scores = top_non_olmocr[7]  # all_test_scores
-        
-        diff, p_value = perform_permutation_test(
-            olmocr_scores, non_olmocr_scores, n_permutations=n_permutations
-        )
-        
-        print(f"\nComparison 1: Top olmocr vs Top non-olmocr candidate")
-        print(f"  {olmocr_name} ({olmocr_score*100:.1f}%) vs {non_olmocr_name} ({non_olmocr_score*100:.1f}%)")
-        print(f"  Difference: {diff*100:.2f}% (positive means {olmocr_name} is better)")
-        print(f"  p-value: {p_value:.4f}")
-        if p_value < 0.05:
-            print(f"  Result: Statistically significant difference (p < 0.05)")
+        # Test 1: Top olmocr vs Top non-olmocr
+        if top_olmocr and top_non_olmocr:
+            olmocr_name, olmocr_score = top_olmocr[0], top_olmocr[1]
+            non_olmocr_name, non_olmocr_score = top_non_olmocr[0], top_non_olmocr[1]
+            olmocr_scores = top_olmocr[7]  # all_test_scores
+            non_olmocr_scores = top_non_olmocr[7]  # all_test_scores
+            
+            diff, p_value = perform_permutation_test(
+                olmocr_scores, non_olmocr_scores
+            )
+            
+            print(f"\nComparison 1: Top olmocr vs Top non-olmocr candidate")
+            print(f"  {olmocr_name} ({olmocr_score*100:.1f}%) vs {non_olmocr_name} ({non_olmocr_score*100:.1f}%)")
+            print(f"  Difference: {diff*100:.2f}% (positive means {olmocr_name} is better)")
+            print(f"  p-value: {p_value:.4f}")
+            if p_value < 0.05:
+                print(f"  Result: Statistically significant difference (p < 0.05)")
+            else:
+                print(f"  Result: No statistically significant difference (p ≥ 0.05)")
         else:
-            print(f"  Result: No statistically significant difference (p ≥ 0.05)")
-    else:
-        print("\nCannot perform olmocr vs non-olmocr comparison: Missing candidates")
-    
-    # Test 2: Top two olmocr candidates (if there are at least two)
-    if len(top_two_olmocr) >= 2:
-        olmocr1_name, olmocr1_score = top_two_olmocr[0][0], top_two_olmocr[0][1]
-        olmocr2_name, olmocr2_score = top_two_olmocr[1][0], top_two_olmocr[1][1]
-        olmocr1_scores = top_two_olmocr[0][7]  # all_test_scores
-        olmocr2_scores = top_two_olmocr[1][7]  # all_test_scores
+            print("\nCannot perform olmocr vs non-olmocr comparison: Missing candidates")
         
-        diff, p_value = perform_permutation_test(
-            olmocr1_scores, olmocr2_scores, n_permutations=n_permutations
-        )
-        
-        print(f"\nComparison 2: Top two olmocr candidates")
-        print(f"  {olmocr1_name} ({olmocr1_score*100:.1f}%) vs {olmocr2_name} ({olmocr2_score*100:.1f}%)")
-        print(f"  Difference: {diff*100:.2f}% (positive means {olmocr1_name} is better)")
-        print(f"  p-value: {p_value:.4f}")
-        if p_value < 0.05:
-            print(f"  Result: Statistically significant difference (p < 0.05)")
+        # Test 2: Top two olmocr candidates (if there are at least two)
+        if len(top_two_olmocr) >= 2:
+            olmocr1_name, olmocr1_score = top_two_olmocr[0][0], top_two_olmocr[0][1]
+            olmocr2_name, olmocr2_score = top_two_olmocr[1][0], top_two_olmocr[1][1]
+            olmocr1_scores = top_two_olmocr[0][7]  # all_test_scores
+            olmocr2_scores = top_two_olmocr[1][7]  # all_test_scores
+            
+            diff, p_value = perform_permutation_test(
+                olmocr1_scores, olmocr2_scores
+            )
+            
+            print(f"\nComparison 2: Top two olmocr candidates")
+            print(f"  {olmocr1_name} ({olmocr1_score*100:.1f}%) vs {olmocr2_name} ({olmocr2_score*100:.1f}%)")
+            print(f"  Difference: {diff*100:.2f}% (positive means {olmocr1_name} is better)")
+            print(f"  p-value: {p_value:.4f}")
+            if p_value < 0.05:
+                print(f"  Result: Statistically significant difference (p < 0.05)")
+            else:
+                print(f"  Result: No statistically significant difference (p ≥ 0.05)")
         else:
-            print(f"  Result: No statistically significant difference (p ≥ 0.05)")
-    else:
-        print("\nCannot perform top two olmocr comparison: Not enough olmocr candidates")
-    
-    print("=" * 60)
+            print("\nCannot perform top two olmocr comparison: Not enough olmocr candidates")
+        
+        print("=" * 60)
 
 
 if __name__ == "__main__":

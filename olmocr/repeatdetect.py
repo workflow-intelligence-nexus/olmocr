@@ -2,7 +2,7 @@ import random
 import string
 import time
 import unittest
-
+import re
 
 class RepeatDetector:
     def __init__(self, max_ngram_size: int = 10):
@@ -18,20 +18,23 @@ class RepeatDetector:
         if not self.data:
             return result
 
+        # Normalize all whitespace to single spaces
+        text = re.sub(r'\s+', ' ', self.data)
+
         # For each n-gram size
         for size in range(1, self.max_ngram_size + 1):
-            if len(self.data) < size:
+            if len(text) < size:
                 continue
 
             # Get the last n-gram
-            target = self.data[-size:]
+            target = text[-size:]
 
             # Count backwards from the end to find repeats
             count = 0
-            pos = len(self.data) - size  # Start position for previous n-gram
+            pos = len(text) - size  # Start position for previous n-gram
 
             while pos >= 0:
-                if self.data[pos : pos + size] == target:
+                if text[pos : pos + size] == target:
                     count += 1
                     pos -= size  # Move back by the size of the n-gram
                 else:

@@ -10,96 +10,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from fuzzysearch import find_near_matches
 from rapidfuzz import fuzz
 
-
-def parse_markdown_tables(md_content: str) -> List[np.ndarray]:
-    """
-    Extract and parse all markdown tables from the provided content.
-    
-    Args:
-        md_content: The markdown content containing tables
-        
-    Returns:
-        A list of numpy arrays, each representing a parsed table
-    """
-    # Extract all tables from markdown
-    table_pattern = r'(\|(?:[^|]*\|)+)\s*\n\|(?:[:-]+\|)+\s*\n((?:\|(?:[^|]*\|)+\s*\n)+)'
-    table_matches = re.finditer(table_pattern, md_content)
-    
-    parsed_tables = []
-    
-    for table_match in table_matches:
-        # Extract header and body from the table match
-        header_row = table_match.group(1).strip()
-        body_rows = table_match.group(2).strip().split('\n')
-        
-        # Process header and rows to remove leading/trailing |
-        header_cells = [cell.strip() for cell in header_row.split('|')]
-        if header_cells[0] == '':
-            header_cells = header_cells[1:]
-        if header_cells[-1] == '':
-            header_cells = header_cells[:-1]
-            
-        # Process table body rows
-        table_data = []
-        for row in [header_row] + body_rows:
-            if '|' not in row:  # Skip separator row
-                continue
-                
-            cells = [cell.strip() for cell in row.split('|')]
-            if cells[0] == '':
-                cells = cells[1:]
-            if cells[-1] == '':
-                cells = cells[:-1]
-                
-            table_data.append(cells)
-        
-        # Skip separator row (second row with dashes)
-        if len(table_data) > 1 and all('-' in cell for cell in table_data[1]):
-            table_data = [table_data[0]] + table_data[2:]
-            
-        # Convert to numpy array for easier manipulation
-        # First ensure all rows have the same number of columns by padding if necessary
-        max_cols = max(len(row) for row in table_data)
-        padded_data = [row + [''] * (max_cols - len(row)) for row in table_data]
-        table_array = np.array(padded_data)
-        
-        parsed_tables.append(table_array)
-    
-    return parsed_tables
-
-
-def parse_html_tables(html_content: str) -> List[np.ndarray]:
-    """
-    Extract and parse all HTML tables from the provided content.
-    
-    Args:
-        html_content: The HTML content containing tables
-        
-    Returns:
-        A list of numpy arrays, each representing a parsed table
-    """
-    soup = BeautifulSoup(html_content, 'html.parser')
-    tables = soup.find_all('table')
-    
-    parsed_tables = []
-    
-    for table in tables:
-        rows = table.find_all(['tr'])
-        table_data = []
-        
-        for row in rows:
-            cells = row.find_all(['th', 'td'])
-            row_data = [cell.get_text().strip() for cell in cells]
-            table_data.append(row_data)
-        
-        # Ensure all rows have the same number of columns
-        if table_data:
-            max_cols = max(len(row) for row in table_data)
-            padded_data = [row + [''] * (max_cols - len(row)) for row in table_data]
-            table_array = np.array(padded_data)
-            parsed_tables.append(table_array)
-    
-    return parsed_tables
+from olmocr.repeatdetect import RepeatDetector
 
 
 class TestType(str, Enum):
@@ -107,6 +18,7 @@ class TestType(str, Enum):
     ABSENT = "absent"
     ORDER = "order"
     TABLE = "table"
+    REPEAT = "repeat"
 
 
 class TestChecked(str, Enum):
@@ -239,8 +151,95 @@ class TextOrderTest(BasePDFTest):
                     return True, ""
         return False, (f"Could not find a location where '{self.before[:40]}...' appears before " f"'{self.after[:40]}...'.")
 
+def parse_markdown_tables(md_content: str) -> List[np.ndarray]:
+    """
+    Extract and parse all markdown tables from the provided content.
+    
+    Args:
+        md_content: The markdown content containing tables
+        
+    Returns:
+        A list of numpy arrays, each representing a parsed table
+    """
+    # Extract all tables from markdown
+    table_pattern = r'(\|(?:[^|]*\|)+)\s*\n\|(?:[:-]+\|)+\s*\n((?:\|(?:[^|]*\|)+\s*\n)+)'
+    table_matches = re.finditer(table_pattern, md_content)
+    
+    parsed_tables = []
+    
+    for table_match in table_matches:
+        # Extract header and body from the table match
+        header_row = table_match.group(1).strip()
+        body_rows = table_match.group(2).strip().split('\n')
+        
+        # Process header and rows to remove leading/trailing |
+        header_cells = [cell.strip() for cell in header_row.split('|')]
+        if header_cells[0] == '':
+            header_cells = header_cells[1:]
+        if header_cells[-1] == '':
+            header_cells = header_cells[:-1]
+            
+        # Process table body rows
+        table_data = []
+        for row in [header_row] + body_rows:
+            if '|' not in row:  # Skip separator row
+                continue
+                
+            cells = [cell.strip() for cell in row.split('|')]
+            if cells[0] == '':
+                cells = cells[1:]
+            if cells[-1] == '':
+                cells = cells[:-1]
+                
+            table_data.append(cells)
+        
+        # Skip separator row (second row with dashes)
+        if len(table_data) > 1 and all('-' in cell for cell in table_data[1]):
+            table_data = [table_data[0]] + table_data[2:]
+            
+        # Convert to numpy array for easier manipulation
+        # First ensure all rows have the same number of columns by padding if necessary
+        max_cols = max(len(row) for row in table_data)
+        padded_data = [row + [''] * (max_cols - len(row)) for row in table_data]
+        table_array = np.array(padded_data)
+        
+        parsed_tables.append(table_array)
+    
+    return parsed_tables
 
 
+def parse_html_tables(html_content: str) -> List[np.ndarray]:
+    """
+    Extract and parse all HTML tables from the provided content.
+    
+    Args:
+        html_content: The HTML content containing tables
+        
+    Returns:
+        A list of numpy arrays, each representing a parsed table
+    """
+    soup = BeautifulSoup(html_content, 'html.parser')
+    tables = soup.find_all('table')
+    
+    parsed_tables = []
+    
+    for table in tables:
+        rows = table.find_all(['tr'])
+        table_data = []
+        
+        for row in rows:
+            cells = row.find_all(['th', 'td'])
+            row_data = [cell.get_text().strip() for cell in cells]
+            table_data.append(row_data)
+        
+        # Ensure all rows have the same number of columns
+        if table_data:
+            max_cols = max(len(row) for row in table_data)
+            padded_data = [row + [''] * (max_cols - len(row)) for row in table_data]
+            table_array = np.array(padded_data)
+            parsed_tables.append(table_array)
+    
+    return parsed_tables
 
 
 @dataclass
@@ -401,6 +400,23 @@ class TableTest(BasePDFTest):
             return False, f"Found cells matching '{self.cell}' but relationships were not satisfied: {'; '.join(failed_reasons)}"
 
 
+@dataclass
+class RepetitionTest(BasePDFTest):
+    max_repeats: int=10
+
+    def run(self, content: str) -> Tuple[bool, str]:
+        # Makes sure that the content has no egregious repeated ngrams at the end, which indicate a degradation of quality
+        d = RepeatDetector(max_ngram_size=5)
+        d.add_letters(content)
+        repeats = d.ngram_repeats()
+
+        for index, count in enumerate(repeats):
+            if count > self.max_repeats:
+                return False, f"Text ends with {count} repeating {index+1}-grams, invalid"
+
+        return True, ""
+
+
 def load_tests(jsonl_file: str) -> List[BasePDFTest]:
     """
     Load tests from a JSONL file.
@@ -412,6 +428,7 @@ def load_tests(jsonl_file: str) -> List[BasePDFTest]:
         A list of test objects.
     """
     tests: List[BasePDFTest] = []
+    unique_ids = set()
     with open(jsonl_file, "r") as file:
         for line_number, line in enumerate(file, start=1):
             line = line.strip()
@@ -429,6 +446,11 @@ def load_tests(jsonl_file: str) -> List[BasePDFTest]:
                     test = TableTest(**data)
                 else:
                     raise ValidationError(f"Unknown test type: {test_type}")
+
+                if test.id in unique_ids:
+                    raise ValidationError(f"Test with duplicate id {test.id} found, error loading tests.")
+                else:
+                    unique_ids.add(test.id)
 
                 tests.append(test)
             except json.JSONDecodeError as e:
