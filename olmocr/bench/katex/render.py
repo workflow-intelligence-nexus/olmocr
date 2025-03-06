@@ -14,7 +14,7 @@ import os
 import hashlib
 import pathlib
 from PIL import Image
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
 def get_equation_hash(equation, bg_color="white", text_color="black", font_size=24):
     """
@@ -140,21 +140,24 @@ def render_equation(
             raise RuntimeError("KaTeX library failed to load. Check your katex.min.js file.")
         
         # Render the equation and check for errors
-        has_error = page.evaluate(f"""
-        () => {{
-            try {{
-                katex.render("{escaped_equation}", document.getElementById("equation-container"), {{
-                    displayMode: true,
-                    throwOnError: true
-                }});
-                return false; // No error
-            }} catch (error) {{
-                console.error("KaTeX error:", error.message);
-                return true; // Error occurred
+        try:
+            has_error = page.evaluate(f"""
+            () => {{
+                try {{
+                    katex.render("{escaped_equation}", document.getElementById("equation-container"), {{
+                        displayMode: true,
+                        throwOnError: true
+                    }});
+                    return false; // No error
+                }} catch (error) {{
+                    console.error("KaTeX error:", error.message);
+                    return true; // Error occurred
+                }}
             }}
-        }}
-        """)
-        
+            """)
+        except PlaywrightError as ex:
+            has_error = True
+
         if has_error:
             print(f"Error rendering equation: '{equation}'")
             cache_error_file.touch()
