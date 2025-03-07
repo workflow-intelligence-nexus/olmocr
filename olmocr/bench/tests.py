@@ -470,6 +470,9 @@ class MathTest(BasePDFTest):
             return True, ""
 
         # If not, then let's render the math equation itself and now compare to each hypothesis
+        best_match_score = 0.0
+        best_match_render = None
+
         for hypothesis in equations:
             hypothesis_render = render_equation(hypothesis)
 
@@ -479,10 +482,17 @@ class MathTest(BasePDFTest):
             # Now, let's see what the matchup is between the two images
             match_score, x, y = find_image_match(hypothesis_render, self.reference_render)
 
+            if match_score > best_match_score:
+                best_match_score = match_score
+                best_match_render = hypothesis_render
+
             if match_score >= self.threshold:
                 return True, ""
 
-        return False, f"No match found for {self.math} anywhere in content"    
+        # self.reference_render.save(f"maths/{self.id}_ref.png", format="PNG")
+        # best_match_render.save(f"maths/{self.id}_hyp.png", format="PNG")
+
+        return False, f"No match found for {self.math} anywhere in content, best match threshold was {best_match_score:.3f}"    
 
 
 
