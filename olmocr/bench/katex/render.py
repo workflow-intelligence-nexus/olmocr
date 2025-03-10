@@ -16,6 +16,7 @@ import hashlib
 import pathlib
 import json
 import re
+import shutil
 from dataclasses import dataclass
 from typing import List
 import unittest
@@ -54,6 +55,17 @@ def get_cache_dir():
     cache_dir = pathlib.Path.home() / '.cache' / 'olmocr' / 'bench' / 'equations'
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
+
+
+def clear_cache_dir():
+    """
+    Clear all files and subdirectories in the cache directory.
+    """
+    cache_dir = get_cache_dir()
+    if cache_dir.exists() and cache_dir.is_dir():
+        shutil.rmtree(cache_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)  # Recreate the empty directory
+
 
 def render_equation(
     equation, 

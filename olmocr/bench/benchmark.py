@@ -21,6 +21,7 @@ import sys
 from typing import Dict, List, Tuple, Optional
 
 from .tests import BasePDFTest, BaselineTest, load_tests
+from .katex.render import clear_cache_dir
 from .utils import calculate_bootstrap_ci, perform_permutation_test
 
 def evaluate_candidate(
@@ -151,6 +152,9 @@ def main():
     n_bootstrap = args.bootstrap_samples
     ci_level = args.confidence_level
     pdf_folder = os.path.join(input_folder, "pdfs")
+
+    # Clear equation cache directory
+    clear_cache_dir()
 
     # Check that the pdfs folder exists
     if not os.path.exists(pdf_folder):
