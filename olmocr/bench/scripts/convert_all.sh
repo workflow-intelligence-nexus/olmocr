@@ -162,9 +162,9 @@ pip install marker-pdf
 python -m olmocr.bench.convert marker --repeats 5
 
 # Install verovio and run benchmarks
-echo "Installing verovio and running benchmarks..."
-pip install verovio
-python -m olmocr.bench.convert gotocr
+# echo "Installing verovio and running benchmarks..."
+# pip install verovio
+# python -m olmocr.bench.convert gotocr
 
 # Run chatgpt benchmarks
 echo "Running chatgpt benchmarks..."

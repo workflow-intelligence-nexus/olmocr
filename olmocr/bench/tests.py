@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple, Dict, Any
 
 from fuzzysearch import find_near_matches
 from rapidfuzz import fuzz
+from tqdm import tqdm
 
 from olmocr.repeatdetect import RepeatDetector
 from .katex.render import render_equation, compare_rendered_equations
@@ -532,7 +533,7 @@ def load_tests(jsonl_file: str) -> List[BasePDFTest]:
     tests: List[BasePDFTest] = []
     unique_ids = set()
     with open(jsonl_file, "r") as file:
-        for line_number, line in enumerate(file, start=1):
+        for line_number, line in tqdm(enumerate(file, start=1), desc="Loading tests"):
             line = line.strip()
             if not line:
                 continue
