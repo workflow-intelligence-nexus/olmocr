@@ -171,6 +171,10 @@ echo "Running chatgpt benchmarks..."
 python -m olmocr.bench.convert chatgpt
 python -m olmocr.bench.convert chatgpt:name=chatgpt45:model=gpt-4.5-preview-2025-02-27
 
+# Run gemini benchmarks
+echo "Running gemini benchmarks..."
+python -m olmocr.bench.convert gemini:name=gemini_flash2:model=gemini-2.0-flash
+
 echo "Running mistral..."
 pip install mistralai
 python -m olmocr.bench.convert mistral

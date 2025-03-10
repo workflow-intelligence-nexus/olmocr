@@ -63,3 +63,7 @@
 {"pdf": "mathfuncs.pdf", "page": 1, "id": "mathfuncs_04", "type": "math", "math": "\\int_{a}^{b} f(x) d x=F(b)-F(a)"}
 {"pdf": "mathfuncs.pdf", "page": 1, "id": "mathfuncs_05", "type": "math", "math": "a^{2}+b^{2}=c^{2}"}
 {"pdf": "mathfuncs.pdf", "page": 1, "id": "mathfuncs_06", "type": "math", "math": "\\nabla \\times \\mathbf{E}=-\\frac{\\partial \\mathbf{B}}{\\partial t}"}
+
+{"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_00", "type": "order", "before": "Euler's Identity", "after": "Pythagorean Theorem"}
+{"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_01", "type": "order", "before": "Pythagorean Theorem", "after": "The Fundamental Theorem of Calculus"}
+{"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_02", "type": "order", "before": "The Fundamental Theorem of Calculus", "after": "Maxwell's Equations"}

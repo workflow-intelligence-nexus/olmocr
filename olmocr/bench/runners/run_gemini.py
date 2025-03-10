@@ -73,6 +73,8 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-2.0-flash"
 
     response = client.generate_content(request)
 
-    print(response)
+    assert len(response.candidates) > 0, "No candidates found"
+    assert response.candidates[0].finish_reason == glm.Candidate.FinishReason.STOP, "Finish reason was not STOP, likely a processing error or repetition failure"
+
     result = response.candidates[0].content.parts[0].text
     return result
