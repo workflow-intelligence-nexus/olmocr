@@ -13,6 +13,7 @@ Requirements:
 import os
 import hashlib
 import pathlib
+
 from PIL import Image
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
@@ -49,7 +50,8 @@ def render_equation(
     bg_color="white",
     text_color="black",
     font_size=24,
-    use_cache=True
+    use_cache=True,
+    debug_dom=False,
 ):
     """
     Render a LaTeX equation to a Pillow Image using Playwright and KaTeX.
@@ -61,6 +63,7 @@ def render_equation(
         text_color (str): Text color
         font_size (int): Font size in pixels
         use_cache (bool): Whether to use caching
+        debug_dom (bool): Whether to print the KaTeX DOM structure
         
     Returns:
         PIL.Image.Image: Pillow image of the rendered equation
@@ -167,6 +170,20 @@ def render_equation(
         # Wait for the equation to be rendered
         page.wait_for_selector(".katex", state="attached")
         
+        # Extract and print KaTeX DOM HTML if debug_dom is enabled
+        if debug_dom:
+            # Get the HTML structure of the rendered equation
+            katex_dom_html = page.evaluate("""
+            () => {
+                const container = document.getElementById("equation-container");
+                return container.innerHTML;
+            }
+            """)
+            
+            # Print the KaTeX DOM HTML
+            print("\n===== KaTeX DOM HTML =====")
+            print(katex_dom_html)
+        
         # Get the container element and take a screenshot
         container = page.query_selector("#equation-container")
         
@@ -195,10 +212,12 @@ def main():
     text_color = "black"
     font_size = 24
     
+    print("========== Rendering Einstein's Equation ==========")
     image1 = render_equation(simple_equation, bg_color, text_color, font_size)
     image1.save("einstein_equation.png")
     print(f"Einstein's equation hash: {get_equation_hash(simple_equation, bg_color, text_color, font_size)}")
     
+    print("\n========== Rendering Quadratic Formula ==========")
     image2 = render_equation(complex_equation, bg_color, text_color, font_size)
     image2.save("quadratic_formula.png")
     print(f"Quadratic formula hash: {get_equation_hash(complex_equation, bg_color, text_color, font_size)}")
@@ -208,12 +227,15 @@ def main():
     maxwell_text = "white"
     maxwell_size = 20
     
+    print("\n========== Rendering Maxwell's Equations ==========")
     image3 = render_equation(maxwell_equation, maxwell_bg, maxwell_text, maxwell_size)
     image3.save("maxwell_equations.png")
     print(f"Maxwell's equations hash: {get_equation_hash(maxwell_equation, maxwell_bg, maxwell_text, maxwell_size)}")
     
     # Example of retrieving from cache with same parameters
-    image_from_cache = render_equation(simple_equation, bg_color, text_color, font_size)
+    print("\n========== Retrieving Einstein's Equation from Cache ==========")
+    # Set debug_dom to False for cached version to avoid duplicate debug output
+    image_from_cache = render_equation(simple_equation, bg_color, text_color, font_size, debug_dom=False)
     print("Retrieved Einstein's equation from cache.")
     
     # Example of different styling for the same equation (will render and cache separately)
@@ -221,13 +243,15 @@ def main():
     alt_text = "darkblue"
     alt_size = 30
     
+    print("\n========== Rendering Einstein's Equation with Alternate Style ==========")
     image_alt_style = render_equation(simple_equation, alt_bg, alt_text, alt_size)
     image_alt_style.save("einstein_equation_alt_style.png")
     print(f"Einstein's equation with alternate style hash: {get_equation_hash(simple_equation, alt_bg, alt_text, alt_size)}")
 
-    invalid = render_equation("$150. \quad s(t) = 2t^3 - 3t^2 - 12t + 8")
+    print("\n========== Rendering Invalid Equation ==========")
+    invalid = render_equation("$150. \\quad s(t) = 2t^3 - 3t^2 - 12t + 8")
     
-    print("All equations rendered successfully!")
+    print("\nAll equations rendered successfully!")
 
 if __name__ == "__main__":
     main()

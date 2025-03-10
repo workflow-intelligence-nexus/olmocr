@@ -165,6 +165,7 @@ if __name__ == "__main__":
         "marker": ("olmocr.bench.runners.run_marker", "run_marker"),
         "mineru": ("olmocr.bench.runners.run_mineru", "run_mineru"),
         "chatgpt": ("olmocr.bench.runners.run_chatgpt", "run_chatgpt"),
+        "gemini": ("olmocr.bench.runners.run_gemini", "run_gemini"),
         "mistral": ("olmocr.bench.runners.run_mistral", "run_mistral"),
         "server": ("olmocr.bench.runners.run_server", "run_server"),
     }
