@@ -15,11 +15,11 @@ from .katex.render import render_equation
 from .katex.compare import find_image_match
 
 class TestType(str, Enum):
+    BASELINE = "baseline"
     PRESENT = "present"
     ABSENT = "absent"
     ORDER = "order"
     TABLE = "table"
-    REPEAT = "repeat"
     MATH = "math"
 
 
@@ -414,10 +414,20 @@ class TableTest(BasePDFTest):
 
 
 @dataclass
-class RepetitionTest(BasePDFTest):
-    max_repeats: int=10
+class BaselineTest(BasePDFTest):
+    """
+    This test makes sure that several baseline quality checks pass for the output generation.
+
+    Namely, the output is not blank, not endlessly repeating, and contains characters of the proper
+    character sets.
+
+    """
+    max_repeats: int=30
 
     def run(self, content: str) -> Tuple[bool, str]:
+        if len("".join(c for c in content if c.isalnum()).strip()) == 0:
+            return False, "The text contains no alpha numeric characters"
+
         # Makes sure that the content has no egregious repeated ngrams at the end, which indicate a degradation of quality
         # Honestly, this test doesn't seem to catch anything at the moment, maybe it can be refactored to a "text-quality"
         # test or something, that measures repetition, non-blanks, charsets, etc
@@ -428,6 +438,21 @@ class RepetitionTest(BasePDFTest):
         for index, count in enumerate(repeats):
             if count > self.max_repeats:
                 return False, f"Text ends with {count} repeating {index+1}-grams, invalid"
+
+        pattern = re.compile(
+            r'['
+            r'\u4e00-\u9FFF'   # CJK Unified Ideographs (Chinese characters)
+            r'\u3040-\u309F'   # Hiragana (Japanese)
+            r'\u30A0-\u30FF'   # Katakana (Japanese)
+            r'\U0001F600-\U0001F64F'  # Emoticons (Emoji)
+            r'\U0001F300-\U0001F5FF'  # Miscellaneous Symbols and Pictographs (Emoji)
+            r'\U0001F680-\U0001F6FF'  # Transport and Map Symbols (Emoji)
+            r'\U0001F1E0-\U0001F1FF'  # Regional Indicator Symbols (flags, Emoji)
+            r']',
+            flags=re.UNICODE)
+        matches = pattern.findall(content)
+        if matches:
+            return False, f"Text contains disallowed characters {matches}"
 
         return True, ""
 

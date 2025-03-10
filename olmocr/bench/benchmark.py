@@ -20,7 +20,7 @@ import sys
 
 from typing import Dict, List, Tuple, Optional
 
-from .tests import BasePDFTest, RepetitionTest, load_tests
+from .tests import BasePDFTest, BaselineTest, load_tests
 from .utils import calculate_bootstrap_ci, perform_permutation_test
 
 def evaluate_candidate(
@@ -179,8 +179,8 @@ def main():
 
     # Add in a default repeat test for every PDF that doesn't already have one
     for pdf in pdf_basenames:
-        if not any(t.type == "repeat" for t in all_tests if t.pdf == pdf):
-            all_tests.append(RepetitionTest(id=f"{pdf}_repeat", pdf=pdf, page=1, type="repeat"))
+        if not any(t.type == "baseline" for t in all_tests if t.pdf == pdf):
+            all_tests.append(BaselineTest(id=f"{pdf}_baseline", pdf=pdf, page=1, type="baseline"))
 
     # Identify candidate pipeline folders (subdirectories of input_folder excluding /pdfs)
     candidate_folders = []
