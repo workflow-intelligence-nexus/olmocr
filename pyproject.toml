@@ -81,6 +81,7 @@ bench = [
     "sequence_align",
     "syntok",
     "google-genai",
+    "playwright",
 ]
 
 train = [

@@ -24,7 +24,7 @@ from .tests import BasePDFTest, BaselineTest, load_tests
 from .utils import calculate_bootstrap_ci, perform_permutation_test
 
 def evaluate_candidate(
-    candidate_folder: str, all_tests: List[BasePDFTest], pdf_basenames: List[str]
+    candidate_folder: str, all_tests: List[BasePDFTest], pdf_basenames: List[str], force: bool=False
 ) -> Tuple[float, int, List[str], List[str], Dict[str, List[float]], List[float]]:
     """
     For the candidate folder (pipeline tool output), validate that it contains at least one .md file
@@ -53,7 +53,7 @@ def evaluate_candidate(
         md_base = os.path.splitext(pdf_name)[0]
         md_pattern = os.path.join(candidate_folder, f"{md_base}_*.md")
         md_files = glob.glob(md_pattern)
-        if not md_files:
+        if not md_files and not force:
             candidate_errors.append(f"Candidate '{candidate_name}' is missing MD repeats for {pdf_name} (expected files matching {md_base}_*.md).")
         else:
             pdf_to_md_files[pdf_name] = md_files
@@ -116,6 +116,11 @@ def main():
         "--input_folder",
         default=os.path.join(os.path.dirname(__file__), "sample_data"),
         help="Path to the folder containing .jsonl files, /pdfs folder, and pipeline tool subfolders.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run benchmark even if some files are missing",
     )
     parser.add_argument(
         "--candidate",
@@ -205,7 +210,7 @@ def main():
     for candidate in candidate_folders:
         candidate_name = os.path.basename(candidate)
         overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores = evaluate_candidate(
-            candidate, all_tests, pdf_basenames
+            candidate, all_tests, pdf_basenames, args.force,
         )
         
         # Calculate confidence interval

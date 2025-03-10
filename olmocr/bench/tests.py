@@ -11,8 +11,7 @@ from fuzzysearch import find_near_matches
 from rapidfuzz import fuzz
 
 from olmocr.repeatdetect import RepeatDetector
-from .katex.render import render_equation
-from .katex.compare import find_image_match
+from .katex.render import render_equation, compare_rendered_equations
 
 class TestType(str, Enum):
     BASELINE = "baseline"
@@ -510,14 +509,7 @@ class MathTest(BasePDFTest):
             if not hypothesis_render:
                 continue
 
-            # Now, let's see what the matchup is between the two images
-            match_score, x, y = find_image_match(hypothesis_render, self.reference_render)
-
-            if match_score > best_match_score:
-                best_match_score = match_score
-                best_match_render = hypothesis_render
-
-            if match_score >= self.threshold:
+            if compare_rendered_equations(self.reference_render, hypothesis_render):
                 return True, ""
 
         # self.reference_render.save(f"maths/{self.id}_ref.png", format="PNG")
