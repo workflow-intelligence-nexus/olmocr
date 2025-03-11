@@ -321,28 +321,33 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
         return True
 
     # Fallback: neighbor-based matching using the spans.
-    H = hypothesis.spans
-    R = reference.spans
+    # First, print out the original span lists.
+    # print("Hypothesis spans:")
+    # for s in hypothesis.spans:
+    #     print(s)
+    # print("---")
+    # print("Reference spans:")
+    # for s in reference.spans:
+    #     print(s)
+    # print("---")
 
-    print("\n".join(str(x) for x in H))
-    print("---")
-    print("\n".join(str(x) for x in R))
-    print("---")
+    # We swap H and R so that we are effectively checking if the reference is contained in the hypothesis.
+    H, R = reference.spans, hypothesis.spans
 
-    # Oops, we had to flip these, basically, you want to see if the reference exists anywhere in the hypothesis
-    H, R = R, H
+    H = [span for span in H if span.text != "\u200b"]
+    R = [span for span in R if span.text != "\u200b"]
 
-    # For each hypothesis span, record candidate indices in reference that have the same text.
+    # Build candidate map: for each span in H (reference), record indices in R with matching text.
     candidate_map = {}
     for i, hspan in enumerate(H):
         candidate_map[i] = [j for j, rsp in enumerate(R) if rsp.text == hspan.text]
         if not candidate_map[i]:
-            print("Not found for", i, hspan)
-            return False  # if no candidate for a given hypothesis span, fail immediately
+            return False  # no candidate for a given span, so we fail immediately
+   
+    # print("Candidate Map:")
+    # print(candidate_map)
 
-    # Compute neighbor mappings for a list of spans.
-    # For each span (by index), we compute the index of the closest span immediately
-    # above, below, left, and right (if any) using the center of the bounding box.
+    # Function to compute neighbor mappings for a list of spans.
     def compute_neighbors(spans, tol=5):
         neighbors = {}
         for i, span in enumerate(spans):
@@ -384,9 +389,12 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
 
     hyp_neighbors = compute_neighbors(H)
     ref_neighbors = compute_neighbors(R)
-
-    print(H, hyp_neighbors)
-    print(R, ref_neighbors)
+    # print("Neighbor Map for Reference spans (H):")
+    # for i, nb in hyp_neighbors.items():
+    #     print(f"Span {i}: {nb}")
+    # print("Neighbor Map for Hypothesis spans (R):")
+    # for i, nb in ref_neighbors.items():
+    #     print(f"Span {i}: {nb}")
 
     # Backtracking search for an injection f: {0,...,n-1} -> {indices in R} that preserves neighbor relations.
     n = len(H)
@@ -399,7 +407,7 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
         for cand in candidate_map[i]:
             if used[cand]:
                 continue
-            # Tentatively assign hypothesis span i to reference span cand.
+            # Tentatively assign hypothesis span i (from H) to reference span cand (in R).
             assignment[i] = cand
             used[cand] = True
             valid = True
@@ -409,29 +417,31 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
                 ref_nb = ref_neighbors[cand].get(direction)
                 if hyp_nb is not None:
                     expected_text = H[hyp_nb].text
-                    # The candidate reference span must have a neighbor in that direction.
+                    # The candidate in R must have a neighbor in that direction.
                     if ref_nb is None:
                         valid = False
                         break
-                    # If the neighbor in hypothesis is already assigned, check that it matches.
+                    # If the neighbor in H is already assigned, then the candidate neighbor must match.
                     if hyp_nb in assignment:
                         if assignment[hyp_nb] != ref_nb:
                             valid = False
                             break
                     else:
-                        # If not yet assigned, at least the reference neighbor must have the expected text.
+                        # If not yet assigned, the neighbor text in R must match the expected text.
                         if R[ref_nb].text != expected_text:
                             valid = False
                             break
             if valid:
                 if backtrack(i + 1):
                     return True
-            # Backtrack.
+            # Backtrack this candidate assignment.
             used[cand] = False
             del assignment[i]
         return False
 
-    return backtrack(0)
+    result = backtrack(0)
+
+    return result
 
 
 
