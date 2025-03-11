@@ -273,30 +273,28 @@ def render_equation(
             json.dump(cache_data, f)
         return rendered_eq
 
-
-def compare_rendered_equations(haystack: RenderedEquation, needle: RenderedEquation) -> bool:
+def compare_rendered_equations(reference: RenderedEquation, hypothesis: RenderedEquation) -> bool:
     """
-    Compare two rendered equations by cleaning the MathML (removing namespaces),
-    extracting the inner content of any <semantics> element (ignoring <annotation>),
-    normalizing whitespace, and checking if the needle's inner MathML is a substring
-    of the haystack's inner MathML.
+    First, try to determine whether the normalized MathML of the hypothesis is contained
+    as a substring of the normalized MathML of the reference.
+    
+    If that fails, then perform a neighbor‐based matching:
+    Each span in the hypothesis must be matched to a span in the reference (with identical text),
+    and if a hypothesis span has an immediate neighbor (up, down, left, or right), then its candidate
+    reference span must have a neighbor in the same direction that (if already matched) is the candidate
+    for the hypothesis neighbor – otherwise, the candidate must have the same text as the hypothesis neighbor.
+    The algorithm uses backtracking to explore all possible assignments.
     """
+    import xml.etree.ElementTree as ET
+    import re
 
     def strip_namespaces(elem: ET.Element) -> ET.Element:
-        """
-        Recursively remove namespace prefixes from an ElementTree element.
-        """
         for sub in elem.iter():
             if '}' in sub.tag:
                 sub.tag = sub.tag.split('}', 1)[1]
         return elem
 
     def extract_inner(mathml: str) -> str:
-        """
-        Parse the MathML, remove namespaces, and if a <semantics> element exists,
-        concatenate the string representations of its children (except <annotation>).
-        Otherwise, return the whole cleaned MathML.
-        """
         try:
             root = ET.fromstring(mathml)
             root = strip_namespaces(root)
@@ -310,29 +308,132 @@ def compare_rendered_equations(haystack: RenderedEquation, needle: RenderedEquat
             else:
                 return ET.tostring(root, encoding='unicode')
         except Exception as e:
-            # For debugging purposes, print the error
             print("Error parsing MathML:", e)
             return mathml
 
     def normalize(s: str) -> str:
-        """
-        Remove all whitespace from the string.
-        """
         return re.sub(r'\s+', '', s)
 
-    # Clean and extract the inner MathML for both haystack and needle.
-    haystack_inner = normalize(extract_inner(haystack.mathml))
-    needle_inner = normalize(extract_inner(needle.mathml))
+    # First, try a fast mathML substring check.
+    reference_inner = normalize(extract_inner(reference.mathml))
+    hypothesis_inner = normalize(extract_inner(hypothesis.mathml))
+    if reference_inner in hypothesis_inner:
+        return True
 
-    # For debugging: print the cleaned MathML strings.
-    print("Cleaned haystack MathML:", haystack_inner)
-    print("Cleaned needle MathML:", needle_inner)
+    # Fallback: neighbor-based matching using the spans.
+    H = hypothesis.spans
+    R = reference.spans
 
-    # If needle is longer than haystack, swap them.
-    if len(needle_inner) > len(haystack_inner):
-        needle_inner, haystack_inner = haystack_inner, needle_inner
+    print("\n".join(str(x) for x in H))
+    print("---")
+    print("\n".join(str(x) for x in R))
+    print("---")
 
-    return needle_inner in haystack_inner
+    # Oops, we had to flip these, basically, you want to see if the reference exists anywhere in the hypothesis
+    H, R = R, H
+
+    # For each hypothesis span, record candidate indices in reference that have the same text.
+    candidate_map = {}
+    for i, hspan in enumerate(H):
+        candidate_map[i] = [j for j, rsp in enumerate(R) if rsp.text == hspan.text]
+        if not candidate_map[i]:
+            print("Not found for", i, hspan)
+            return False  # if no candidate for a given hypothesis span, fail immediately
+
+    # Compute neighbor mappings for a list of spans.
+    # For each span (by index), we compute the index of the closest span immediately
+    # above, below, left, and right (if any) using the center of the bounding box.
+    def compute_neighbors(spans, tol=5):
+        neighbors = {}
+        for i, span in enumerate(spans):
+            cx = span.bounding_box.x + span.bounding_box.width / 2
+            cy = span.bounding_box.y + span.bounding_box.height / 2
+            up = down = left = right = None
+            up_dist = down_dist = left_dist = right_dist = None
+            for j, other in enumerate(spans):
+                if i == j:
+                    continue
+                ocx = other.bounding_box.x + other.bounding_box.width / 2
+                ocy = other.bounding_box.y + other.bounding_box.height / 2
+                # Up: candidate must be above (ocy < cy) and nearly aligned horizontally.
+                if ocy < cy and abs(ocx - cx) <= tol:
+                    dist = cy - ocy
+                    if up is None or dist < up_dist:
+                        up = j
+                        up_dist = dist
+                # Down: candidate below.
+                if ocy > cy and abs(ocx - cx) <= tol:
+                    dist = ocy - cy
+                    if down is None or dist < down_dist:
+                        down = j
+                        down_dist = dist
+                # Left: candidate left.
+                if ocx < cx and abs(ocy - cy) <= tol:
+                    dist = cx - ocx
+                    if left is None or dist < left_dist:
+                        left = j
+                        left_dist = dist
+                # Right: candidate right.
+                if ocx > cx and abs(ocy - cy) <= tol:
+                    dist = ocx - cx
+                    if right is None or dist < right_dist:
+                        right = j
+                        right_dist = dist
+            neighbors[i] = {"up": up, "down": down, "left": left, "right": right}
+        return neighbors
+
+    hyp_neighbors = compute_neighbors(H)
+    ref_neighbors = compute_neighbors(R)
+
+    print(H, hyp_neighbors)
+    print(R, ref_neighbors)
+
+    # Backtracking search for an injection f: {0,...,n-1} -> {indices in R} that preserves neighbor relations.
+    n = len(H)
+    used = [False] * len(R)
+    assignment = {}
+
+    def backtrack(i):
+        if i == n:
+            return True
+        for cand in candidate_map[i]:
+            if used[cand]:
+                continue
+            # Tentatively assign hypothesis span i to reference span cand.
+            assignment[i] = cand
+            used[cand] = True
+            valid = True
+            # Check neighbor constraints for all directions.
+            for direction in ["up", "down", "left", "right"]:
+                hyp_nb = hyp_neighbors[i].get(direction)
+                ref_nb = ref_neighbors[cand].get(direction)
+                if hyp_nb is not None:
+                    expected_text = H[hyp_nb].text
+                    # The candidate reference span must have a neighbor in that direction.
+                    if ref_nb is None:
+                        valid = False
+                        break
+                    # If the neighbor in hypothesis is already assigned, check that it matches.
+                    if hyp_nb in assignment:
+                        if assignment[hyp_nb] != ref_nb:
+                            valid = False
+                            break
+                    else:
+                        # If not yet assigned, at least the reference neighbor must have the expected text.
+                        if R[ref_nb].text != expected_text:
+                            valid = False
+                            break
+            if valid:
+                if backtrack(i + 1):
+                    return True
+            # Backtrack.
+            used[cand] = False
+            del assignment[i]
+        return False
+
+    return backtrack(0)
+
+
 
 class TestRenderedEquationComparison(unittest.TestCase):
     def test_exact_match(self):
@@ -357,13 +458,13 @@ class TestRenderedEquationComparison(unittest.TestCase):
         # The MathML output of the plain equation should be found within the align block output.
         eq_plain = render_equation("a+b", use_cache=False)
         eq_align = render_equation("\\begin{align*}a+b\\end{align*}", use_cache=False)
-        self.assertTrue(compare_rendered_equations(eq_align, eq_plain))
+        self.assertTrue(compare_rendered_equations(eq_plain, eq_align))
     
     def test_align_block_needle_not_in(self):
         # An align block rendering a different equation should not contain the MathML of an unrelated equation.
         eq_align = render_equation("\\begin{align*}a+b\\end{align*}", use_cache=False)
         eq_diff = render_equation("c-d", use_cache=False)
-        self.assertFalse(compare_rendered_equations(eq_align, eq_diff))
+        self.assertFalse(compare_rendered_equations(eq_diff, eq_align))
 
     def test_big(self):
         ref_rendered = render_equation("\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}", use_cache=False, debug_dom=False)
@@ -377,7 +478,7 @@ class TestRenderedEquationComparison(unittest.TestCase):
 
     def test_dot_end2(self):
         ref_rendered = render_equation("\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\psi(g s)}\\right]")
-        align_rendered = render_equation("\\lambda_g = \\sum_{s \\in S} \\zeta_n^{\\psi(gs)} = \\sum_{i=1}^{k} \\left[ \\sum_{s, Rs = I_i} \\zeta_n^{\\psi(gs)} \\right]")
+        align_rendered = render_equation("\\lambda_g = \\sum_{s \\in S} \\zeta_n^{\\psi(gs)} = \\sum_{i=1}^{k} \\left[ \\sum_{s, Rs = \\mathcal{I}_i} \\zeta_n^{\\psi(gs)} \\right]")
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
     def test_lambda(self):
@@ -385,5 +486,10 @@ class TestRenderedEquationComparison(unittest.TestCase):
         align_rendered = render_equation("\\lambda_{g}=\\lambda_{g^{\\prime}}")
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
+    def test_gemini(self):
+        ref_rendered = render_equation("u \\in (R/\\operatorname{Ann}_R(x_i))^{\\times}")
+        align_rendered = render_equation("u \\in\\left(R / \\operatorname{Ann}_{R}\\left(x_{i}\\right)\\right)^{\\times}")
+        self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
+        
 if __name__ == "__main__":
     unittest.main()
