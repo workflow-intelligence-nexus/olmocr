@@ -324,9 +324,9 @@ def compare_rendered_equations(haystack: RenderedEquation, needle: RenderedEquat
     haystack_inner = normalize(extract_inner(haystack.mathml))
     needle_inner = normalize(extract_inner(needle.mathml))
 
-    # # For debugging: print the cleaned MathML strings.
-    # print("Cleaned haystack MathML:", haystack_inner)
-    # print("Cleaned needle MathML:", needle_inner)
+    # For debugging: print the cleaned MathML strings.
+    print("Cleaned haystack MathML:", haystack_inner)
+    print("Cleaned needle MathML:", needle_inner)
 
     # If needle is longer than haystack, swap them.
     if len(needle_inner) > len(haystack_inner):
@@ -368,6 +368,21 @@ class TestRenderedEquationComparison(unittest.TestCase):
     def test_big(self):
         ref_rendered = render_equation("\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}", use_cache=False, debug_dom=False)
         align_rendered = render_equation("""\\begin{align*}\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}\\end{align*}""", use_cache=False, debug_dom=False)
+        self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
+
+    def test_dot_end1(self):
+        ref_rendered = render_equation("\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\varphi(g s)}\\right]")
+        align_rendered = render_equation("\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\varphi(g s)}\\right].")
+        self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
+
+    def test_dot_end2(self):
+        ref_rendered = render_equation("\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\psi(g s)}\\right]")
+        align_rendered = render_equation("\\lambda_g = \\sum_{s \\in S} \\zeta_n^{\\psi(gs)} = \\sum_{i=1}^{k} \\left[ \\sum_{s, Rs = I_i} \\zeta_n^{\\psi(gs)} \\right]")
+        self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
+
+    def test_lambda(self):
+        ref_rendered = render_equation("\\lambda_g = \\lambda_{g'}")
+        align_rendered = render_equation("\\lambda_{g}=\\lambda_{g^{\\prime}}")
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
 if __name__ == "__main__":
