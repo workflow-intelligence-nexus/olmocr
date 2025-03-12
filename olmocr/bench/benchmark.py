@@ -210,7 +210,7 @@ def main():
         pdf_doc = PdfReader(os.path.join(pdf_folder, pdf))
         
         for page in range(1, len(pdf_doc.pages) + 1):
-            if not any(test for test in all_tests if test.pdf == pdf and test.page == page):
+            if not any(test for test in all_tests if test.pdf == pdf and test.page == page) and not args.force:
                 print(f"No dataset entry found for pdf {pdf} page {page}")
                 sys.exit(1)
 
