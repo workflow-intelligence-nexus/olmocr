@@ -20,6 +20,7 @@ import sys
 import re
 
 from typing import Dict, List, Tuple, Optional
+from pypdf import PdfReader
 
 from .tests import BasePDFTest, BaselineTest, load_tests
 from .katex.render import clear_cache_dir
@@ -203,6 +204,15 @@ def main():
     for pdf in pdf_basenames:
         if not any(t.type == "baseline" for t in all_tests if t.pdf == pdf):
             all_tests.append(BaselineTest(id=f"{pdf}_baseline", pdf=pdf, page=1, type="baseline"))
+
+    # Make sure that each PDF and page has at least one test in it
+    for pdf in pdf_basenames:
+        pdf_doc = PdfReader(os.path.join(pdf_folder, pdf))
+        
+        for page in range(1, len(pdf_doc.pages) + 1):
+            if not any(test for test in all_tests if test.pdf == pdf and test.page == page):
+                print(f"No dataset entry found for pdf {pdf} page {page}")
+                sys.exit(1)
 
     # Identify candidate pipeline folders (subdirectories of input_folder excluding /pdfs)
     candidate_folders = []

@@ -57,7 +57,7 @@ async def process_pdf(pdf_path, page_num, method, kwargs, output_path, is_async)
             markdown = await method(pdf_path, page_num=page_num, **kwargs)
         else:
             # Run synchronous function in the executor
-            markdown = await run_sync_in_executor(method, pdf_path, page_num=1, **kwargs)
+            markdown = await run_sync_in_executor(method, pdf_path, page_num=page_num, **kwargs)
 
         if markdown is None:
             print(f"Warning, did not get output for {os.path.basename(output_path)}")
