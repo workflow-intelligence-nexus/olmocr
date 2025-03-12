@@ -5,14 +5,15 @@ mine_math.py - Extract and validate math equations from candidate files and TeX 
 This upgraded version:
   • Uses the Python logging module for cleaner logging.
   • Uses tqdm to display a progress bar.
-  • Uses ProcessPoolExecutor to process candidate files in parallel.
-  • Samples at most a configurable number of pages per TeX document.
+  • Uses ProcessPoolExecutor to process TeX file groups in parallel.
+  • For each TeX file, shuffles its pages randomly and processes them one-by-one.
+    Once three pages return at least one equation each, further pages are skipped.
   • Adds an argparse argument for the similarity threshold for matches.
-  • Saves JSONL outputs incrementally as each candidate file is processed.
+  • Saves JSONL outputs incrementally as each TeX file group is processed.
 
 Usage:
   python mine_math.py --math_data /path/to/math_data --candidate candidate_folder --output_file math_tests.jsonl
-    [--max_pages 3] [--sim_threshold 0.7]
+    [--max_pages 3] [--parallel 8] [--sim_threshold 0.7]
 """
 
 import argparse
@@ -285,33 +286,46 @@ def process_candidate_file(candidate_file: str, pdfs_folder: str, sim_threshold:
     return tests
 
 
-
-
-def group_candidate_files(candidate_files: List[str], max_pages: int) -> List[str]:
+def process_tex_file_group(tex_basename: str, candidate_files: List[str], pdfs_folder: str,
+                           sim_threshold: float, max_pages: int) -> List[MathTest]:
     """
-    Group candidate files by their TeX basename and limit to at most max_pages (distinct pages)
-    per TeX document.
+    For a given TeX file, group candidate files by page, randomly shuffle the pages,
+    and process them one-by-one. Stop once max_pages (pages with valid equations) have
+    been processed.
     """
-    grouped: Dict[str, List[Tuple[int, str]]] = {}
+    tests = []
+    valid_pages = set()
+
+    # Group candidate files by page number.
+    page_dict: Dict[int, List[str]] = {}
     for candidate_file in candidate_files:
         parse_result = parse_candidate_filename(candidate_file)
         if not parse_result:
             continue
-        tex_basename, page_num = parse_result
-        grouped.setdefault(tex_basename, []).append((page_num, candidate_file))
+        _, page_num = parse_result
+        page_dict.setdefault(page_num, []).append(candidate_file)
     
-    filtered = []
-    for tex_basename, entries in grouped.items():
-        # Sort by page number
-        entries.sort(key=lambda x: x[0])
-        allowed_pages = set()
-        for page_num, candidate_file in entries:
-            if page_num in allowed_pages or len(allowed_pages) < max_pages:
-                allowed_pages.add(page_num)
-                filtered.append(candidate_file)
-            else:
-                continue
-    return filtered
+    # For each page, randomly choose one candidate file.
+    distinct_candidate_files = []
+    for page_num, files in page_dict.items():
+        chosen_file = random.choice(files)
+        distinct_candidate_files.append(chosen_file)
+    
+    # Shuffle the pages randomly.
+    random.shuffle(distinct_candidate_files)
+    
+    # Process pages sequentially until max_pages with valid equations have been found.
+    for candidate_file in distinct_candidate_files:
+        result = process_candidate_file(candidate_file, pdfs_folder, sim_threshold)
+        if result:
+            tests.extend(result)
+            # Mark this page as valid.
+            page_num = parse_candidate_filename(candidate_file)[1]
+            valid_pages.add(page_num)
+            if len(valid_pages) >= max_pages:
+                break
+
+    return tests
 
 
 def main():
@@ -320,7 +334,7 @@ def main():
     )
     parser.add_argument("--math_data", required=True, help="Path to math_data folder")
     parser.add_argument("--candidate", required=True, help="Candidate folder name inside math_data")
-    parser.add_argument("--max_pages", type=int, default=3, help="Maximum distinct pages to process per TeX document")
+    parser.add_argument("--max_pages", type=int, default=3, help="Maximum distinct pages with equations to process per TeX document")
     parser.add_argument("--parallel", type=int, default=8, help="Maximum process pool workers")
     parser.add_argument("--sim_threshold", type=float, default=0.7, help="Similarity threshold for matching candidate text")
     
@@ -332,9 +346,15 @@ def main():
     candidate_files = glob.glob(os.path.join(candidate_folder, "*.md"))
     logging.info("Found %d candidate files.", len(candidate_files))
     
-    # Group and filter candidate files by tex document and max_pages per document
-    candidate_files_filtered = group_candidate_files(candidate_files, args.max_pages)
-    logging.info("After filtering, %d candidate files will be processed.", len(candidate_files_filtered))
+    # Group candidate files by TeX basename.
+    tex_groups: Dict[str, List[str]] = {}
+    for candidate_file in candidate_files:
+        parse_result = parse_candidate_filename(candidate_file)
+        if not parse_result:
+            continue
+        tex_basename, _ = parse_result
+        tex_groups.setdefault(tex_basename, []).append(candidate_file)
+    logging.info("Found %d TeX groups.", len(tex_groups))
     
     # Remove output file if it exists to start fresh
     output_file = os.path.join(args.math_data, "math_tests.jsonl")
@@ -343,23 +363,24 @@ def main():
     
     all_math_tests = []
     
-    # Process candidate files in parallel using ProcessPoolExecutor
+    # Process each TeX group in parallel using ProcessPoolExecutor.
     with ProcessPoolExecutor(max_workers=args.parallel) as executor:
-        future_to_file = {
-            executor.submit(process_candidate_file, candidate_file, pdfs_folder, args.sim_threshold): candidate_file
-            for candidate_file in candidate_files_filtered
+        future_to_tex = {
+            executor.submit(process_tex_file_group, tex_basename, candidate_list, pdfs_folder,
+                            args.sim_threshold, args.max_pages): tex_basename
+            for tex_basename, candidate_list in tex_groups.items()
         }
-        for future in tqdm(as_completed(future_to_file), total=len(future_to_file), desc="Processing files"):
-            candidate_file = future_to_file[future]
+        for future in tqdm(as_completed(future_to_tex), total=len(future_to_tex), desc="Processing TeX files"):
+            tex_basename = future_to_tex[future]
             try:
                 tests = future.result()
                 all_math_tests.extend(tests)
-                # Incrementally save tests as each candidate file finishes processing.
+                # Incrementally save tests as each TeX group finishes processing.
                 save_tests(all_math_tests, output_file)
             except Exception as e:
-                logging.error("Error processing %s: %s", candidate_file, e)
+                logging.error("Error processing TeX group %s: %s", tex_basename, e)
     
-    logging.info("Found %d valid math equations from %d candidate files.", len(all_math_tests), len(candidate_files_filtered))
+    logging.info("Found %d valid math equations from %d TeX groups.", len(all_math_tests), len(tex_groups))
     logging.info("Results incrementally saved to %s", output_file)
 
 
