@@ -12,6 +12,7 @@ import time
 import io
 import tarfile
 import requests
+from tqdm import tqdm
 
 def download_and_extract_source(paper_id, data_dir):
     source_url = f"https://export.arxiv.org/src/{paper_id}"
@@ -97,7 +98,7 @@ def main():
     print(f"Found {len(paper_ids)} papers.")
 
     # For each paper, only keep the files if both the tex extraction and pdf download succeed.
-    for paper_id in paper_ids:
+    for paper_id in tqdm(paper_ids):
         tex_success = download_and_extract_source(paper_id, args.data_dir)
         if not tex_success:
             print(f"Skipping PDF download for {paper_id} because tex extraction failed.")

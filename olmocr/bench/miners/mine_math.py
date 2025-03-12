@@ -320,7 +320,6 @@ def main():
     )
     parser.add_argument("--math_data", required=True, help="Path to math_data folder")
     parser.add_argument("--candidate", required=True, help="Candidate folder name inside math_data")
-    parser.add_argument("--output_file", default="math_tests.jsonl", help="Output file for math tests in JSONL format")
     parser.add_argument("--max_pages", type=int, default=3, help="Maximum distinct pages to process per TeX document")
     parser.add_argument("--parallel", type=int, default=8, help="Maximum process pool workers")
     parser.add_argument("--sim_threshold", type=float, default=0.7, help="Similarity threshold for matching candidate text")
@@ -338,8 +337,9 @@ def main():
     logging.info("After filtering, %d candidate files will be processed.", len(candidate_files_filtered))
     
     # Remove output file if it exists to start fresh
-    if os.path.exists(args.output_file):
-        os.remove(args.output_file)
+    output_file = os.path.join(args.math_data, "math_tests.jsonl")
+    if os.path.exists(output_file):
+        os.remove(output_file)
     
     all_math_tests = []
     
@@ -355,12 +355,12 @@ def main():
                 tests = future.result()
                 all_math_tests.extend(tests)
                 # Incrementally save tests as each candidate file finishes processing.
-                save_tests(all_math_tests, args.output_file)
+                save_tests(all_math_tests, output_file)
             except Exception as e:
                 logging.error("Error processing %s: %s", candidate_file, e)
     
     logging.info("Found %d valid math equations from %d candidate files.", len(all_math_tests), len(candidate_files_filtered))
-    logging.info("Results incrementally saved to %s", args.output_file)
+    logging.info("Results incrementally saved to %s", output_file)
 
 
 if __name__ == "__main__":

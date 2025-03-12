@@ -12,6 +12,7 @@ Requirements:
 """
 
 import os
+import re
 import html
 import hashlib
 import pathlib
@@ -21,7 +22,8 @@ import shutil
 from dataclasses import dataclass
 from typing import List
 import unittest
-import xml.etree.ElementTree as ET
+import html.entities
+from lxml import etree
 
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
@@ -239,7 +241,7 @@ def render_equation(
         
         # Build the result as a RenderedEquation dataclass
         rendered_eq = RenderedEquation(
-            mathml=html.unescape(mathml),
+            mathml=mathml,
             spans=[
                 SpanInfo(
                     text=s["text"],
@@ -286,30 +288,26 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
     for the hypothesis neighbor – otherwise, the candidate must have the same text as the hypothesis neighbor.
     The algorithm uses backtracking to explore all possible assignments.
     """
-    import xml.etree.ElementTree as ET
-    import re
-
-    def strip_namespaces(elem: ET.Element) -> ET.Element:
-        for sub in elem.iter():
-            if '}' in sub.tag:
-                sub.tag = sub.tag.split('}', 1)[1]
-        return elem
+    from bs4 import BeautifulSoup
 
     def extract_inner(mathml: str) -> str:
         try:
-            root = ET.fromstring(mathml)
-            root = strip_namespaces(root)
-            semantics = root.find('semantics')
-            if semantics is not None:
-                inner_parts = []
-                for child in semantics:
-                    if child.tag != 'annotation':
-                        inner_parts.append(ET.tostring(child, encoding='unicode'))
+            # Use the "xml" parser so that BeautifulSoup parses MathML correctly,
+            # handling HTML entities along the way.
+            soup = BeautifulSoup(mathml, "xml")
+            semantics = soup.find("semantics")
+            if semantics:
+                # Concatenate the string representation of all children except <annotation>
+                inner_parts = [
+                    str(child)
+                    for child in semantics.contents
+                    if getattr(child, "name", None) != "annotation"
+                ]
                 return ''.join(inner_parts)
             else:
-                return ET.tostring(root, encoding='unicode')
+                return str(soup)
         except Exception as e:
-            print("Error parsing MathML:", e)
+            print("Error parsing MathML with BeautifulSoup:", e)
             print(mathml)
             return mathml
 
