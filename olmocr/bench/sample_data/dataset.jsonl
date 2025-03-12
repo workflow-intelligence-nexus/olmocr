@@ -69,6 +69,10 @@
 {"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_00", "type": "order", "before": "Euler's Identity", "after": "Pythagorean Theorem"}
 {"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_01", "type": "order", "before": "Pythagorean Theorem", "after": "The Fundamental Theorem of Calculus"}
 {"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_02", "type": "order", "before": "The Fundamental Theorem of Calculus", "after": "Maxwell's Equations"}
+{"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_03", "type": "math", "math": "e^{i \\pi}+1=0"}
+{"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_04", "type": "math", "math": "\\int_{a}^{b} f(x) d x=F(b)-F(a)"}
+{"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_05", "type": "math", "math": "a^{2}+b^{2}=c^{2}"}
+{"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_06", "type": "math", "math": "\\nabla \\times \\mathbf{E}=-\\frac{\\partial \\mathbf{B}}{\\partial t}"}
 
 
 {"pdf": "math_2503_04086.pdf", "page": 1, "id": "math_2503_04086_00", "type": "math", "math": "\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\psi(g s)}\\right]"}

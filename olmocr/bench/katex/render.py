@@ -12,6 +12,7 @@ Requirements:
 """
 
 import os
+import html
 import hashlib
 import pathlib
 import json
@@ -125,7 +126,7 @@ def render_equation(
         page = browser.new_page(viewport={"width": 800, "height": 400})
         
         # Basic HTML structure
-        html = f"""
+        page_html = f"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -150,7 +151,7 @@ def render_equation(
         </body>
         </html>
         """
-        page.set_content(html)
+        page.set_content(page_html)
         page.add_style_tag(path=katex_css_path)
         page.add_script_tag(path=katex_js_path)
         page.wait_for_load_state("networkidle")
@@ -238,7 +239,7 @@ def render_equation(
         
         # Build the result as a RenderedEquation dataclass
         rendered_eq = RenderedEquation(
-            mathml=mathml,
+            mathml=html.unescape(mathml),
             spans=[
                 SpanInfo(
                     text=s["text"],
@@ -309,6 +310,7 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
                 return ET.tostring(root, encoding='unicode')
         except Exception as e:
             print("Error parsing MathML:", e)
+            print(mathml)
             return mathml
 
     def normalize(s: str) -> str:
