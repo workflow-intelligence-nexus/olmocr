@@ -18,6 +18,10 @@
 {"pdf": "mattsnotes.pdf", "page": 2, "id": "mattsnotes_minediff_03", "type": "present", "checked": "verified", "text": "Order by repo"}
 {"pdf": "mattsnotes.pdf", "page": 3, "id": "mattsnotes_minediff_04", "type": "present", "checked": "verified", "text": "ARCH + TRAINING"}
 
+{"pdf": "buildingnotes.pdf", "page": 1, "id": "building_notes_00", "type": "present", "checked": "verified", "text": "Master Bath", "case_sensitive": false}
+{"pdf": "buildingnotes.pdf", "page": 1, "id": "building_notes_01", "type": "present", "checked": "verified", "text": "Laundry", "case_sensitive": false}
+{"pdf": "buildingnotes.pdf", "page": 1, "id": "building_notes_02", "type": "present", "checked": "verified", "text": "Guest Bath", "case_sensitive": false}
+
 {"pdf": "lincoln_letter.pdf", "page": 1, "id": "lincoln_letter_minediff_00", "type": "present", "checked": "verified", "text": "January 10th 1864."}
 {"pdf": "lincoln_letter.pdf", "page": 1, "id": "lincoln_letter_minediff_01", "type": "present", "checked": "verified", "text": "Major General Hitchcock, Commissioner of Exchanges, is authorized and directed to offer Brigadier General Trimble, now a prisoner of war in Fort McHenry, in exchange for Major White, who is held as a prisoner at Richmond."}
 {"pdf": "lincoln_letter.pdf", "page": 1, "id": "lincoln_letter_minediff_03", "type": "present", "checked": "verified", "text": "He is also directed to send forward the offer of exchange by Henry M. Warfield, Esq. of Baltimore, under a flag of truce, and give him a pass to City Point."}
@@ -73,7 +77,6 @@
 {"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_04", "type": "math", "math": "\\int_{a}^{b} f(x) d x=F(b)-F(a)"}
 {"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_05", "type": "math", "math": "a^{2}+b^{2}=c^{2}"}
 {"pdf": "mathfuncs_colswitch.pdf", "page": 1, "id": "mathfuncscol_06", "type": "math", "math": "\\nabla \\times \\mathbf{E}=-\\frac{\\partial \\mathbf{B}}{\\partial t}"}
-
 
 {"pdf": "math_2503_04086.pdf", "page": 1, "id": "math_2503_04086_00", "type": "math", "math": "\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\psi(g s)}\\right]"}
 {"pdf": "math_2503_04086.pdf", "page": 1, "id": "math_2503_04086_01", "type": "math", "math": "\\lambda_{g}=\\lambda_{g^{\\prime}}"}

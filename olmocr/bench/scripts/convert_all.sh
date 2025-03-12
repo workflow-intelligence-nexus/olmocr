@@ -20,6 +20,8 @@ cleanup() {
         kill -TERM "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
     fi
+
+    pkill vllm
     
     echo "[INFO] Cleanup complete. Exiting."
     exit 1
@@ -103,7 +105,7 @@ start_server() {
     if [ "$server_type" = "sglang" ]; then
         python -m sglang.launch_server --port 30000 --model "$model_name" "$@" &
     elif [ "$server_type" = "vllm" ]; then
-        python -m vllm.launch_server --port 30000 --model "$model_name" "$@" &
+        vllm serve $model_name --port 30000 "$@" &
     else
         echo "Unsupported server type: $server_type"
         exit 1
@@ -193,12 +195,18 @@ python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olm
 python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
 stop_server
 
-# qwen2_vl_7b using sglang server
-start_server sglang "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
-python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
+start_server vllm "allenai/olmOCR-7B-0225-preview"
+python -m olmocr.bench.convert server:name=olmocr_base_vllm_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
+python -m olmocr.bench.convert server:name=olmocr_base_vllm_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
 stop_server
 
-# TODO: Not working right now in sglang
+# Feel free to enable if you want
+# qwen2_vl_7b using sglang server
+# start_server sglang "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
+# python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
+# stop_server
+
+# TODO: qwen2.5 Not working right now in sglang
 # qwen25_vl_7b
 # create_conda_env "qwen25" "3.11"
 # source activate qwen25

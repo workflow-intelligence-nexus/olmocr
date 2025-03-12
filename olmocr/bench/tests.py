@@ -107,6 +107,7 @@ class TextPresenceTest(BasePDFTest):
     """
 
     text: str
+    case_sensitive: bool=True
 
     def __post_init__(self):
         super().__post_init__()
@@ -120,6 +121,10 @@ class TextPresenceTest(BasePDFTest):
 
         # Normalize whitespace in the md_content
         md_content = normalize_text(md_content)
+
+        if not self.case_sensitive:
+            reference_query = reference_query.lower()
+            md_content = md_content.lower()
 
         # Threshold for fuzzy matching derived from max_diffs
         threshold = 1.0 - (self.max_diffs / (len(reference_query) if len(reference_query) > 0 else 1))
