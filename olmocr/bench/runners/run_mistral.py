@@ -15,6 +15,9 @@ def run_mistral(pdf_path: str, page_num: int = 1) -> str:
     Returns:
         str: The OCR result in markdown format.
     """
+    if not os.getenv("MISTRAL_API_KEY"):
+        raise SystemExit("You must specify an MISTRAL_API_KEY")
+
     api_key = os.environ["MISTRAL_API_KEY"]
     client = Mistral(api_key=api_key)
 

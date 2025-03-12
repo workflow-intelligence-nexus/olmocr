@@ -581,10 +581,13 @@ def load_tests(jsonl_file: str) -> List[BasePDFTest]:
                 tests.append(test)
             except json.JSONDecodeError as e:
                 print(f"Error parsing JSON on line {line_number}: {e}")
+                raise
             except (ValidationError, KeyError) as e:
                 print(f"Error on line {line_number}: {e}")
+                raise
             except Exception as e:
                 print(f"Unexpected error on line {line_number}: {e}")
+                raise
 
     return tests
 
