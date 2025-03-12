@@ -486,7 +486,6 @@ class BaselineTest(BasePDFTest):
 @dataclass
 class MathTest(BasePDFTest):
     math: str
-    threshold: float=0.95
 
     def __post_init__(self):
         super().__post_init__()
