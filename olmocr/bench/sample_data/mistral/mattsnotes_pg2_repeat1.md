@@ -1,17 +1,15 @@
-V-February Flow
-Data Compenents:
-Code:
-The-stuck-v2
-CodeText:
-SE, whatever we're scraped
-WebText:
-H\& DCLn
-DATA MEXES
-$\left.\begin{array}{l}\text { N } 85 \% \text { Source Code } \\ \text { N } 10 \% \text { CodeText }\end{array}\right\}$ Deepseek
-$\sim 5 \%$ Webster
-$\sim 85 \%$ The-stuck-v2
-$\sim 15 \%$ CodeText
-$\sim 0 \%$ Webtext
-Staroder
-2
-$\sim 100 \%$ Source Code JArctic
+![img-0.jpeg](img-0.jpeg)
+![img-1.jpeg](img-1.jpeg)
+
+Code Data Reuse Estagader
+1) Orda by Repo
+2) Call Heuristic Silters X
+3) Group by Rep, long $\rightarrow$ mishash V
+4) Pick into Repo-level docs $\triangle$
+
+S) Select PL's $\triangle$
+$\Rightarrow$ Pick into FIM tokens X
+V. Exg Done
+X: Exg definitely NOT done
+D: So So easy
+Use Preprocessed codetext, webtext
