@@ -248,7 +248,7 @@ def process_candidate_file(candidate_file: str, pdfs_folder: str, sim_threshold:
     
     candidate_text = extract_candidate_content(candidate_file)
     tex_content = extract_tex_content(tex_file_path)
-    if not tex_content:
+    if not tex_content or not candidate_text or len(text_content.strip()) < 100 or len(candidate_text.strip()) < 100:
         logging.error("No content extracted from %s", tex_file_path)
         return tests
 
