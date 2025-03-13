@@ -11,26 +11,28 @@ Requirements:
     Place katex.min.css and katex.min.js in the same directory as this script
 """
 
-import os
-import re
-import html
 import hashlib
-import pathlib
+import html
+import html.entities
 import json
+import os
+import pathlib
+import re
 import shutil
 import threading
+import unittest
 from dataclasses import dataclass
 from typing import List
-import unittest
-import html.entities
 
-from playwright.sync_api import sync_playwright, Error as PlaywrightError
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import sync_playwright
 
 # Thread-local storage for Playwright and browser instances
 _thread_local = threading.local()
 
 # Global cache lock to protect cache file operations.
 cache_lock = threading.Lock()
+
 
 @dataclass
 class BoundingBox:
@@ -39,30 +41,35 @@ class BoundingBox:
     width: float
     height: float
 
+
 @dataclass
 class SpanInfo:
     text: str
     bounding_box: BoundingBox
+
 
 @dataclass
 class RenderedEquation:
     mathml: str
     spans: List[SpanInfo]
 
+
 def get_equation_hash(equation, bg_color="white", text_color="black", font_size=24):
     """
     Calculate SHA1 hash of the equation string and rendering parameters.
     """
     params_str = f"{equation}|{bg_color}|{text_color}|{font_size}"
-    return hashlib.sha1(params_str.encode('utf-8')).hexdigest()
+    return hashlib.sha1(params_str.encode("utf-8")).hexdigest()
+
 
 def get_cache_dir():
     """
     Get the cache directory for equations, creating it if it doesn't exist.
     """
-    cache_dir = pathlib.Path.home() / '.cache' / 'olmocr' / 'bench' / 'equations'
+    cache_dir = pathlib.Path.home() / ".cache" / "olmocr" / "bench" / "equations"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
+
 
 def clear_cache_dir():
     """
@@ -73,6 +80,7 @@ def clear_cache_dir():
         shutil.rmtree(cache_dir)
         cache_dir.mkdir(parents=True, exist_ok=True)
 
+
 def init_browser():
     """
     Initialize the Playwright and browser instance for the current thread if not already done.
@@ -81,6 +89,7 @@ def init_browser():
         _thread_local.playwright = sync_playwright().start()
         _thread_local.browser = _thread_local.playwright.chromium.launch()
 
+
 def get_browser():
     """
     Return the browser instance for the current thread.
@@ -88,8 +97,9 @@ def get_browser():
     init_browser()
     return _thread_local.browser
 
+
 def render_equation(
-    equation, 
+    equation,
     bg_color="white",
     text_color="black",
     font_size=24,
@@ -109,14 +119,14 @@ def render_equation(
     cache_dir = get_cache_dir()
     cache_file = cache_dir / f"{eq_hash}.json"
     cache_error_file = cache_dir / f"{eq_hash}_error"
-    
+
     # Use lock to ensure thread-safe cache file access
     with cache_lock:
         if use_cache:
             if cache_error_file.exists():
                 return None
             if cache_file.exists():
-                with open(cache_file, 'r') as f:
+                with open(cache_file, "r") as f:
                     data = json.load(f)
                 spans = [
                     SpanInfo(
@@ -126,7 +136,7 @@ def render_equation(
                             y=s["boundingBox"]["y"],
                             width=s["boundingBox"]["width"],
                             height=s["boundingBox"]["height"],
-                        )
+                        ),
                     )
                     for s in data["spans"]
                 ]
@@ -134,21 +144,21 @@ def render_equation(
 
     # Escape the equation for use in a JavaScript string.
     escaped_equation = json.dumps(equation)
-    
+
     # Get local paths for KaTeX files
     script_dir = os.path.dirname(os.path.abspath(__file__))
     katex_css_path = os.path.join(script_dir, "katex.min.css")
     katex_js_path = os.path.join(script_dir, "katex.min.js")
-    
+
     if not os.path.exists(katex_css_path) or not os.path.exists(katex_js_path):
         raise FileNotFoundError(f"KaTeX files not found. Please ensure katex.min.css and katex.min.js are in {script_dir}")
 
     # Get the browser instance for the current thread.
     browser = get_browser()
-    
+
     # Create a new page.
     page = browser.new_page(viewport={"width": 800, "height": 400})
-    
+
     # Basic HTML structure for rendering.
     page_html = f"""
     <!DOCTYPE html>
@@ -179,14 +189,15 @@ def render_equation(
     page.add_style_tag(path=katex_css_path)
     page.add_script_tag(path=katex_js_path)
     page.wait_for_load_state("networkidle")
-    
+
     katex_loaded = page.evaluate("typeof katex !== 'undefined'")
     if not katex_loaded:
         page.close()
         raise RuntimeError("KaTeX library failed to load. Check your katex.min.js file.")
-    
+
     try:
-        error_message = page.evaluate(f"""
+        error_message = page.evaluate(
+            f"""
         () => {{
             try {{
                 katex.render({escaped_equation}, document.getElementById("equation-container"), {{
@@ -199,12 +210,13 @@ def render_equation(
                 return error.message;
             }}
         }}
-        """)
+        """
+        )
     except PlaywrightError as ex:
         print(escaped_equation)
         error_message = str(ex)
         page.close()
-        raise 
+        raise
 
     if error_message:
         print(f"Error rendering equation: '{equation}'")
@@ -213,20 +225,23 @@ def render_equation(
             cache_error_file.touch()
         page.close()
         return None
-    
+
     page.wait_for_selector(".katex", state="attached")
-    
+
     if debug_dom:
-        katex_dom_html = page.evaluate("""
+        katex_dom_html = page.evaluate(
+            """
         () => {
             return document.getElementById("equation-container").innerHTML;
         }
-        """)
+        """
+        )
         print("\n===== KaTeX DOM HTML =====")
         print(katex_dom_html)
-    
+
     # Extract inner-most spans with non-whitespace text.
-    spans_info = page.evaluate("""
+    spans_info = page.evaluate(
+        """
     () => {
         const spans = Array.from(document.querySelectorAll('span'));
         const list = [];
@@ -246,58 +261,52 @@ def render_equation(
         });
         return list;
     }
-    """)
-    
+    """
+    )
+
     if debug_dom:
         print("\n===== Extracted Span Information =====")
         print(spans_info)
-    
+
     # Extract MathML output (if available) from the KaTeX output.
-    mathml = page.evaluate("""
+    mathml = page.evaluate(
+        """
     () => {
         const mathElem = document.querySelector('.katex-mathml math');
         return mathElem ? mathElem.outerHTML : "";
     }
-    """)
-    
+    """
+    )
+
     page.close()
-    
+
     rendered_eq = RenderedEquation(
         mathml=mathml,
         spans=[
             SpanInfo(
                 text=s["text"],
-                bounding_box=BoundingBox(
-                    x=s["boundingBox"]["x"],
-                    y=s["boundingBox"]["y"],
-                    width=s["boundingBox"]["width"],
-                    height=s["boundingBox"]["height"]
-                )
+                bounding_box=BoundingBox(x=s["boundingBox"]["x"], y=s["boundingBox"]["y"], width=s["boundingBox"]["width"], height=s["boundingBox"]["height"]),
             )
             for s in spans_info
-        ]
+        ],
     )
-    
+
     # Cache the rendered equation.
     cache_data = {
         "mathml": rendered_eq.mathml,
         "spans": [
             {
                 "text": span.text,
-                "boundingBox": {
-                    "x": span.bounding_box.x,
-                    "y": span.bounding_box.y,
-                    "width": span.bounding_box.width,
-                    "height": span.bounding_box.height
-                }
+                "boundingBox": {"x": span.bounding_box.x, "y": span.bounding_box.y, "width": span.bounding_box.width, "height": span.bounding_box.height},
             }
             for span in rendered_eq.spans
-        ]
+        ],
     }
     with cache_lock:
-        with open(cache_file, 'w') as f:
+        with open(cache_file, "w") as f:
             json.dump(cache_data, f)
     return rendered_eq
+
 
 def compare_rendered_equations(reference: RenderedEquation, hypothesis: RenderedEquation) -> bool:
     """
@@ -311,12 +320,8 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
             soup = BeautifulSoup(mathml, "xml")
             semantics = soup.find("semantics")
             if semantics:
-                inner_parts = [
-                    str(child)
-                    for child in semantics.contents
-                    if getattr(child, "name", None) != "annotation"
-                ]
-                return ''.join(inner_parts)
+                inner_parts = [str(child) for child in semantics.contents if getattr(child, "name", None) != "annotation"]
+                return "".join(inner_parts)
             else:
                 return str(soup)
         except Exception as e:
@@ -325,7 +330,7 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
             return mathml
 
     def normalize(s: str) -> str:
-        return re.sub(r'\s+', '', s)
+        return re.sub(r"\s+", "", s)
 
     reference_inner = normalize(extract_inner(reference.mathml))
     hypothesis_inner = normalize(extract_inner(hypothesis.mathml))
@@ -418,27 +423,28 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
 
     return backtrack(0)
 
+
 class TestRenderedEquationComparison(unittest.TestCase):
     def test_exact_match(self):
         eq1 = render_equation("a+b", use_cache=False)
         eq2 = render_equation("a+b", use_cache=False)
         self.assertTrue(compare_rendered_equations(eq1, eq2))
-    
+
     def test_whitespace_difference(self):
         eq1 = render_equation("a+b", use_cache=False)
         eq2 = render_equation("a + b", use_cache=False)
         self.assertTrue(compare_rendered_equations(eq1, eq2))
-    
+
     def test_not_found(self):
         eq1 = render_equation("c-d", use_cache=False)
         eq2 = render_equation("a+b", use_cache=False)
         self.assertFalse(compare_rendered_equations(eq1, eq2))
-    
+
     def test_align_block_contains_needle(self):
         eq_plain = render_equation("a+b", use_cache=False)
         eq_align = render_equation("\\begin{align*}a+b\\end{align*}", use_cache=False)
         self.assertTrue(compare_rendered_equations(eq_plain, eq_align))
-    
+
     def test_align_block_needle_not_in(self):
         eq_align = render_equation("\\begin{align*}a+b\\end{align*}", use_cache=False)
         eq_diff = render_equation("c-d", use_cache=False)
@@ -446,17 +452,27 @@ class TestRenderedEquationComparison(unittest.TestCase):
 
     def test_big(self):
         ref_rendered = render_equation("\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}", use_cache=False, debug_dom=False)
-        align_rendered = render_equation("""\\begin{align*}\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}\\end{align*}""", use_cache=False, debug_dom=False)
+        align_rendered = render_equation(
+            """\\begin{align*}\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}\\end{align*}""", use_cache=False, debug_dom=False
+        )
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
     def test_dot_end1(self):
-        ref_rendered = render_equation("\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\varphi(g s)}\\right]")
-        align_rendered = render_equation("\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\varphi(g s)}\\right].")
+        ref_rendered = render_equation(
+            "\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\varphi(g s)}\\right]"
+        )
+        align_rendered = render_equation(
+            "\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\varphi(g s)}\\right]."
+        )
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
     def test_dot_end2(self):
-        ref_rendered = render_equation("\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\psi(g s)}\\right]")
-        align_rendered = render_equation("\\lambda_g = \\sum_{s \\in S} \\zeta_n^{\\psi(gs)} = \\sum_{i=1}^{k} \\left[ \\sum_{s, Rs = \\mathcal{I}_i} \\zeta_n^{\\psi(gs)} \\right]")
+        ref_rendered = render_equation(
+            "\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\psi(g s)}\\right]"
+        )
+        align_rendered = render_equation(
+            "\\lambda_g = \\sum_{s \\in S} \\zeta_n^{\\psi(gs)} = \\sum_{i=1}^{k} \\left[ \\sum_{s, Rs = \\mathcal{I}_i} \\zeta_n^{\\psi(gs)} \\right]"
+        )
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
     def test_lambda(self):
@@ -468,6 +484,7 @@ class TestRenderedEquationComparison(unittest.TestCase):
         ref_rendered = render_equation("u \\in (R/\\operatorname{Ann}_R(x_i))^{\\times}")
         align_rendered = render_equation("u \\in\\left(R / \\operatorname{Ann}_{R}\\left(x_{i}\\right)\\right)^{\\times}")
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
-        
+
+
 if __name__ == "__main__":
     unittest.main()

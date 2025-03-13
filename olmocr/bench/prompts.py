@@ -87,4 +87,3 @@ def build_find_difference_prompt(base_text: str) -> str:
         f"Do not hallucinate.\n"
         f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
     )
-

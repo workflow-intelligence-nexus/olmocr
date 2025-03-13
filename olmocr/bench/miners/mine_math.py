@@ -18,26 +18,27 @@ Usage:
 
 import argparse
 import glob
-import os
-import re
-import random
 import json
 import logging
-from typing import List, Optional, Tuple, Dict
-
+import os
+import random
+import re
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import Dict, List, Optional, Tuple
 
+import numba
+import numpy as np
 from fuzzysearch import find_near_matches
 from rapidfuzz import fuzz
 from tqdm import tqdm
 
-from olmocr.bench.tests import MathTest  # Assumes MathTest is JSON serializable or has __dict__
-from olmocr.bench.tests import save_tests  # Original saving function (not used for incremental save)
 from olmocr.bench.katex.render import render_equation
-
-import numpy as np
-import numba
-
+from olmocr.bench.tests import (
+    MathTest,  # Assumes MathTest is JSON serializable or has __dict__
+)
+from olmocr.bench.tests import (
+    save_tests,  # Original saving function (not used for incremental save)
+)
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -49,17 +50,11 @@ logging.basicConfig(
 
 # --- Utility Functions ---
 
+
 def normalize_text(text: str) -> str:
     """Normalize text for better matching."""
-    text = re.sub(r'\s+', " ", text)
-    replacements = {
-        "'": "'",
-        "‚": "'",
-        '"': '"',
-        "„": '"',
-        "＿": "_",
-        "–": "-", "—": "-", "‑": "-", "‒": "-"
-    }
+    text = re.sub(r"\s+", " ", text)
+    replacements = {"'": "'", "‚": "'", '"': '"', "„": '"', "＿": "_", "–": "-", "—": "-", "‑": "-", "‒": "-"}
     for fancy_char, ascii_char in replacements.items():
         text = text.replace(fancy_char, ascii_char)
     return text
@@ -68,11 +63,11 @@ def normalize_text(text: str) -> str:
 def extract_tex_content(tex_file: str) -> str:
     """Extract the content from a TeX file."""
     try:
-        with open(tex_file, 'r', encoding='utf-8') as f:
+        with open(tex_file, "r", encoding="utf-8") as f:
             return f.read()
     except UnicodeDecodeError:
         try:
-            with open(tex_file, 'r', encoding='latin-1') as f:
+            with open(tex_file, "r", encoding="latin-1") as f:
                 return f.read()
         except Exception as e:
             logging.error("Error reading %s: %s", tex_file, e)
@@ -82,7 +77,7 @@ def extract_tex_content(tex_file: str) -> str:
 def extract_candidate_content(candidate_file: str) -> str:
     """Extract the content from a candidate .md file."""
     try:
-        with open(candidate_file, 'r', encoding='utf-8') as f:
+        with open(candidate_file, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         logging.error("Error reading %s: %s", candidate_file, e)
@@ -98,19 +93,16 @@ def extract_math_from_tex(tex_content: str) -> List[Tuple[str, str]]:
 
     # Patterns for display math
     display_patterns = [
-        (r'\$\$(.*?)\$\$', '$$'),
-        (r'\\begin\{equation\}(.*?)\\end\{equation\}', 'equation'),
-        (r'\\begin\{equation\*\}(.*?)\\end\{equation\*\}', 'equation*'),
-        (r'\\begin\{align\}(.*?)\\end\{align\}', 'align'),
-        (r'\\begin\{align\*\}(.*?)\\end\{align\*\}', 'align*'),
-        (r'\\begin\{displaymath\}(.*?)\\end\{displaymath\}', 'displaymath'),
-        (r'\\\[(.*?)\\\]', 'displaymath')
+        (r"\$\$(.*?)\$\$", "$$"),
+        (r"\\begin\{equation\}(.*?)\\end\{equation\}", "equation"),
+        (r"\\begin\{equation\*\}(.*?)\\end\{equation\*\}", "equation*"),
+        (r"\\begin\{align\}(.*?)\\end\{align\}", "align"),
+        (r"\\begin\{align\*\}(.*?)\\end\{align\*\}", "align*"),
+        (r"\\begin\{displaymath\}(.*?)\\end\{displaymath\}", "displaymath"),
+        (r"\\\[(.*?)\\\]", "displaymath"),
     ]
     # Patterns for inline math
-    inline_patterns = [
-        (r'\$(.*?)\$', 'inline'),
-        (r'\\\((.*?)\\\)', 'inline')
-    ]
+    inline_patterns = [(r"\$(.*?)\$", "inline"), (r"\\\((.*?)\\\)", "inline")]
 
     for pattern_list in [display_patterns, inline_patterns]:
         for pattern, eq_type in pattern_list:
@@ -137,9 +129,9 @@ def compute_dp(candidate_arr, text_arr):
     for i in range(1, m + 1):
         for j in range(1, n + 1):
             cost = 0 if candidate_arr[i - 1] == text_arr[j - 1] else 1
-            dp[i, j] = min(dp[i - 1, j - 1] + cost,  # substitution or match
-                           dp[i - 1, j] + 1,         # deletion (from candidate)
-                           dp[i, j - 1] + 1)         # insertion (in candidate)
+            dp[i, j] = min(
+                dp[i - 1, j - 1] + cost, dp[i - 1, j] + 1, dp[i, j - 1] + 1  # substitution or match  # deletion (from candidate)
+            )  # insertion (in candidate)
     return dp
 
 
@@ -179,7 +171,7 @@ def find_matching_content(candidate_text: str, tex_content: str, sim_threshold: 
     """
     candidate_norm = normalize_text(candidate_text)
     tex_norm = normalize_text(tex_content)
-    
+
     m = len(candidate_norm)
     n = len(tex_norm)
     if m == 0 or n == 0:
@@ -192,7 +184,7 @@ def find_matching_content(candidate_text: str, tex_content: str, sim_threshold: 
     text_arr = np.empty(n, dtype=np.int32)
     for j, c in enumerate(tex_norm):
         text_arr[j] = ord(c)
-    
+
     dp = compute_dp(candidate_arr, text_arr)
     best_end, min_distance = find_best_end(dp, m, n)
     similarity = (m - min_distance) / m
@@ -241,11 +233,11 @@ def process_candidate_file(candidate_file: str, pdfs_folder: str, sim_threshold:
 
     tex_basename, page_num = parse_result
     tex_file_path = os.path.join(pdfs_folder, f"{tex_basename}.tex")
-    
+
     if not os.path.exists(tex_file_path):
         logging.error("TeX file %s not found for candidate %s.", tex_file_path, candidate_file)
         return tests
-    
+
     candidate_text = extract_candidate_content(candidate_file)
     tex_content = extract_tex_content(tex_file_path)
     if not tex_content or not candidate_text or len(tex_content.strip()) < 100 or len(candidate_text.strip()) < 100:
@@ -286,8 +278,7 @@ def process_candidate_file(candidate_file: str, pdfs_folder: str, sim_threshold:
     return tests
 
 
-def process_tex_file_group(tex_basename: str, candidate_files: List[str], pdfs_folder: str,
-                           sim_threshold: float, max_pages: int) -> List[MathTest]:
+def process_tex_file_group(tex_basename: str, candidate_files: List[str], pdfs_folder: str, sim_threshold: float, max_pages: int) -> List[MathTest]:
     """
     For a given TeX file, group candidate files by page, randomly shuffle the pages,
     and process them one-by-one. Stop once max_pages (pages with valid equations) have
@@ -304,16 +295,16 @@ def process_tex_file_group(tex_basename: str, candidate_files: List[str], pdfs_f
             continue
         _, page_num = parse_result
         page_dict.setdefault(page_num, []).append(candidate_file)
-    
+
     # For each page, randomly choose one candidate file.
     distinct_candidate_files = []
     for page_num, files in page_dict.items():
         chosen_file = random.choice(files)
         distinct_candidate_files.append(chosen_file)
-    
+
     # Shuffle the pages randomly.
     random.shuffle(distinct_candidate_files)
-    
+
     # Process pages sequentially until max_pages with valid equations have been found.
     for candidate_file in distinct_candidate_files:
         result = process_candidate_file(candidate_file, pdfs_folder, sim_threshold)
@@ -329,23 +320,21 @@ def process_tex_file_group(tex_basename: str, candidate_files: List[str], pdfs_f
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Extract math equations from candidate files and corresponding TeX bases."
-    )
+    parser = argparse.ArgumentParser(description="Extract math equations from candidate files and corresponding TeX bases.")
     parser.add_argument("--math_data", required=True, help="Path to math_data folder")
     parser.add_argument("--candidate", required=True, help="Candidate folder name inside math_data")
     parser.add_argument("--max_pages", type=int, default=1, help="Maximum distinct pages with equations to process per TeX document")
     parser.add_argument("--parallel", type=int, default=8, help="Maximum process pool workers")
     parser.add_argument("--sim_threshold", type=float, default=0.7, help="Similarity threshold for matching candidate text")
-    
+
     args = parser.parse_args()
-    
+
     candidate_folder = os.path.join(args.math_data, args.candidate)
     pdfs_folder = os.path.join(args.math_data, "pdfs")
-    
+
     candidate_files = glob.glob(os.path.join(candidate_folder, "*.md"))
     logging.info("Found %d candidate files.", len(candidate_files))
-    
+
     # Group candidate files by TeX basename.
     tex_groups: Dict[str, List[str]] = {}
     for candidate_file in candidate_files:
@@ -355,19 +344,18 @@ def main():
         tex_basename, _ = parse_result
         tex_groups.setdefault(tex_basename, []).append(candidate_file)
     logging.info("Found %d TeX groups.", len(tex_groups))
-    
+
     # Remove output file if it exists to start fresh
     output_file = os.path.join(args.math_data, "math_tests.jsonl")
     if os.path.exists(output_file):
         os.remove(output_file)
-    
+
     all_math_tests = []
-    
+
     # Process each TeX group in parallel using ProcessPoolExecutor.
     with ProcessPoolExecutor(max_workers=args.parallel) as executor:
         future_to_tex = {
-            executor.submit(process_tex_file_group, tex_basename, candidate_list, pdfs_folder,
-                            args.sim_threshold, args.max_pages): tex_basename
+            executor.submit(process_tex_file_group, tex_basename, candidate_list, pdfs_folder, args.sim_threshold, args.max_pages): tex_basename
             for tex_basename, candidate_list in tex_groups.items()
         }
         for future in tqdm(as_completed(future_to_tex), total=len(future_to_tex), desc="Processing TeX files"):
@@ -379,7 +367,7 @@ def main():
                 save_tests(all_math_tests, output_file)
             except Exception as e:
                 logging.error("Error processing TeX group %s: %s", tex_basename, e)
-    
+
     logging.info("Found %d valid math equations from %d TeX groups.", len(all_math_tests), len(tex_groups))
     logging.info("Results incrementally saved to %s", output_file)
 

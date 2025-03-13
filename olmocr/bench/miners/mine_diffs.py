@@ -201,7 +201,7 @@ def main():
             base_text = f.read()
 
         compare_files = [f for f in os.listdir(compare_path) if f.endswith(".md") and re.sub(r"_\d+\.md$", "", f) == re.sub(r"_\d+\.md$", "", bf)]
-        
+
         if not compare_files:
             print(f"skipping {bf} nothing to compare against")
 

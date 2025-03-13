@@ -10,7 +10,7 @@ from olmocr.pipeline import (
     WorkerTracker,
     process_page,
     sglang_server_host,
-    sglang_server_ready
+    sglang_server_ready,
 )
 
 # Setup basic logging
@@ -33,11 +33,11 @@ class Args:
 async def run_olmocr_pipeline(pdf_path: str, page_num: int = 1) -> Optional[str]:
     """
     Process a single page of a PDF using the official olmocr pipeline's process_page function
-    
+
     Args:
         pdf_path: Path to the PDF file
         page_num: Page number to process (1-indexed)
-        
+
     Returns:
         The extracted text from the page or None if processing failed
     """
@@ -66,14 +66,8 @@ async def run_olmocr_pipeline(pdf_path: str, page_num: int = 1) -> Optional[str]
         # Process the page using the pipeline's process_page function
         # Note: process_page expects both original path and local path
         # In our case, we're using the same path for both
-        page_result: PageResult = await process_page(
-            args=args,
-            worker_id=worker_id,
-            pdf_orig_path=pdf_path,
-            pdf_local_path=pdf_path,
-            page_num=page_num
-        )
-        
+        page_result: PageResult = await process_page(args=args, worker_id=worker_id, pdf_orig_path=pdf_path, pdf_local_path=pdf_path, page_num=page_num)
+
         # Return the natural text from the response
         if page_result and page_result.response:
             return page_result.response.natural_text
@@ -92,7 +86,7 @@ async def main():
     # Example usage
     pdf_path = "your_pdf_path.pdf"
     page_num = 1
-    
+
     result = await run_olmocr_pipeline(pdf_path, page_num)
     if result:
         print(f"Extracted text: {result[:200]}...")  # Print first 200 chars

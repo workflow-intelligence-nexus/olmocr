@@ -6,8 +6,9 @@ import os
 from functools import partial
 from itertools import product
 
-from tqdm import tqdm
 from pypdf import PdfReader
+from tqdm import tqdm
+
 
 def parse_method_arg(method_arg):
     """
@@ -69,7 +70,7 @@ async def process_pdf(pdf_path, page_num, method, kwargs, output_path, is_async)
         # Write the markdown to the output file
         with open(output_path, "w") as out_f:
             out_f.write(markdown)
-            
+
         return True
     except Exception as ex:
         print(f"Exception {str(ex)} occurred while processing {os.path.basename(output_path)}")
@@ -81,7 +82,7 @@ async def process_pdf(pdf_path, page_num, method, kwargs, output_path, is_async)
 
 async def process_pdfs(config, pdf_directory, data_directory, repeats, force, max_parallel=None):
     """
-    Process PDFs using asyncio for both sync and async methods, 
+    Process PDFs using asyncio for both sync and async methods,
     limiting the number of concurrent tasks to max_parallel.
     """
     for candidate in config.keys():
@@ -100,37 +101,37 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, force, ma
         # Prepare all tasks
         tasks = []
         task_descriptions = {}
-        
+
         for pdf_path in all_pdfs:
             pdf = PdfReader(pdf_path)
             num_pages = len(pdf.pages)
 
             base_name = os.path.basename(pdf_path).replace(".pdf", "")
-            
+
             for repeat in range(1, repeats + 1):
                 for page_num in range(1, num_pages + 1):
                     output_filename = f"{base_name}_pg{page_num}_repeat{repeat}.md"
                     output_path = os.path.join(candidate_output_dir, output_filename)
-                    
+
                     if os.path.exists(output_path) and not force:
                         print(f"Skipping {base_name}_pg{page_num}_repeat{repeat} for {candidate}, file already exists")
                         print("Rerun with --force flag to force regeneration")
                         continue
-                    
+
                     task = process_pdf(pdf_path, page_num, method, kwargs, output_path, is_async)
                     tasks.append(task)
                     task_descriptions[id(task)] = f"{base_name}_pg{page_num}_repeat{repeat} ({candidate})"
-            
+
         # Process tasks with semaphore to limit concurrency
         semaphore = asyncio.Semaphore(max_parallel or 1)  # Default to 1 if not specified
-        
+
         async def process_with_semaphore(task):
             async with semaphore:
                 return await task
-        
+
         # Wrap each task with the semaphore
         limited_tasks = [process_with_semaphore(task) for task in tasks]
-        
+
         # Process tasks with progress bar
         if limited_tasks:
             completed = 0
@@ -144,7 +145,7 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, force, ma
                         print(f"Task failed: {e}")
                     finally:
                         pbar.update(1)
-            
+
             print(f"Completed {completed} out of {len(limited_tasks)} tasks for {candidate}")
 
 
@@ -158,7 +159,12 @@ if __name__ == "__main__":
         "Use 'name=folder_name' to specify a custom output folder name.",
     )
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
-    parser.add_argument("--dir", type=str, default=os.path.join(os.path.dirname(__file__), "sample_data"), help="Path to the data folder in which to save outputs, pdfs should be in /pdfs folder within it.")
+    parser.add_argument(
+        "--dir",
+        type=str,
+        default=os.path.join(os.path.dirname(__file__), "sample_data"),
+        help="Path to the data folder in which to save outputs, pdfs should be in /pdfs folder within it.",
+    )
     parser.add_argument("--force", action="store_true", default=False, help="Force regenerating of output files, even if they already exist")
     parser.add_argument("--parallel", type=int, default=1, help="Maximum number of concurrent tasks")
     args = parser.parse_args()

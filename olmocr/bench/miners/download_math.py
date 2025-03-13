@@ -1,18 +1,20 @@
 # This script goes to
 # https://arxiv.org/list/math/recent?skip=0&show=2000
-# and downloads all the source PDFs, as well as latex equivalents, and puts them together into 
+# and downloads all the source PDFs, as well as latex equivalents, and puts them together into
 # Searching for:
 # <a href="/pdf/2503.08675" title="Download PDF" id="pdf-2503.08675" aria-labelledby="pdf-2503.08675">pdf</a>
 # a math_data folder
 #!/usr/bin/env python3
 import argparse
+import io
 import os
 import re
-import time
-import io
 import tarfile
+import time
+
 import requests
 from tqdm import tqdm
+
 
 def download_and_extract_source(paper_id, data_dir):
     source_url = f"https://export.arxiv.org/src/{paper_id}"
@@ -25,9 +27,9 @@ def download_and_extract_source(paper_id, data_dir):
     # Try to open as a tar archive.
     try:
         file_obj = io.BytesIO(response.content)
-        with tarfile.open(fileobj=file_obj, mode='r:*') as tar:
+        with tarfile.open(fileobj=file_obj, mode="r:*") as tar:
             # Filter for regular .tex files.
-            members = [m for m in tar.getmembers() if m.isfile() and m.name.endswith('.tex')]
+            members = [m for m in tar.getmembers() if m.isfile() and m.name.endswith(".tex")]
             print("Found TeX files:", [m.name for m in members])
             if len(members) == 1:
                 member = members[0]
@@ -52,6 +54,7 @@ def download_and_extract_source(paper_id, data_dir):
         print(f"Saved non-archive tex source for {paper_id} as {out_path}")
         return True
 
+
 def download_pdf(paper_id, data_dir):
     pdf_url = f"https://arxiv.org/pdf/{paper_id}.pdf"
     print(f"Downloading PDF for {paper_id} from {pdf_url}...")
@@ -65,22 +68,13 @@ def download_pdf(paper_id, data_dir):
     print(f"Saved PDF for {paper_id} as {out_path}")
     return True
 
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="Download and extract arXiv LaTeX source files and PDFs only if both succeed."
-    )
+    parser = argparse.ArgumentParser(description="Download and extract arXiv LaTeX source files and PDFs only if both succeed.")
     parser.add_argument(
-        "--url",
-        type=str,
-        default="https://arxiv.org/list/math/recent?skip=0&show=2000",
-        help="URL of the arXiv list page to scrape (default: %(default)s)"
+        "--url", type=str, default="https://arxiv.org/list/math/recent?skip=0&show=2000", help="URL of the arXiv list page to scrape (default: %(default)s)"
     )
-    parser.add_argument(
-        "--data_dir",
-        type=str,
-        default="math_data/pdfs",
-        help="Directory to save downloaded files (default: %(default)s)"
-    )
+    parser.add_argument("--data_dir", type=str, default="math_data/pdfs", help="Directory to save downloaded files (default: %(default)s)")
     args = parser.parse_args()
 
     if not os.path.exists(args.data_dir):
@@ -103,7 +97,7 @@ def main():
         if not tex_success:
             print(f"Skipping PDF download for {paper_id} because tex extraction failed.")
             continue
-        
+
         pdf_success = download_pdf(paper_id, args.data_dir)
         if not pdf_success:
             # Remove the tex file if the PDF download fails.
@@ -112,6 +106,7 @@ def main():
                 os.remove(tex_path)
                 print(f"Removed tex file for {paper_id} because PDF download failed.")
         time.sleep(1)
+
 
 if __name__ == "__main__":
     main()

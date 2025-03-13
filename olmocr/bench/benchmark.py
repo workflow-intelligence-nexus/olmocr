@@ -16,18 +16,19 @@ Pairwise permutation tests are conducted between specific candidate pairs.
 import argparse
 import glob
 import os
-import sys
 import re
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import combinations
-
-from tqdm import tqdm
 from typing import Dict, List, Tuple
-from pypdf import PdfReader
 
-from .tests import BasePDFTest, BaselineTest, load_tests
+from pypdf import PdfReader
+from tqdm import tqdm
+
 from .katex.render import clear_cache_dir
+from .tests import BaselineTest, BasePDFTest, load_tests
 from .utils import calculate_bootstrap_ci, perform_permutation_test
+
 
 def evaluate_candidate(
     candidate_folder: str, all_tests: List[BasePDFTest], pdf_basenames: List[str], force: bool = False
@@ -62,8 +63,7 @@ def evaluate_candidate(
         md_files = [os.path.join(candidate_folder, f) for f in all_files if md_regex.match(f)]
         if not md_files and not force:
             candidate_errors.append(
-                f"Candidate '{candidate_name}' is missing MD repeats for {pdf_name} "
-                f"(expected files matching {md_base}_pg{{page}}_repeat*.md)."
+                f"Candidate '{candidate_name}' is missing MD repeats for {pdf_name} " f"(expected files matching {md_base}_pg{{page}}_repeat*.md)."
             )
         else:
             pdf_to_md_files[pdf_name] = md_files
@@ -123,8 +123,7 @@ def evaluate_candidate(
     with ThreadPoolExecutor(max_workers=os.cpu_count() or 1) as executor:
         futures = [executor.submit(process_test, test) for test in all_tests]
         # tqdm progress bar for this candidate's tests
-        for future in tqdm(as_completed(futures), total=len(futures),
-                           desc=f"Evaluating tests for {candidate_name}", unit="test"):
+        for future in tqdm(as_completed(futures), total=len(futures), desc=f"Evaluating tests for {candidate_name}", unit="test"):
             test_avg, test_failure, test_type, errors = future.result()
             all_test_scores.append(test_avg)
             total_test_score += test_avg
@@ -153,12 +152,7 @@ def main():
         action="store_true",
         help="Run benchmark even if some files are missing",
     )
-    parser.add_argument(
-        "--candidate",
-        type=str,
-        default=None,
-        help="Run test only for a single candidate"
-    )
+    parser.add_argument("--candidate", type=str, default=None, help="Run test only for a single candidate")
     parser.add_argument(
         "--bootstrap_samples",
         type=int,
@@ -179,7 +173,7 @@ def main():
             "Run permutation testing. If provided without candidate names, run default tests. "
             "If provided with a comma-separated list of candidate names (e.g. --permutation_tests asdf,qwe,ert), "
             "run permutation tests on all pairs of the specified candidates."
-        )
+        ),
     )
     args = parser.parse_args()
 
@@ -246,14 +240,14 @@ def main():
     for candidate in candidate_folders:
         candidate_name = os.path.basename(candidate)
         print(f"\nEvaluating candidate: {candidate_name}")
-        overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores = \
-            evaluate_candidate(candidate, all_tests, pdf_basenames, args.force)
+        overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores = evaluate_candidate(
+            candidate, all_tests, pdf_basenames, args.force
+        )
         if all_test_scores:
             ci = calculate_bootstrap_ci(all_test_scores, n_bootstrap=n_bootstrap, ci_level=ci_level)
         else:
             ci = (0.0, 0.0)
-        summary.append((candidate_name, overall_score, total_tests, candidate_errors,
-                        test_failures, test_type_breakdown, ci, all_test_scores))
+        summary.append((candidate_name, overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, ci, all_test_scores))
         print(f"\nCandidate: {candidate_name}")
         if candidate_errors:
             for err in candidate_errors:

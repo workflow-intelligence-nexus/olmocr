@@ -1,8 +1,9 @@
 import random
+import re
 import string
 import time
 import unittest
-import re
+
 
 class RepeatDetector:
     def __init__(self, max_ngram_size: int = 10):
@@ -19,7 +20,7 @@ class RepeatDetector:
             return result
 
         # Normalize all whitespace to single spaces
-        text = re.sub(r'\s+', ' ', self.data)
+        text = re.sub(r"\s+", " ", self.data)
 
         # For each n-gram size
         for size in range(1, self.max_ngram_size + 1):

@@ -4,10 +4,10 @@ import os
 from google.ai import generativelanguage as glm
 from google.api_core import client_options
 
-
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.prompts.anchor import get_anchor_text
 from olmocr.prompts.prompts import build_openai_silver_data_prompt
+
 
 def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-2.0-flash", temperature: float = 0.1) -> str:
     """
@@ -77,7 +77,9 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-2.0-flash"
     response = client.generate_content(request)
 
     assert len(response.candidates) > 0, "No candidates found"
-    assert response.candidates[0].finish_reason == glm.Candidate.FinishReason.STOP, "Finish reason was not STOP, likely a processing error or repetition failure"
+    assert (
+        response.candidates[0].finish_reason == glm.Candidate.FinishReason.STOP
+    ), "Finish reason was not STOP, likely a processing error or repetition failure"
 
     result = response.candidates[0].content.parts[0].text
     return result

@@ -11,6 +11,7 @@ from olmocr.prompts.prompts import (
     openai_response_format_schema,
 )
 
+
 def run_chatgpt(pdf_path: str, page_num: int = 1, model: str = "gpt-4o-2024-08-06", temperature: float = 0.1) -> str:
     """
     Convert page of a PDF file to markdown using the commercial openAI APIs.

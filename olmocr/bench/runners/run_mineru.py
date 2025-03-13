@@ -5,8 +5,8 @@ from magic_pdf.config.enums import SupportedPdfParseMethod
 from magic_pdf.data.data_reader_writer import FileBasedDataReader, FileBasedDataWriter
 from magic_pdf.data.dataset import PymuDocDataset
 from magic_pdf.model.doc_analyze_by_custom_model import doc_analyze
-
 from pypdf import PdfReader, PdfWriter
+
 
 def run_mineru(pdf_path: str, page_num: int = 1) -> str:
     output_folder = tempfile.TemporaryDirectory()
@@ -18,23 +18,23 @@ def run_mineru(pdf_path: str, page_num: int = 1) -> str:
 
     if page_num > 0:  # If a specific page is requested
         reader = PdfReader(pdf_path)
-        
+
         # Check if the requested page exists
         if page_num > len(reader.pages):
             raise ValueError(f"Page {page_num} does not exist in the PDF. PDF has {len(reader.pages)} pages.")
-        
+
         # Create a new PDF with just the requested page
         writer = PdfWriter()
         # pypdf uses 0-based indexing, so subtract 1 from page_num
         writer.add_page(reader.pages[page_num - 1])
-        
+
         # Save the extracted page to a temporary file
-        temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+        temp_file = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
         temp_file.close()  # Close the file but keep the name
-        
-        with open(temp_file.name, 'wb') as output_pdf:
+
+        with open(temp_file.name, "wb") as output_pdf:
             writer.write(output_pdf)
-        
+
         pdf_to_process = temp_file.name
     else:
         pdf_to_process = pdf_path
