@@ -248,7 +248,7 @@ def process_candidate_file(candidate_file: str, pdfs_folder: str, sim_threshold:
     
     candidate_text = extract_candidate_content(candidate_file)
     tex_content = extract_tex_content(tex_file_path)
-    if not tex_content or not candidate_text or len(text_content.strip()) < 100 or len(candidate_text.strip()) < 100:
+    if not tex_content or not candidate_text or len(tex_content.strip()) < 100 or len(candidate_text.strip()) < 100:
         logging.error("No content extracted from %s", tex_file_path)
         return tests
 
@@ -334,7 +334,7 @@ def main():
     )
     parser.add_argument("--math_data", required=True, help="Path to math_data folder")
     parser.add_argument("--candidate", required=True, help="Candidate folder name inside math_data")
-    parser.add_argument("--max_pages", type=int, default=3, help="Maximum distinct pages with equations to process per TeX document")
+    parser.add_argument("--max_pages", type=int, default=1, help="Maximum distinct pages with equations to process per TeX document")
     parser.add_argument("--parallel", type=int, default=8, help="Maximum process pool workers")
     parser.add_argument("--sim_threshold", type=float, default=0.7, help="Similarity threshold for matching candidate text")
     
