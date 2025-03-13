@@ -53,6 +53,7 @@ gpu = [
     "sglang[all]==0.4.2",
     "flashinfer"
 ]
+
 dev = [
     "ruff",
     "mypy",
@@ -125,9 +126,6 @@ exclude = [
 
 [tool.setuptools]
 include-package-data = true
-find-links = [
-    "https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/"
-]
 
 [tool.setuptools.package-data]
 olmocr = [
