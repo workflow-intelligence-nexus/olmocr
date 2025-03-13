@@ -84,6 +84,7 @@ bench = [
     "google-generativeai",
     "playwright",
     "mistralai",
+    "lxml",
 ]
 
 train = [

@@ -23,7 +23,6 @@ from dataclasses import dataclass
 from typing import List
 import unittest
 import html.entities
-from lxml import etree
 
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
