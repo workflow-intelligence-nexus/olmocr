@@ -88,3 +88,10 @@
 {"pdf": "test-graphical-text.pdf", "page": 1, "id": "test_graphical_text_00", "type": "present", "text": "THE VISION"}
 {"pdf": "test-graphical-text.pdf", "page": 1, "id": "test_graphical_text_01", "type": "present", "text": "by FutureSkill"}
 {"pdf": "test-graphical-text.pdf", "page": 1, "id": "test_graphical_text_02", "type": "present", "text": "THE POWER OF STORYTELLING"}
+
+{"pdf": "small_page_size.pdf", "page": 1, "id": "small_page_size_00", "type": "present", "text": "Since the use of bones has, however, become general, the turnip crop has been, in many instances, ten-fold, and in a few less than four or five-fold its former bulk"}
+{"pdf": "small_page_size.pdf", "page": 1, "id": "small_page_size_00", "type": "order", "before": "Earthy and saline matter", "after": "Cartilage and jelly"}
+{"pdf": "small_page_size.pdf", "page": 1, "id": "small_page_size_00", "type": "present", "text": "The cartilage, indeed, when the bones have been buried in a dry situation, is very indescructible"}
+{"pdf": "small_page_size.pdf", "page": 1, "id": "small_page_size_00", "type": "absent", "text": "BRITISH HUSBANDRY"}
+{"pdf": "small_page_size.pdf", "page": 1, "id": "small_page_size_00", "type": "absent", "text": "400"}
+{"pdf": "small_page_size.pdf", "page": 1, "id": "small_page_size_00", "type": "absent", "text": "XIX"}
