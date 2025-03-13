@@ -109,9 +109,7 @@ jobs:
     name: GPU CI
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # TODO: @jakep
-    # once you fix the base checks, uncomment the following line for expense reasons
-    # needs: [checks]
+    needs: [checks]
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
       BEAKER_IMAGE: chrisw/olmocr-gpu-ci
