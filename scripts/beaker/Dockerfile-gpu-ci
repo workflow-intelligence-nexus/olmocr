@@ -32,5 +32,6 @@ RUN /install.sh && rm /install.sh
 
 
 WORKDIR /root
+COPY gpu-ci-script.sh .
 
 ENV PYTHONUNBUFFERED=1

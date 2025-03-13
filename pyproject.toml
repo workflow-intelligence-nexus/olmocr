@@ -51,7 +51,6 @@ Changelog = "https://github.com/allenai/olmocr/blob/main/CHANGELOG.md"
 gpu = [
     "sgl-kernel==0.0.3.post1",
     "sglang[all]==0.4.2",
-    "flashinfer"
 ]
 
 dev = [
