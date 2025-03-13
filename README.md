@@ -56,13 +56,12 @@ conda activate olmocr
 
 git clone https://github.com/allenai/olmocr.git
 cd olmocr
-pip install -e .
-```
 
-Install sglang with [flashinfer](https://github.com/flashinfer-ai/flashinfer) if you want to run inference on GPU.
-```bash
-pip install sgl-kernel==0.0.3.post1 --force-reinstall --no-deps
-pip install "sglang[all]==0.4.2" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
+# If running on CPU, run this:
+pip install -e .
+
+# If running on GPU, run this instead:
+pip install -e .[gpu] --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
 
 ### Local Usage Example
