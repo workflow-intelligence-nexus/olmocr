@@ -9,7 +9,8 @@ git clone https://github.com/allenai/olmocr.git olmocr \
     .[gpu] \
     pytest \
     --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/ \
-  && pytest tests/gnarly_pdfs/test_evaluate_gnarly_pdfs.py
+  && python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/*.pdf \
+  && pytest tests/gnarly_pdfs/test_gnarly_pdfs.py
 
 
 
