@@ -48,6 +48,11 @@ Changelog = "https://github.com/allenai/olmocr/blob/main/CHANGELOG.md"
 # Documentation = "https://olmocr.readthedocs.io/"
 
 [project.optional-dependencies]
+gpu = [
+    "sgl-kernel==0.0.3.post1",
+    "sglang[all]==0.4.2",
+    "flashinfer"
+]
 dev = [
     "ruff",
     "mypy",
@@ -120,6 +125,9 @@ exclude = [
 
 [tool.setuptools]
 include-package-data = true
+find-links = [
+    "https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/"
+]
 
 [tool.setuptools.package-data]
 olmocr = [
