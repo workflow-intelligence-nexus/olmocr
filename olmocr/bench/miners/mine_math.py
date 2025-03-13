@@ -18,7 +18,6 @@ Usage:
 
 import argparse
 import glob
-import json
 import logging
 import os
 import random
@@ -28,8 +27,6 @@ from typing import Dict, List, Optional, Tuple
 
 import numba
 import numpy as np
-from fuzzysearch import find_near_matches
-from rapidfuzz import fuzz
 from tqdm import tqdm
 
 from olmocr.bench.katex.render import render_equation

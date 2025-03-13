@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 
@@ -58,7 +58,6 @@ def perform_permutation_test(scores_a: List[float], scores_b: List[float], n_per
     # Combine all scores
     combined = np.concatenate([scores_a, scores_b])
     n_a = len(scores_a)
-    n_combined = len(combined)
 
     # Perform permutation test
     count_greater_or_equal = 0

@@ -25,7 +25,6 @@ from typing import Dict, List, Tuple
 from pypdf import PdfReader
 from tqdm import tqdm
 
-from .katex.render import clear_cache_dir
 from .tests import BaselineTest, BasePDFTest, load_tests
 from .utils import calculate_bootstrap_ci, perform_permutation_test
 
@@ -289,7 +288,7 @@ def main():
                 olmocr_name, olmocr_score = top_olmocr[0], top_olmocr[1]
                 non_olmocr_name, non_olmocr_score = top_non_olmocr[0], top_non_olmocr[1]
                 diff, p_value = perform_permutation_test(top_olmocr[7], top_non_olmocr[7])
-                print(f"\nComparison 1: Top olmocr vs Top non-olmocr candidate")
+                print("\nComparison 1: Top olmocr vs Top non-olmocr candidate")
                 print(f"  {olmocr_name} ({olmocr_score*100:.1f}%) vs {non_olmocr_name} ({non_olmocr_score*100:.1f}%)")
                 print(f"  Difference: {diff*100:.2f}% (positive means {olmocr_name} is better)")
                 print(f"  p-value: {p_value:.4f}")
@@ -302,7 +301,7 @@ def main():
 
             if len(top_two_olmocr) >= 2:
                 diff, p_value = perform_permutation_test(top_two_olmocr[0][7], top_two_olmocr[1][7])
-                print(f"\nComparison 2: Top two olmocr candidates")
+                print("\nComparison 2: Top two olmocr candidates")
                 print(f"  {top_two_olmocr[0][0]} ({top_two_olmocr[0][1]*100:.1f}%) vs {top_two_olmocr[1][0]} ({top_two_olmocr[1][1]*100:.1f}%)")
                 print(f"  Difference: {diff*100:.2f}% (positive means {top_two_olmocr[0][0]} is better)")
                 print(f"  p-value: {p_value:.4f}")

@@ -3,7 +3,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 from bs4 import BeautifulSoup
@@ -76,7 +76,7 @@ class BasePDFTest:
         if not self.id:
             raise ValidationError("Test ID cannot be empty")
         if not isinstance(self.max_diffs, int) or self.max_diffs < 0:
-            raise ValidationError(f"Max diffs must be positive number or 0")
+            raise ValidationError("Max diffs must be positive number or 0")
         if self.type not in {t.value for t in TestType}:
             raise ValidationError(f"Invalid test type: {self.type}")
 
@@ -328,7 +328,7 @@ class TableTest(BasePDFTest):
 
         # If no tables found, return failure
         if not tables_to_check:
-            return False, f"No tables found in the content"
+            return False, "No tables found in the content"
 
         # Check each table
         for table_array in tables_to_check:
@@ -495,7 +495,7 @@ class MathTest(BasePDFTest):
         if self.type != TestType.MATH.value:
             raise ValidationError(f"Invalid type for MathTest: {self.type}")
         if len(self.math.strip()) == 0:
-            raise ValidationError(f"Math test must have non-empty math expression")
+            raise ValidationError("Math test must have non-empty math expression")
 
         self.reference_render = render_equation(self.math)
 
@@ -528,9 +528,6 @@ class MathTest(BasePDFTest):
             return True, ""
 
         # If not, then let's render the math equation itself and now compare to each hypothesis
-        best_match_score = 0.0
-        best_match_render = None
-
         for hypothesis in equations:
             hypothesis_render = render_equation(hypothesis)
 
@@ -543,7 +540,7 @@ class MathTest(BasePDFTest):
         # self.reference_render.save(f"maths/{self.id}_ref.png", format="PNG")
         # best_match_render.save(f"maths/{self.id}_hyp.png", format="PNG")
 
-        return False, f"No match found for {self.math} anywhere in content, best match threshold was {best_match_score:.3f}"
+        return False, f"No match found for {self.math} anywhere in content"
 
 
 def load_tests(jsonl_file: str) -> List[BasePDFTest]:
@@ -556,9 +553,6 @@ def load_tests(jsonl_file: str) -> List[BasePDFTest]:
     Returns:
         A list of test objects.
     """
-    # First, count the total number of lines for an accurate progress bar.
-    with open(jsonl_file, "r") as f:
-        total_lines = sum(1 for _ in f)
 
     def process_line(line_tuple: Tuple[int, str]) -> Optional[Tuple[int, BasePDFTest]]:
         """

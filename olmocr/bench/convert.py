@@ -4,7 +4,6 @@ import glob
 import importlib
 import os
 from functools import partial
-from itertools import product
 
 from pypdf import PdfReader
 from tqdm import tqdm

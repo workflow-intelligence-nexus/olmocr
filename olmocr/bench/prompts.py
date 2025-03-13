@@ -1,8 +1,3 @@
-import re
-from dataclasses import dataclass
-from typing import Optional
-
-
 def claude_response_format_schema() -> dict:
     return (
         {

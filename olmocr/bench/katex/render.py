@@ -12,8 +12,6 @@ Requirements:
 """
 
 import hashlib
-import html
-import html.entities
 import json
 import os
 import pathlib
