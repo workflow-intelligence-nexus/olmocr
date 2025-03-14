@@ -119,7 +119,7 @@ def evaluate_candidate(
     total_test_score = 0.0
     futures = []
     # Use a thread pool to evaluate each test concurrently.
-    with ThreadPoolExecutor(max_workers=os.cpu_count() or 1) as executor:
+    with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 64)) as executor:
         futures = [executor.submit(process_test, test) for test in all_tests]
         # tqdm progress bar for this candidate's tests
         for future in tqdm(as_completed(futures), total=len(futures), desc=f"Evaluating tests for {candidate_name}", unit="test"):

@@ -598,7 +598,7 @@ def load_tests(jsonl_file: str) -> List[BasePDFTest]:
         lines = list(enumerate(f, start=1))
 
     # Use a ThreadPoolExecutor to process each line in parallel.
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 64)) as executor:
         # Submit all tasks concurrently.
         futures = {executor.submit(process_line, item): item[0] for item in lines}
         # Use tqdm to show progress as futures complete.
