@@ -9,7 +9,7 @@ git clone https://github.com/allenai/olmocr.git olmocr \
     .[gpu] \
     pytest \
     --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/ \
-  && bash tests/gnarly_pdfs/test_gnarly_pdfs.sh
+  && bash scripts/run_integration_test.sh
 
 
 

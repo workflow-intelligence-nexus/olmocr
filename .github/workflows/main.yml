@@ -112,7 +112,7 @@ jobs:
     needs: [checks]
     env:
       BEAKER_TOKEN: ${{ secrets.BEAKER_TOKEN }}
-      BEAKER_IMAGE: chrisw/olmocr-gpu-ci
+      BEAKER_IMAGE: jakep/olmocr-gpu-ci
       BEAKER_BUDGET: ai2/oe-data
       BEAKER_WORKSPACE: ai2/olmocr
     steps:
