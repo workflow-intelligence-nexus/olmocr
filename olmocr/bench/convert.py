@@ -95,7 +95,7 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, force, ma
         is_async = asyncio.iscoroutinefunction(method)
 
         # Use recursive glob to support nested PDFs
-        all_pdfs = glob.glob(os.path.join(pdf_directory, '**/*.pdf'), recursive=True)
+        all_pdfs = glob.glob(os.path.join(pdf_directory, "**/*.pdf"), recursive=True)
         all_pdfs.sort()
 
         # Prepare all tasks
@@ -160,8 +160,8 @@ if __name__ == "__main__":
         "methods",
         nargs="+",
         help="Methods to run in the format method[:key=value ...]. "
-             "Example: gotocr mineru:temperature=2 marker:u=3. "
-             "Use 'name=folder_name' to specify a custom output folder name.",
+        "Example: gotocr mineru:temperature=2 marker:u=3. "
+        "Use 'name=folder_name' to specify a custom output folder name.",
     )
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
     parser.add_argument(
