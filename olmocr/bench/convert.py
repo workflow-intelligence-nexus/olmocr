@@ -94,7 +94,8 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, force, ma
         kwargs = config[candidate]["kwargs"]
         is_async = asyncio.iscoroutinefunction(method)
 
-        all_pdfs = glob.glob(os.path.join(pdf_directory, "*.pdf"))
+        # Use recursive glob to support nested PDFs
+        all_pdfs = glob.glob(os.path.join(pdf_directory, '**/*.pdf'), recursive=True)
         all_pdfs.sort()
 
         # Prepare all tasks
@@ -104,13 +105,18 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, force, ma
         for pdf_path in all_pdfs:
             pdf = PdfReader(pdf_path)
             num_pages = len(pdf.pages)
-
             base_name = os.path.basename(pdf_path).replace(".pdf", "")
+            # Determine the PDF's relative folder path (e.g. "arxiv_data") relative to pdf_directory
+            relative_pdf_path = os.path.relpath(pdf_path, pdf_directory)
+            pdf_relative_dir = os.path.dirname(relative_pdf_path)
 
             for repeat in range(1, repeats + 1):
                 for page_num in range(1, num_pages + 1):
                     output_filename = f"{base_name}_pg{page_num}_repeat{repeat}.md"
-                    output_path = os.path.join(candidate_output_dir, output_filename)
+                    # Preserve the relative folder structure in the output directory
+                    candidate_pdf_dir = os.path.join(candidate_output_dir, pdf_relative_dir)
+                    os.makedirs(candidate_pdf_dir, exist_ok=True)
+                    output_path = os.path.join(candidate_pdf_dir, output_filename)
 
                     if os.path.exists(output_path) and not force:
                         print(f"Skipping {base_name}_pg{page_num}_repeat{repeat} for {candidate}, file already exists")
@@ -154,8 +160,8 @@ if __name__ == "__main__":
         "methods",
         nargs="+",
         help="Methods to run in the format method[:key=value ...]. "
-        "Example: gotocr mineru:temperature=2 marker:u=3. "
-        "Use 'name=folder_name' to specify a custom output folder name.",
+             "Example: gotocr mineru:temperature=2 marker:u=3. "
+             "Use 'name=folder_name' to specify a custom output folder name.",
     )
     parser.add_argument("--repeats", type=int, default=1, help="Number of times to repeat the conversion for each PDF.")
     parser.add_argument(
