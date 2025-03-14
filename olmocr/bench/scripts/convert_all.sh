@@ -191,19 +191,28 @@ check_port || exit 1
 
 # olmocr_base_temp0_1 using sglang server
 start_server sglang "allenai/olmOCR-7B-0225-preview" --chat-template qwen2-vl --mem-fraction-static 0.7
-python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
-python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_0:model=allenai/olmOCR-7B-0225-preview:temperature=0.0:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_2:model=allenai/olmOCR-7B-0225-preview:temperature=0.2:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_3:model=allenai/olmOCR-7B-0225-preview:temperature=0.3:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_4:model=allenai/olmOCR-7B-0225-preview:temperature=0.4:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_5:model=allenai/olmOCR-7B-0225-preview:temperature=0.5:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+
+python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
 stop_server
 
 start_server vllm "allenai/olmOCR-7B-0225-preview"
-python -m olmocr.bench.convert server:name=olmocr_base_vllm_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
-python -m olmocr.bench.convert server:name=olmocr_base_vllm_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 20
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp_vllm0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+
+python -m olmocr.bench.convert server:name=olmocr_base_vllm_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+python -m olmocr.bench.convert server:name=olmocr_base_vllm_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
 stop_server
 
 # Feel free to enable if you want
 # qwen2_vl_7b using sglang server
 # start_server sglang "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
-# python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
+# python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 50
 # stop_server
 
 # TODO: qwen2.5 Not working right now in sglang
@@ -213,7 +222,7 @@ stop_server
 # pip install olmocr
 # pip install "sglang[all]>=0.4.3.post2" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python transformers==4.48.3
 # start_server sglang "Qwen/Qwen2.5-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
-# python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 20
+# python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 50
 # stop_server
 
 # TODO: Fix this, I was not able to get it to all install successfully
