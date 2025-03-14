@@ -58,8 +58,10 @@ def evaluate_candidate(
     for pdf_name in pdf_basenames:
         md_base = os.path.splitext(pdf_name)[0]
         md_regex = re.compile(rf"^{re.escape(md_base)}_pg\d+_repeat\d+\.md$")
-        all_files = os.listdir(candidate_folder)
-        md_files = [os.path.join(candidate_folder, f) for f in all_files if md_regex.match(f)]
+        all_files = list(glob.glob(os.path.join(candidate_folder, "**/*.md"), recursive=True))
+
+        md_files = [f for f in all_files if md_regex.match(os.path.relpath(f, candidate_folder))]
+
         if not md_files and not force:
             candidate_errors.append(
                 f"Candidate '{candidate_name}' is missing MD repeats for {pdf_name} " f"(expected files matching {md_base}_pg{{page}}_repeat*.md)."
@@ -185,12 +187,13 @@ def main():
         print("Error: /pdfs folder must exist in your data directory.", file=sys.stderr)
         sys.exit(1)
 
-    all_pdf_files = list(glob.glob(os.path.join(pdf_folder, "*.pdf")))
+    all_pdf_files = list(glob.glob(os.path.join(pdf_folder, "**/*.pdf"), recursive=True))
+
     if not all_pdf_files:
         print(f"Error: No PDF files found in {pdf_folder}", file=sys.stderr)
         sys.exit(1)
 
-    pdf_basenames = [os.path.basename(p) for p in all_pdf_files]
+    pdf_basenames = [os.path.relpath(p, pdf_folder) for p in all_pdf_files]
 
     jsonl_files = glob.glob(os.path.join(input_folder, "*.jsonl"))
     if not jsonl_files:
