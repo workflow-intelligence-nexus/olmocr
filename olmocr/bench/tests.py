@@ -528,6 +528,9 @@ class MathTest(BasePDFTest):
             return True, ""
 
         # If not, then let's render the math equation itself and now compare to each hypothesis
+        # But, to speed things up, since rendering equations is hard, we sort the equations on the page
+        # by fuzzy similarity to the hypothesis
+        equations.sort(key=lambda x: -fuzz.ratio(x, self.math))
         for hypothesis in equations:
             hypothesis_render = render_equation(hypothesis)
 

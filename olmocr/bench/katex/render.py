@@ -20,7 +20,7 @@ import shutil
 import threading
 import unittest
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
@@ -79,6 +79,72 @@ def clear_cache_dir():
         cache_dir.mkdir(parents=True, exist_ok=True)
 
 
+def load_cached_equation(eq_hash: str, use_cache: bool) -> Optional[RenderedEquation]:
+    """
+    Attempt to load a cached RenderedEquation based on the hash.
+    Only perform minimal file existence checks under lock, then read/parse outside the lock.
+    """
+    if not use_cache:
+        return None
+
+    cache_dir = get_cache_dir()
+    cache_file = cache_dir / f"{eq_hash}.json"
+    cache_error_file = cache_dir / f"{eq_hash}_error"
+
+    with cache_lock:
+        if cache_error_file.exists():
+            return None
+        file_exists = cache_file.exists()
+
+    if file_exists:
+        try:
+            with open(cache_file, "r") as f:
+                data = json.load(f)
+            spans = [
+                SpanInfo(
+                    text=s["text"],
+                    bounding_box=BoundingBox(
+                        x=s["boundingBox"]["x"],
+                        y=s["boundingBox"]["y"],
+                        width=s["boundingBox"]["width"],
+                        height=s["boundingBox"]["height"],
+                    ),
+                )
+                for s in data["spans"]
+            ]
+            return RenderedEquation(mathml=data["mathml"], spans=spans)
+        except Exception as e:
+            print(f"Error reading cache file {cache_file}: {e}")
+            return None
+    return None
+
+
+def save_cached_equation(eq_hash: str, rendered_eq: RenderedEquation):
+    """
+    Save the rendered equation to the cache file, with the file write operation done under lock.
+    """
+    cache_dir = get_cache_dir()
+    cache_file = cache_dir / f"{eq_hash}.json"
+    cache_data = {
+        "mathml": rendered_eq.mathml,
+        "spans": [
+            {
+                "text": span.text,
+                "boundingBox": {
+                    "x": span.bounding_box.x,
+                    "y": span.bounding_box.y,
+                    "width": span.bounding_box.width,
+                    "height": span.bounding_box.height,
+                },
+            }
+            for span in rendered_eq.spans
+        ],
+    }
+    with cache_lock:
+        with open(cache_file, "w") as f:
+            json.dump(cache_data, f)
+
+
 def init_browser():
     """
     Initialize the Playwright and browser instance for the current thread if not already done.
@@ -112,38 +178,18 @@ def render_equation(
     Returns:
         RenderedEquation: A dataclass containing the mathml string and a list of SpanInfo dataclasses.
     """
-    # Calculate hash for caching
+    # Calculate hash for caching.
     eq_hash = get_equation_hash(equation, bg_color, text_color, font_size)
-    cache_dir = get_cache_dir()
-    cache_file = cache_dir / f"{eq_hash}.json"
-    cache_error_file = cache_dir / f"{eq_hash}_error"
 
-    # Use lock to ensure thread-safe cache file access
-    with cache_lock:
-        if use_cache:
-            if cache_error_file.exists():
-                return None
-            if cache_file.exists():
-                with open(cache_file, "r") as f:
-                    data = json.load(f)
-                spans = [
-                    SpanInfo(
-                        text=s["text"],
-                        bounding_box=BoundingBox(
-                            x=s["boundingBox"]["x"],
-                            y=s["boundingBox"]["y"],
-                            width=s["boundingBox"]["width"],
-                            height=s["boundingBox"]["height"],
-                        ),
-                    )
-                    for s in data["spans"]
-                ]
-                return RenderedEquation(mathml=data["mathml"], spans=spans)
+    # Try to load from cache.
+    cached = load_cached_equation(eq_hash, use_cache)
+    if cached is not None:
+        return cached
 
     # Escape the equation for use in a JavaScript string.
     escaped_equation = json.dumps(equation)
 
-    # Get local paths for KaTeX files
+    # Get local paths for KaTeX files.
     script_dir = os.path.dirname(os.path.abspath(__file__))
     katex_css_path = os.path.join(script_dir, "katex.min.css")
     katex_js_path = os.path.join(script_dir, "katex.min.js")
@@ -220,6 +266,8 @@ def render_equation(
         print(f"Error rendering equation: '{equation}'")
         print(error_message)
         with cache_lock:
+            cache_dir = get_cache_dir()
+            cache_error_file = cache_dir / f"{eq_hash}_error"
             cache_error_file.touch()
         page.close()
         return None
@@ -244,7 +292,7 @@ def render_equation(
         const spans = Array.from(document.querySelectorAll('span'));
         const list = [];
         spans.forEach(span => {
-            if (span.children.length === 0 && /\S/.test(span.textContent)) {
+            if (span.children.length === 0 && /\\S/.test(span.textContent)) {
                 const rect = span.getBoundingClientRect();
                 list.push({
                     text: span.textContent.trim(),
@@ -283,26 +331,19 @@ def render_equation(
         spans=[
             SpanInfo(
                 text=s["text"],
-                bounding_box=BoundingBox(x=s["boundingBox"]["x"], y=s["boundingBox"]["y"], width=s["boundingBox"]["width"], height=s["boundingBox"]["height"]),
+                bounding_box=BoundingBox(
+                    x=s["boundingBox"]["x"],
+                    y=s["boundingBox"]["y"],
+                    width=s["boundingBox"]["width"],
+                    height=s["boundingBox"]["height"],
+                ),
             )
             for s in spans_info
         ],
     )
 
-    # Cache the rendered equation.
-    cache_data = {
-        "mathml": rendered_eq.mathml,
-        "spans": [
-            {
-                "text": span.text,
-                "boundingBox": {"x": span.bounding_box.x, "y": span.bounding_box.y, "width": span.bounding_box.width, "height": span.bounding_box.height},
-            }
-            for span in rendered_eq.spans
-        ],
-    }
-    with cache_lock:
-        with open(cache_file, "w") as f:
-            json.dump(cache_data, f)
+    # Save the rendered equation to cache.
+    save_cached_equation(eq_hash, rendered_eq)
     return rendered_eq
 
 
