@@ -16,6 +16,7 @@ class TestPipelineIntegration(unittest.TestCase):
                 for line in jf:
                     if len(line.strip()) > 0:
                         self.data.append(json.loads(line))
+                        print(self.data[-1])
 
     def test_edgar(self) -> None:
         self.assertTrue(any("King of England" in line["text"] for line in self.data))
