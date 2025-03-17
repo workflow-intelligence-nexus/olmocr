@@ -16,7 +16,6 @@ import json
 import os
 import pathlib
 import re
-import shutil
 import sqlite3
 import threading
 import unittest
@@ -27,6 +26,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 # --- New SQLite Cache Implementation ---
+
 
 class EquationCache:
     def __init__(self, db_path: Optional[str] = None):
@@ -44,14 +44,16 @@ class EquationCache:
             conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
             # Added an 'error' column to store rendering errors
-            c.execute('''
+            c.execute(
+                """
                 CREATE TABLE IF NOT EXISTS equations (
                     eq_hash TEXT PRIMARY KEY,
                     mathml TEXT,
                     spans TEXT,
                     error TEXT
                 )
-            ''')
+            """
+            )
             conn.commit()
             conn.close()
 
@@ -125,6 +127,7 @@ equation_cache = EquationCache()
 
 # Thread-local storage for Playwright and browser instances
 _thread_local = threading.local()
+
 
 @dataclass
 class BoundingBox:
