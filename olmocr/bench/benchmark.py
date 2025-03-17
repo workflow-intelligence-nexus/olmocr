@@ -16,6 +16,7 @@ Pairwise permutation tests are conducted between specific candidate pairs.
 import argparse
 import glob
 import os
+import random
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,20 +26,21 @@ from typing import Dict, List, Tuple
 from pypdf import PdfReader
 from tqdm import tqdm
 
+from .report import generate_html_report
 from .tests import BaselineTest, BasePDFTest, load_tests
 from .utils import calculate_bootstrap_ci, perform_permutation_test
 
 
 def evaluate_candidate(
     candidate_folder: str, all_tests: List[BasePDFTest], pdf_basenames: List[str], force: bool = False
-) -> Tuple[float, int, List[str], List[str], Dict[str, List[float]], List[float]]:
+) -> Tuple[float, int, List[str], List[str], Dict[str, List[float]], List[float], Dict[str, Dict[int, List[Tuple[BasePDFTest, bool, str]]]]]:
     """
     For the candidate folder (pipeline tool output), validate that it contains at least one .md file
     (i.e. repeated generations like _pg{page}_repeat{repeat}.md) for every PDF in the pdf folder.
     Then, run each rule against all corresponding .md files concurrently and average the results.
 
     Returns a tuple:
-      (overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores)
+      (overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores, test_results)
 
       - overall_score: Average fraction of tests passed (averaged over repeats and tests).
       - total_tests: Total number of tests evaluated.
@@ -46,11 +48,13 @@ def evaluate_candidate(
       - test_failures: List of failure messages for tests not passing on all repeats.
       - test_type_breakdown: Dictionary mapping test type to list of average pass ratios for tests of that type.
       - all_test_scores: List of all individual test scores (used for bootstrapping).
+      - test_results: Dictionary mapping PDF name to dictionary mapping page number to list of (test, passed, explanation) tuples.
     """
     candidate_errors = []
     test_failures = []
     test_type_breakdown = {}  # key: test type, value: list of average pass ratios
     all_test_scores = []  # Store all individual test scores for bootstrapping
+    test_results = {}  # Store detailed test results for reporting
     candidate_name = os.path.basename(candidate_folder)
 
     # Map each PDF to its corresponding MD repeats (e.g., doc1_pg1_repeat1.md, doc1_pg2_repeat2.md, etc.)
@@ -70,13 +74,20 @@ def evaluate_candidate(
             pdf_to_md_files[pdf_name] = md_files
 
     if candidate_errors:
-        return (0.0, len(all_tests), candidate_errors, test_failures, test_type_breakdown, all_test_scores)
+        return (0.0, len(all_tests), candidate_errors, test_failures, test_type_breakdown, all_test_scores, test_results)
 
     # Define an inner function to evaluate a single test
-    def process_test(test: BasePDFTest) -> Tuple[float, str, str, List[str]]:
+    def process_test(test: BasePDFTest) -> Tuple[float, str, str, List[str], Tuple[bool, str]]:
         local_errors = []
         test_failure = None
         pdf_name = test.pdf
+
+        # Initialize the test_results structure if needed
+        if pdf_name not in test_results:
+            test_results[pdf_name] = {}
+        if test.page not in test_results[pdf_name]:
+            test_results[pdf_name][test.page] = []
+
         md_base = os.path.splitext(pdf_name)[0]
         md_files = pdf_to_md_files.get(pdf_name, [])
         # Filter MD files for the specific page corresponding to the test
@@ -86,7 +97,8 @@ def evaluate_candidate(
                 f"Candidate '{candidate_name}' is missing MD repeats for {pdf_name} page {test.page} "
                 f"(expected files matching {md_base}_pg{test.page}_repeat*.md)."
             )
-            return (0.0, None, test.type, local_errors)
+            test_results[pdf_name][test.page].append((test, False, "Missing MD files"))
+            return (0.0, None, test.type, local_errors, (False, "Missing MD files"))
 
         repeat_passes = 0
         num_repeats = 0
@@ -111,12 +123,18 @@ def evaluate_candidate(
                 explanations.append(str(e))
 
         test_avg = repeat_passes / num_repeats if num_repeats > 0 else 0.0
+        final_passed = test_avg > 0.5  # Consider test passed if majority of repeats pass
+        final_explanation = explanations[0] if explanations else "All repeats passed"
+
+        # Store the test result for reporting
+        test_results[pdf_name][test.page].append((test, final_passed, final_explanation))
+
         if test_avg < 1.0:
             test_failure = (
                 f"Test {test.id} on {md_base} page {test.page} average pass ratio: {test_avg:.3f} "
                 f"({repeat_passes}/{num_repeats} repeats passed). Ex: {explanations[0] if explanations else 'No explanation'}"
             )
-        return (test_avg, test_failure, test.type, local_errors)
+        return (test_avg, test_failure, test.type, local_errors, (final_passed, final_explanation))
 
     total_test_score = 0.0
     futures = []
@@ -125,7 +143,7 @@ def evaluate_candidate(
         futures = [executor.submit(process_test, test) for test in all_tests]
         # tqdm progress bar for this candidate's tests
         for future in tqdm(as_completed(futures), total=len(futures), desc=f"Evaluating tests for {candidate_name}", unit="test"):
-            test_avg, test_failure, test_type, errors = future.result()
+            test_avg, test_failure, test_type, errors, _ = future.result()
             all_test_scores.append(test_avg)
             total_test_score += test_avg
             if test_failure:
@@ -138,7 +156,7 @@ def evaluate_candidate(
                 candidate_errors.extend(local_errors)
 
     overall_score = total_test_score / len(all_tests) if all_tests else 0.0
-    return (overall_score, len(all_tests), candidate_errors, test_failures, test_type_breakdown, all_test_scores)
+    return (overall_score, len(all_tests), candidate_errors, test_failures, test_type_breakdown, all_test_scores, test_results)
 
 
 def main():
@@ -176,6 +194,9 @@ def main():
             "run permutation tests on all pairs of the specified candidates."
         ),
     )
+    # New arguments
+    parser.add_argument("--sample", type=int, default=None, help="Randomly sample N tests to run instead of all tests.")
+    parser.add_argument("--test_report", type=str, default=None, help="Generate an HTML report of test results. Provide a filename (e.g., results.html).")
     args = parser.parse_args()
 
     input_folder = args.input_folder
@@ -220,6 +241,14 @@ def main():
                 print(f"No dataset entry found for pdf {pdf} page {page}")
                 sys.exit(1)
 
+    # Sample tests if requested
+    if args.sample is not None and args.sample > 0:
+        if args.sample >= len(all_tests):
+            print(f"Sample size {args.sample} is greater than or equal to the total number of tests ({len(all_tests)}). Using all tests.")
+        else:
+            print(f"Randomly sampling {args.sample} tests out of {len(all_tests)} total tests.")
+            all_tests = random.sample(all_tests, args.sample)
+
     candidate_folders = []
     for entry in os.listdir(input_folder):
         full_path = os.path.join(input_folder, entry)
@@ -237,14 +266,20 @@ def main():
     candidate_folders.sort()
 
     summary = []
+    test_results_by_candidate = {}
     print("\nRunning tests for each candidate:")
-    # Process candidates sequentially so that each candidate’s progress bar is distinct.
+    # Process candidates sequentially so that each candidate's progress bar is distinct.
     for candidate in candidate_folders:
         candidate_name = os.path.basename(candidate)
         print(f"\nEvaluating candidate: {candidate_name}")
-        overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores = evaluate_candidate(
+        overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores, test_results = evaluate_candidate(
             candidate, all_tests, pdf_basenames, args.force
         )
+
+        # Store test results for the report if needed
+        if args.test_report:
+            test_results_by_candidate[candidate_name] = test_results
+
         if all_test_scores:
             ci = calculate_bootstrap_ci(all_test_scores, n_bootstrap=n_bootstrap, ci_level=ci_level)
         else:
@@ -331,6 +366,10 @@ def main():
                     else:
                         print("  Result: No statistically significant difference (p ≥ 0.05)")
         print("=" * 60)
+
+    # Generate HTML report if requested
+    if args.test_report:
+        generate_html_report(test_results_by_candidate, pdf_folder, args.test_report)
 
 
 if __name__ == "__main__":

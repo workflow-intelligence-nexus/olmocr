@@ -2,7 +2,7 @@
 """
 Extract inner-most spans and their bounding boxes, and the MathML output,
 from rendered LaTeX equations using Playwright and KaTeX.
-Caching is maintained via a SHA1-based hash stored as a JSON file.
+Caching is maintained via a SHA1-based hash stored in a sqlite database.
 
 Requirements:
     pip install playwright
@@ -16,7 +16,7 @@ import json
 import os
 import pathlib
 import re
-import shutil
+import sqlite3
 import threading
 import unittest
 from dataclasses import dataclass
@@ -25,11 +25,108 @@ from typing import List, Optional
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
+# --- New SQLite Cache Implementation ---
+
+
+class EquationCache:
+    def __init__(self, db_path: Optional[str] = None):
+        if db_path is None:
+            # Use the same cache directory as before
+            cache_dir = pathlib.Path.home() / ".cache" / "olmocr" / "bench" / "equations"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            db_path = str(cache_dir / "cache.db")
+        self.db_path = db_path
+        self.lock = threading.Lock()
+        self._init_db()
+
+    def _init_db(self):
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            # Added an 'error' column to store rendering errors
+            c.execute(
+                """
+                CREATE TABLE IF NOT EXISTS equations (
+                    eq_hash TEXT PRIMARY KEY,
+                    mathml TEXT,
+                    spans TEXT,
+                    error TEXT
+                )
+            """
+            )
+            conn.commit()
+            conn.close()
+
+    def load(self, eq_hash: str) -> Optional["RenderedEquation"]:
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute("SELECT mathml, spans, error FROM equations WHERE eq_hash = ?", (eq_hash,))
+            row = c.fetchone()
+            conn.close()
+        if row:
+            mathml, spans_json, error = row
+            if error:
+                # In error cases, we return an instance with error set and no spans.
+                return RenderedEquation(mathml=mathml, spans=[], error=error)
+            else:
+                spans_data = json.loads(spans_json)
+                spans = [
+                    SpanInfo(
+                        text=s["text"],
+                        bounding_box=BoundingBox(
+                            x=s["boundingBox"]["x"],
+                            y=s["boundingBox"]["y"],
+                            width=s["boundingBox"]["width"],
+                            height=s["boundingBox"]["height"],
+                        ),
+                    )
+                    for s in spans_data
+                ]
+                return RenderedEquation(mathml=mathml, spans=spans)
+        return None
+
+    def save(self, eq_hash: str, rendered_eq: "RenderedEquation"):
+        spans_data = [
+            {
+                "text": span.text,
+                "boundingBox": {
+                    "x": span.bounding_box.x,
+                    "y": span.bounding_box.y,
+                    "width": span.bounding_box.width,
+                    "height": span.bounding_box.height,
+                },
+            }
+            for span in rendered_eq.spans
+        ]
+        spans_json = json.dumps(spans_data)
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute(
+                "INSERT OR REPLACE INTO equations (eq_hash, mathml, spans, error) VALUES (?, ?, ?, ?)",
+                (eq_hash, rendered_eq.mathml, spans_json, rendered_eq.error),
+            )
+            conn.commit()
+            conn.close()
+
+    def clear(self):
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute("DELETE FROM equations")
+            conn.commit()
+            conn.close()
+
+
+# Global instance of EquationCache
+equation_cache = EquationCache()
+
+# --- End SQLite Cache Implementation ---
+
+
 # Thread-local storage for Playwright and browser instances
 _thread_local = threading.local()
-
-# Global cache lock to protect cache file operations.
-cache_lock = threading.Lock()
 
 
 @dataclass
@@ -50,6 +147,7 @@ class SpanInfo:
 class RenderedEquation:
     mathml: str
     spans: List[SpanInfo]
+    error: Optional[str] = None  # New field to store error messages if rendering fails
 
 
 def get_equation_hash(equation, bg_color="white", text_color="black", font_size=24):
@@ -58,91 +156,6 @@ def get_equation_hash(equation, bg_color="white", text_color="black", font_size=
     """
     params_str = f"{equation}|{bg_color}|{text_color}|{font_size}"
     return hashlib.sha1(params_str.encode("utf-8")).hexdigest()
-
-
-def get_cache_dir():
-    """
-    Get the cache directory for equations, creating it if it doesn't exist.
-    """
-    cache_dir = pathlib.Path.home() / ".cache" / "olmocr" / "bench" / "equations"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
-
-
-def clear_cache_dir():
-    """
-    Clear all files and subdirectories in the cache directory.
-    """
-    cache_dir = get_cache_dir()
-    if cache_dir.exists() and cache_dir.is_dir():
-        shutil.rmtree(cache_dir)
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
-
-def load_cached_equation(eq_hash: str, use_cache: bool) -> Optional[RenderedEquation]:
-    """
-    Attempt to load a cached RenderedEquation based on the hash.
-    Only perform minimal file existence checks under lock, then read/parse outside the lock.
-    """
-    if not use_cache:
-        return None
-
-    cache_dir = get_cache_dir()
-    cache_file = cache_dir / f"{eq_hash}.json"
-    cache_error_file = cache_dir / f"{eq_hash}_error"
-
-    with cache_lock:
-        if cache_error_file.exists():
-            return None
-        file_exists = cache_file.exists()
-
-    if file_exists:
-        try:
-            with open(cache_file, "r") as f:
-                data = json.load(f)
-            spans = [
-                SpanInfo(
-                    text=s["text"],
-                    bounding_box=BoundingBox(
-                        x=s["boundingBox"]["x"],
-                        y=s["boundingBox"]["y"],
-                        width=s["boundingBox"]["width"],
-                        height=s["boundingBox"]["height"],
-                    ),
-                )
-                for s in data["spans"]
-            ]
-            return RenderedEquation(mathml=data["mathml"], spans=spans)
-        except Exception as e:
-            print(f"Error reading cache file {cache_file}: {e}")
-            return None
-    return None
-
-
-def save_cached_equation(eq_hash: str, rendered_eq: RenderedEquation):
-    """
-    Save the rendered equation to the cache file, with the file write operation done under lock.
-    """
-    cache_dir = get_cache_dir()
-    cache_file = cache_dir / f"{eq_hash}.json"
-    cache_data = {
-        "mathml": rendered_eq.mathml,
-        "spans": [
-            {
-                "text": span.text,
-                "boundingBox": {
-                    "x": span.bounding_box.x,
-                    "y": span.bounding_box.y,
-                    "width": span.bounding_box.width,
-                    "height": span.bounding_box.height,
-                },
-            }
-            for span in rendered_eq.spans
-        ],
-    }
-    with cache_lock:
-        with open(cache_file, "w") as f:
-            json.dump(cache_data, f)
 
 
 def init_browser():
@@ -172,19 +185,16 @@ def render_equation(
 ):
     """
     Render a LaTeX equation using Playwright and KaTeX, extract the inner-most span elements
-    (those without child elements that contain non-whitespace text) along with their bounding boxes,
-    and extract the MathML output generated by KaTeX.
-
-    Returns:
-        RenderedEquation: A dataclass containing the mathml string and a list of SpanInfo dataclasses.
+    along with their bounding boxes, and extract the MathML output generated by KaTeX.
     """
     # Calculate hash for caching.
     eq_hash = get_equation_hash(equation, bg_color, text_color, font_size)
 
-    # Try to load from cache.
-    cached = load_cached_equation(eq_hash, use_cache)
-    if cached is not None:
-        return cached
+    # Try to load from SQLite cache.
+    if use_cache:
+        cached = equation_cache.load(eq_hash)
+        if cached is not None:
+            return cached
 
     # Escape the equation for use in a JavaScript string.
     escaped_equation = json.dumps(equation)
@@ -265,12 +275,12 @@ def render_equation(
     if error_message:
         print(f"Error rendering equation: '{equation}'")
         print(error_message)
-        with cache_lock:
-            cache_dir = get_cache_dir()
-            cache_error_file = cache_dir / f"{eq_hash}_error"
-            cache_error_file.touch()
+        # Cache the error result so we don't retry it next time.
+        rendered_eq = RenderedEquation(mathml=error_message, spans=[], error=error_message)
+        if use_cache:
+            equation_cache.save(eq_hash, rendered_eq)
         page.close()
-        return None
+        return rendered_eq
 
     page.wait_for_selector(".katex", state="attached")
 
@@ -342,15 +352,17 @@ def render_equation(
         ],
     )
 
-    # Save the rendered equation to cache.
-    save_cached_equation(eq_hash, rendered_eq)
+    # Save the successfully rendered equation to the SQLite cache.
+    if use_cache:
+        equation_cache.save(eq_hash, rendered_eq)
     return rendered_eq
 
 
 def compare_rendered_equations(reference: RenderedEquation, hypothesis: RenderedEquation) -> bool:
     """
-    Compare two RenderedEquation objects. First, check if the normalized MathML of the hypothesis
-    is contained within that of the reference. If not, perform a neighbor-based matching on the spans.
+    Compare two RenderedEquation objects.
+    First, check if the normalized MathML of the hypothesis is contained within that of the reference.
+    If not, perform a neighbor-based matching on the spans.
     """
     from bs4 import BeautifulSoup
 
@@ -503,6 +515,17 @@ class TestRenderedEquationComparison(unittest.TestCase):
         align_rendered = render_equation(
             "\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\varphi(g s)}\\right]."
         )
+        self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
+
+    def test_x_vs_textx(self):
+        ref_rendered = render_equation("C_{T}\\left(u_{n}^{T} X_{n}^{\\text {Test }}, \\bar{x}^{\\text {Test }}\\right)")
+        align_rendered = render_equation("C_T \\left(u^T_n X^{\\text{Test}}_n,\\overline{ \\text{x}}^{\\text{Test}}\\right)")
+        self.assertFalse(compare_rendered_equations(ref_rendered, align_rendered))
+
+    @unittest.skip("There is a debate whether bar and overline should be the same, currently they are not")
+    def test_overline(self):
+        ref_rendered = render_equation("C_{T}\\left(u_{n}^{T} X_{n}^{\\text {Test }}, \\bar{x}^{\\text {Test }}\\right)")
+        align_rendered = render_equation("C_T \\left(u^T_n X^{\\text{Test}}_n,\\overline{ x}^{\\text{Test}}\\right)")
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
     def test_dot_end2(self):

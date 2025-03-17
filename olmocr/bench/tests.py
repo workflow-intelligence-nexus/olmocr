@@ -106,6 +106,8 @@ class TextPresenceTest(BasePDFTest):
 
     text: str
     case_sensitive: bool = True
+    first_n: Optional[int] = None
+    last_n: Optional[int] = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -123,6 +125,13 @@ class TextPresenceTest(BasePDFTest):
         if not self.case_sensitive:
             reference_query = reference_query.lower()
             md_content = md_content.lower()
+
+        if self.first_n and self.last_n:
+            md_content = md_content[: self.first_n] + md_content[-self.last_n :]
+        elif self.first_n:
+            md_content = md_content[: self.first_n]
+        elif self.last_n:
+            md_content = md_content[-self.last_n :]
 
         # Threshold for fuzzy matching derived from max_diffs
         threshold = 1.0 - (self.max_diffs / (len(reference_query) if len(reference_query) > 0 else 1))
