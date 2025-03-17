@@ -517,6 +517,17 @@ class TestRenderedEquationComparison(unittest.TestCase):
         )
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
+    def test_x_vs_textx(self):
+        ref_rendered = render_equation("C_{T}\\left(u_{n}^{T} X_{n}^{\\text {Test }}, \\bar{x}^{\\text {Test }}\\right)")
+        align_rendered = render_equation("C_T \\left(u^T_n X^{\\text{Test}}_n,\\overline{ \\text{x}}^{\\text{Test}}\\right)")
+        self.assertFalse(compare_rendered_equations(ref_rendered, align_rendered))
+
+    @unittest.skip("There is a debate whether bar and overline should be the same, currently they are not")
+    def test_overline(self):
+        ref_rendered = render_equation("C_{T}\\left(u_{n}^{T} X_{n}^{\\text {Test }}, \\bar{x}^{\\text {Test }}\\right)")
+        align_rendered = render_equation("C_T \\left(u^T_n X^{\\text{Test}}_n,\\overline{ x}^{\\text{Test}}\\right)")
+        self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
+
     def test_dot_end2(self):
         ref_rendered = render_equation(
             "\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\psi(g s)}\\right]"
