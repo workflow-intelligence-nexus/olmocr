@@ -22,7 +22,48 @@
         
         h1 {
             color: #333;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .stats-header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+            background-color: #f8f9fa;
+            padding: 6px 8px;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+            font-size: 0.85rem;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 3px;
+            color: white;
+            font-weight: 500;
+        }
+        
+        .stat-total {
+            background-color: #4a6fa5;
+        }
+        
+        .stat-null {
+            background-color: #6c757d;
+        }
+        
+        .stat-verified {
+            background-color: #28a745;
+        }
+        
+        .stat-rejected {
+            background-color: #dc3545;
+        }
+        
+        .stat-completion {
+            background-color: #17a2b8;
         }
         
         .navigation {
@@ -190,7 +231,21 @@
         .editable {
             border: 1px dashed #ccc;
             padding: 5px;
-            margin-bottom: 5px;
+            margin-bottom: 10px;
+            margin-top: 2px;
+            display: inline-block;
+            min-width: 50px;
+            cursor: pointer;
+            background-color: rgba(240, 240, 240, 0.2);
+        }
+        
+        .editable:hover {
+            background-color: rgba(200, 200, 200, 0.3);
+            border-color: #17a2b8;
+        }
+        
+        .test-content div {
+            margin-bottom: 8px;
         }
         
         .status-approved {
@@ -199,6 +254,20 @@
         
         .status-rejected {
             border-left: 5px solid #dc3545;
+        }
+        
+        .reject-all-btn {
+            background-color: #dc3545;
+            color: white;
+            float: right;
+            margin-bottom: 10px;
+        }
+        
+        .tests-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
         }
         
         /* PDF.js text layer styles */
@@ -246,13 +315,23 @@
 <body>
     <h1>PDF Test Review: {{ pdf_name }} ({{ pdf_index + 1 }}/{{ total_pdfs }})</h1>
     
+    <div class="stats-header">
+        <div class="stat-item stat-total">Total Tests: {{ stats.total }}</div>
+        <div class="stat-item stat-null">Unchecked: {{ stats.null }}</div>
+        <div class="stat-item stat-verified">Verified: {{ stats.verified }}</div>
+        <div class="stat-item stat-rejected">Rejected: {{ stats.rejected }}</div>
+        <div class="stat-item stat-completion">Completion: {{ "%.1f"|format(stats.completion) }}%</div>
+    </div>
+    
     <div class="navigation">
-        <form action="/prev_pdf" method="post">
-            <button type="submit" class="prev-btn">Previous PDF</button>
-        </form>
-        <form action="/next_pdf" method="post">
-            <button type="submit" class="next-btn">Next PDF</button>
-        </form>
+        <div>
+            <form action="/prev_pdf" method="post" style="display: inline-block;">
+                <button type="submit" class="prev-btn">Previous PDF</button>
+            </form>
+            <form action="/next_pdf" method="post" style="display: inline-block;">
+                <button type="submit" class="next-btn">Next PDF</button>
+            </form>
+        </div>
     </div>
     
     <div class="container">
@@ -272,7 +351,10 @@
         </div>
         
         <div class="tests-panel">
-            <h2>Tests ({{ tests|length }})</h2>
+            <div class="tests-header">
+                <h2>Tests ({{ tests|length }})</h2>
+                <button id="reject-all-btn" class="reject-all-btn">Reject All Tests</button>
+            </div>
             
             {% for test in tests %}
             <div class="test-item {% if test.checked == 'verified' %}status-approved{% elif test.checked == 'rejected' %}status-rejected{% endif %}" data-id="{{ test.id }}">
@@ -625,13 +707,13 @@
                 // Focus the textarea
                 textarea.focus();
                 
-                // Add blur event to save changes
-                textarea.addEventListener('blur', function() {
-                    const newValue = this.value;
+                // Function to save and exit edit mode
+                function saveAndExitForField() {
+                    const newValue = textarea.value;
                     const pdfName = '{{ pdf_name }}';
                     
                     // If value changed, save it
-                    if (newValue !== this.dataset.originalValue) {
+                    if (newValue !== textarea.dataset.originalValue) {
                         updateTestStatus(pdfName, testId, field, newValue);
                     }
                     
@@ -641,12 +723,122 @@
                     span.dataset.field = field;
                     span.dataset.id = testId;
                     span.innerText = newValue;
+                    span.onclick = function() { startEditField(this); };
                     
                     // Replace textarea with span
-                    this.parentNode.replaceChild(span, this);
+                    if (textarea.parentNode) {
+                        textarea.parentNode.replaceChild(span, textarea);
+                    }
+                }
+                
+                // Add keydown event to handle Enter key
+                textarea.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault(); // Prevent default Enter behavior
+                        this.blur(); // Will trigger the blur event
+                    }
+                });
+                
+                // Add blur event to save changes
+                textarea.addEventListener('blur', function() {
+                    saveAndExitForField();
                 });
             });
         }
+        
+        // Start editing a field when clicked directly
+        function startEditField(element) {
+            const field = element.dataset.field;
+            const testId = element.dataset.id;
+            const currentValue = element.innerText;
+            
+            // Create textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = currentValue;
+            textarea.dataset.field = field;
+            textarea.dataset.originalValue = currentValue;
+            
+            // Replace the span with textarea
+            element.parentNode.replaceChild(textarea, element);
+            
+            // Focus the textarea
+            textarea.focus();
+            
+            // Function to save and exit edit mode
+            function saveAndExit() {
+                const newValue = textarea.value;
+                const pdfName = '{{ pdf_name }}';
+                
+                // If value changed, save it
+                if (newValue !== textarea.dataset.originalValue) {
+                    updateTestStatus(pdfName, testId, field, newValue);
+                }
+                
+                // Create span again
+                const span = document.createElement('span');
+                span.className = 'editable';
+                span.dataset.field = field;
+                span.dataset.id = testId;
+                span.innerText = newValue;
+                span.onclick = function() { startEditField(this); };
+                
+                // Replace textarea with span
+                if (textarea.parentNode) {
+                    textarea.parentNode.replaceChild(span, textarea);
+                }
+            }
+            
+            // Add keydown event to handle Enter key
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault(); // Prevent default Enter behavior
+                    this.blur(); // Will trigger the blur event
+                }
+            });
+            
+            // Add blur event to save changes
+            textarea.addEventListener('blur', function() {
+                saveAndExit();
+            });
+        }
+        
+        // Reject all tests for the current PDF
+        document.getElementById('reject-all-btn').addEventListener('click', function() {
+            fetch('/reject_all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    pdf: '{{ pdf_name }}'
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Update all test items to show rejected status
+                    const testItems = document.querySelectorAll('.test-item');
+                    testItems.forEach(item => {
+                        item.classList.remove('status-approved');
+                        item.classList.add('status-rejected');
+                    });
+                    
+                    // Refresh the page to update stats
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error rejecting all tests:', error);
+            });
+        });
+        
+        // Add click event listeners to all editable fields
+        document.addEventListener('DOMContentLoaded', function() {
+            const editables = document.querySelectorAll('.editable');
+            editables.forEach(editable => {
+                editable.onclick = function() { startEditField(this); };
+            });
+        });
     </script>
 </body>
 </html>
