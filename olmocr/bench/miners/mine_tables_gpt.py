@@ -5,13 +5,13 @@ mine_tables.py - Extract tables from PDF documents and create table tests.
 This script:
 1. Takes a file containing S3 paths to PDF documents as input
 2. For each PDF, extracts a random page and renders it to an image
-3. Uses Gemini to identify tables in the rendered image
-4. Extracts table content and creates table relationship tests by making a second Gemini request
+3. Uses GPT-4o to identify tables in the rendered image
+4. Extracts table content and creates table relationship tests by making a second GPT-4o request
    that now includes the page image alongside the prompt (e.g., "Given cell with {cell_value}, which cell is directly to the left of it?")
 5. Extracts the page from the PDF and saves it to an output folder
 
 Usage:
-  python mine_tables.py --input_list path/to/s3_paths.txt --output_dir path/to/output --api_key your_gemini_api_key
+  python mine_tables.py --input_list path/to/s3_paths.txt --output_dir path/to/output --api_key your_openai_api_key
 """
 
 import argparse
@@ -25,8 +25,7 @@ import boto3
 import numpy as np
 import pypdf
 from bs4 import BeautifulSoup
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from tqdm import tqdm
 
 from olmocr.bench.tests import TableTest, save_tests
@@ -105,23 +104,21 @@ def extract_page_from_pdf(input_path: str, output_path: str, page_num: int) -> b
 
 def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[List[np.ndarray], str]]:
     """
-    Use Gemini to detect tables in a rendered PDF page.
+    Use GPT-4o to detect tables in a rendered PDF page.
 
     Args:
         pdf_path: Path to the PDF file
         page_num: The page number to analyze (0-indexed)
-        api_key: Gemini API key
+        api_key: OpenAI API key
 
     Returns:
         Optional[Tuple[List[np.ndarray], str]]:
             A tuple with a list of detected tables (as numpy arrays) and the base64 string of the rendered page image.
             Returns None if detection fails.
     """
-    # Initialize Gemini client
-    client = genai.Client(
-        api_key=api_key,
-    )
-    model = "gemini-2.0-flash"
+    # Initialize OpenAI client
+    client = OpenAI(api_key=api_key)
+    model = "gpt-4o"
 
     # Render the PDF page as an image (render_pdf_to_base64png is 1-indexed)
     try:
@@ -130,41 +127,43 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
         print(f"Error rendering PDF page: {str(e)}")
         return None
 
-    image_part = types.Part(inline_data=types.Blob(mime_type="image/png", data=base64.b64decode(image_base64)))
-
-    # Prepare prompt for Gemini to extract tables
-    contents = [
-        types.Content(
-            role="user",
-            parts=[
-                image_part,
-                types.Part.from_text(
-                    text=(
-                        "Analyze the document attached and output it in plain text. "
-                        "Please output the tables in valid HTML format that preserves the structure and content exactly. "
-                        "Include the complete table with all rows and columns. Make each table cell be sensible and semantically correct with the original intent of the table."
-                    )
-                ),
-            ],
-        ),
-    ]
-
-    generate_content_config = types.GenerateContentConfig(temperature=0.2, top_p=0.95, top_k=40, max_output_tokens=8192)
-
+    # Prepare prompt for GPT-4o to extract tables
     try:
-        # Call Gemini API
-        response = client.models.generate_content(model=model, contents=contents, config=generate_content_config)
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_base64}",
+                                "detail": "high"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": (
+                                "Analyze the document attached and output it in markdown format. "
+                                "Output equations as Latex escaped with $$. "
+                                "Output tables in valid HTML format that preserves the structure and content exactly. "
+                                "Output figures with just a simple markdown image placeholder."
+                            )
+                        }
+                    ]
+                }
+            ],
+            temperature=0.2,
+        )
 
-        if not response.candidates or len(response.candidates) == 0:
+        if not response.choices or len(response.choices) == 0:
             print(f"No response generated for {pdf_path} page {page_num}")
             return None
 
-        if response.candidates[0].finish_reason != types.FinishReason.STOP:
-            print(f"Response generation incomplete for {pdf_path} page {page_num}")
-            return None
-
         # Parse the response
-        response_text = response.candidates[0].content.parts[0].text
+        response_text = response.choices[0].message.content
 
         print(response_text)
 
@@ -197,26 +196,25 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
 
 def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str, max_tests_per_table: int = 3) -> List[Dict]:
     """
-    Generate table tests from the detected tables by making a second Gemini request for each candidate cell.
+    Generate table tests from the detected tables by making a second GPT-4o request for each candidate cell.
 
     For each candidate cell in a table, the function selects one valid relationship (e.g., "left", "up", "top_heading", etc.)
-    and sends a prompt to Gemini including the page image. For example:
+    and sends a prompt to GPT-4o including the page image. For example:
       "Given a cell in a table with value 'XYZ', please answer: which cell is directly to the left of it? Provide only the cell's text."
 
     Args:
         tables: List of tables as numpy arrays
         pdf_image: Base64 string of the rendered page image
-        api_key: Gemini API key to use for generating relationship tests
+        api_key: OpenAI API key to use for generating relationship tests
         max_tests_per_table: Maximum number of tests to generate per table
 
     Returns:
         List of table test dictionaries
     """
     tests = []
-    # Initialize Gemini client for test queries
-    client = genai.Client(api_key=api_key)
-    model = "gemini-2.0-flash"
-    config = types.GenerateContentConfig(temperature=0.2, top_p=0.95, top_k=40, max_output_tokens=100)
+    # Initialize OpenAI client for test queries
+    client = OpenAI(api_key=api_key)
+    model = "gpt-4o"
 
     # Mapping for relationship prompts
     prompt_map = {
@@ -227,9 +225,6 @@ def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str,
         "top_heading": "what is the top heading for this cell?",
         "left_heading": "what is the left heading for this cell?",
     }
-
-    # Create an image part from the rendered pdf image
-    image_part = types.Part(inline_data=types.Blob(mime_type="image/png", data=base64.b64decode(pdf_image)))
 
     for table in tables:
         rows, cols = table.shape
@@ -277,17 +272,39 @@ def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str,
             )
 
             try:
-                contents = [types.Content(role="user", parts=[image_part, types.Part.from_text(text=prompt)])]
-                response = client.models.generate_content(model=model, contents=contents, config=config)
-                if not response.candidates or len(response.candidates) == 0 or response.candidates[0].finish_reason != types.FinishReason.STOP:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{pdf_image}",
+                                        "detail": "high"
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                }
+                            ]
+                        }
+                    ],
+                    temperature=0.2,
+                )
+                
+                if not response.choices or len(response.choices) == 0:
                     continue
-                answer_text = response.candidates[0].content.parts[0].text.strip()
+                    
+                answer_text = response.choices[0].message.content.strip()
                 if answer_text and "null" not in answer_text:
                     test_data = {"cell": cell_value, relationship: answer_text}
                     tests.append(test_data)
                     tests_for_this_table += 1
             except Exception as e:
-                print(f"Error querying Gemini for cell '{cell_value}' and relationship '{relationship}': {str(e)}")
+                print(f"Error querying GPT-4o for cell '{cell_value}' and relationship '{relationship}': {str(e)}")
 
     return tests
 
@@ -300,7 +317,7 @@ def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str, test
         s3_path: S3 path to the PDF
         temp_dir: Directory for temporary files
         output_dir: Directory for output files
-        api_key: Gemini API key
+        api_key: OpenAI API key
         tests: List to append tests to
     """
     # Extract filename from S3 path
@@ -338,7 +355,7 @@ def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str, test
 
             tables, image_base64 = result
 
-            # Generate table tests using the new Gemini query approach with the page image
+            # Generate table tests using the new GPT-4o query approach with the page image
             table_tests_data = generate_table_tests(tables, image_base64, api_key, max_tests_per_table=5)
 
             if not table_tests_data:
@@ -382,15 +399,15 @@ def main():
     parser = argparse.ArgumentParser(description="Extract tables from PDF documents and create table tests")
     parser.add_argument("--input_list", required=True, help="Path to a file containing S3 paths to PDFs")
     parser.add_argument("--output_dir", required=True, help="Directory to store extracted pages and tests")
-    parser.add_argument("--api_key", help="Gemini API key (if not provided, will use GEMINI_API_KEY environment variable)")
+    parser.add_argument("--api_key", help="OpenAI API key (if not provided, will use OPENAI_API_KEY environment variable)")
     parser.add_argument("--temp_dir", default="/tmp/mine_tables", help="Directory for temporary files")
     parser.add_argument("--max_tests", type=int, default=100, help="Maximum number of tests to generate")
     args = parser.parse_args()
 
     # Get API key
-    api_key = args.api_key or os.environ.get("GEMINI_API_KEY")
+    api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        print("Error: Gemini API key not provided. Use --api_key or set GEMINI_API_KEY environment variable.")
+        print("Error: OpenAI API key not provided. Use --api_key or set OPENAI_API_KEY environment variable.")
         return
 
     os.makedirs(args.temp_dir, exist_ok=True)

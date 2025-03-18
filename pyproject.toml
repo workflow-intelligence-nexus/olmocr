@@ -86,10 +86,10 @@ bench = [
     "sequence_align",
     "syntok",
     "google-genai",
-    "google-generativeai",
     "playwright",
     "mistralai",
     "lxml",
+    "flask",
 ]
 
 train = [
