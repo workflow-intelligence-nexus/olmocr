@@ -11,13 +11,15 @@ This script:
 5. Extracts the page from the PDF and saves it to an output folder
 
 Usage:
-  python mine_tables.py --input_list path/to/s3_paths.txt --output_dir path/to/output --api_key your_gemini_api_key
+  python mine_tables.py --input_list path/to/s3_paths.txt --output_dir path/to/output --api_key your_gemini_api_key [--parallel 4]
 """
 
 import argparse
 import base64
+import concurrent.futures
 import os
 import random
+import threading
 from typing import Dict, List, Optional, Tuple
 
 import boto3
@@ -26,11 +28,14 @@ import pypdf
 from bs4 import BeautifulSoup
 from google import genai
 from google.genai import types
-from tqdm import tqdm
 
 from olmocr.bench.tests import TableTest, save_tests
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.filter import PdfFilter
+
+# Create a thread-safe lock for writing to the output file
+file_lock = threading.Lock()
+tests_lock = threading.Lock()
 
 
 def download_pdf_from_s3(s3_path: str, local_path: str) -> bool:
@@ -141,7 +146,8 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
                     text=(
                         "Analyze the document attached and output it in markdown format. "
                         "Output equations as Latex escaped with $$. "
-                        "Output tables in valid HTML format that preserves the structure and content exactly. "
+                        "Output tables in HTML format that preserves the structure and content exactly, do not use <br> tags. "
+                        "Instead of the markdown table format, be sure to output tables in HTML, even though the rest of the document is styled in markdown. "
                         "Output figures with just a simple markdown image placeholder."
                     )
                 ),
@@ -292,7 +298,7 @@ def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str,
     return tests
 
 
-def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str, tests: List[TableTest]) -> None:
+def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str) -> List[TableTest]:
     """
     Process a single PDF from S3.
 
@@ -301,21 +307,30 @@ def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str, test
         temp_dir: Directory for temporary files
         output_dir: Directory for output files
         api_key: Gemini API key
-        tests: List to append tests to
+
+    Returns:
+        List[TableTest]: List of generated table tests
     """
+    # Create a thread-specific temp directory to avoid conflicts
+    thread_id = threading.get_ident()
+    thread_temp_dir = os.path.join(temp_dir, f"thread_{thread_id}")
+    os.makedirs(thread_temp_dir, exist_ok=True)
+
     # Extract filename from S3 path
     pdf_filename = os.path.basename(s3_path)
-    local_pdf_path = os.path.join(temp_dir, pdf_filename)
+    local_pdf_path = os.path.join(thread_temp_dir, pdf_filename)
 
     # Download PDF from S3
     if not download_pdf_from_s3(s3_path, local_pdf_path):
-        return
+        return []
 
     pdf_filter = PdfFilter()
 
     if pdf_filter.filter_out_pdf(local_pdf_path):
         print(f"Filtering out {pdf_filename}")
-        return
+        if os.path.exists(local_pdf_path):
+            os.remove(local_pdf_path)
+        return []
 
     try:
         # Read the PDF to get the number of pages
@@ -324,10 +339,12 @@ def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str, test
 
         if num_pages == 0:
             print(f"PDF {pdf_filename} has no pages")
-            return
+            return []
 
         all_pages = list(range(len(reader.pages)))
         random.shuffle(all_pages)
+
+        local_tests = []
 
         for page_num in all_pages:
             # Detect tables and obtain the rendered image for this page
@@ -348,7 +365,8 @@ def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str, test
             # Extract the page and save to output dir
             pdf_basename = os.path.splitext(pdf_filename)[0]
             output_pdf_path = os.path.join(output_dir, "pdfs", f"{pdf_basename}_pg{page_num+1}.pdf")
-            extract_page_from_pdf(local_pdf_path, output_pdf_path, page_num)
+            with file_lock:  # Use lock when writing to shared output directory
+                extract_page_from_pdf(local_pdf_path, output_pdf_path, page_num)
 
             # Create table tests
             for i, test_data in enumerate(table_tests_data):
@@ -366,16 +384,67 @@ def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str, test
                     top_heading=test_data.get("top_heading", None),
                     left_heading=test_data.get("left_heading", None),
                 )
-                tests.append(test)
+                local_tests.append(test)
 
             print(f"Processed {pdf_filename} page {page_num+1}, found {len(tables)} tables, created {len(table_tests_data)} tests")
-            return  # Process only one page per PDF
+            break  # Process only one page per PDF
+
+        return local_tests
 
     except Exception as e:
         print(f"Error processing {pdf_filename}: {str(e)}")
+        return []
     finally:
+        # Cleanup
         if os.path.exists(local_pdf_path):
             os.remove(local_pdf_path)
+
+
+def process_pdfs_parallel(s3_paths: List[str], temp_dir: str, output_dir: str, api_key: str, max_tests: int, num_workers: int):
+    """
+    Process PDFs in parallel using a thread pool.
+
+    Args:
+        s3_paths: List of S3 paths to PDFs
+        temp_dir: Directory for temporary files
+        output_dir: Directory for output files
+        api_key: Gemini API key
+        max_tests: Maximum number of tests to generate
+        num_workers: Number of parallel workers to use
+    """
+    # Create shared resources
+    all_tests = []
+    output_file = os.path.join(output_dir, "table_tests.jsonl")
+
+    # Create a ThreadPoolExecutor
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        # Submit tasks and track futures
+        futures = {executor.submit(process_pdf, s3_path, temp_dir, output_dir, api_key): s3_path for s3_path in s3_paths}
+
+        # Process results as they complete
+        for future in concurrent.futures.as_completed(futures):
+            s3_path = futures[future]
+            try:
+                # Get the tests produced by this worker
+                new_tests = future.result()
+
+                # If we got new tests, add them to our collection
+                if new_tests:
+                    all_tests.extend(new_tests)
+                    save_tests(all_tests, output_file)
+                    print(f"Added {len(new_tests)} tests from {os.path.basename(s3_path)}, total: {len(all_tests)}")
+
+                    # Check if we've reached the maximum number of tests
+                    if len(all_tests) >= max_tests:
+                        print(f"Reached maximum number of tests ({max_tests}), stopping")
+                        # Cancel any pending futures
+                        for f in futures:
+                            if not f.done():
+                                f.cancel()
+                        break
+
+            except Exception as e:
+                print(f"Task for {os.path.basename(s3_path)} generated an exception: {e}")
 
 
 def main():
@@ -385,6 +454,7 @@ def main():
     parser.add_argument("--api_key", help="Gemini API key (if not provided, will use GEMINI_API_KEY environment variable)")
     parser.add_argument("--temp_dir", default="/tmp/mine_tables", help="Directory for temporary files")
     parser.add_argument("--max_tests", type=int, default=100, help="Maximum number of tests to generate")
+    parser.add_argument("--parallel", type=int, default=1, help="Number of parallel threads to use")
     args = parser.parse_args()
 
     # Get API key
@@ -399,19 +469,16 @@ def main():
     with open(args.input_list, "r") as f:
         s3_paths = [line.strip() for line in f if line.strip()]
 
+    random.shuffle(s3_paths)
+
     print(f"Found {len(s3_paths)} PDF paths in input list")
-    tests = []
-    for s3_path in tqdm(s3_paths, desc="Processing PDFs"):
-        process_pdf(s3_path, args.temp_dir, args.output_dir, api_key, tests)
 
-        if tests:
-            save_tests(tests, os.path.join(args.output_dir, "table_tests.jsonl"))
+    # Determine number of workers to use
+    num_workers = max(1, min(args.parallel, len(s3_paths)))
+    print(f"Processing PDFs using {num_workers} parallel workers")
 
-        if len(tests) >= args.max_tests:
-            print(f"Reached maximum number of tests ({args.max_tests}), stopping")
-            break
-
-    print(f"Saved {len(tests)} table tests to {os.path.join(args.output_dir, 'table_tests.jsonl')}")
+    # Process PDFs in parallel
+    process_pdfs_parallel(s3_paths, args.temp_dir, args.output_dir, api_key, args.max_tests, num_workers)
 
 
 if __name__ == "__main__":

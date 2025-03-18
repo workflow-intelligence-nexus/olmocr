@@ -70,6 +70,7 @@ class BasePDFTest:
     type: str
     max_diffs: int = 0
     checked: Optional[TestChecked] = None
+    url: Optional[str] = None
 
     def __post_init__(self):
         if not self.pdf:
