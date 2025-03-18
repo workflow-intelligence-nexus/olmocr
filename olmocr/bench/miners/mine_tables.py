@@ -16,7 +16,6 @@ Usage:
 
 import argparse
 import base64
-import json
 import os
 import random
 from typing import Dict, List, Optional, Tuple
