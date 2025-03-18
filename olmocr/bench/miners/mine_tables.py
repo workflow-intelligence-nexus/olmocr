@@ -139,38 +139,35 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
             parts=[
                 image_part,
                 types.Part.from_text(
-                    text=("Analyze the document attached and output it in plain text. "
-                          "Please output the tables in valid HTML format that preserves the structure and content exactly. "
-                          "Include the complete table with all rows and columns. Make each table cell be sensible and semantically correct with the original intent of the table.")
+                    text=(
+                        "Analyze the document attached and output it in plain text. "
+                        "Please output the tables in valid HTML format that preserves the structure and content exactly. "
+                        "Include the complete table with all rows and columns. Make each table cell be sensible and semantically correct with the original intent of the table."
+                    )
                 ),
             ],
         ),
     ]
 
-    generate_content_config = types.GenerateContentConfig(
-        temperature=0.2,
-        top_p=0.95,
-        top_k=40,
-        max_output_tokens=8192
-    )
+    generate_content_config = types.GenerateContentConfig(temperature=0.2, top_p=0.95, top_k=40, max_output_tokens=8192)
 
     try:
         # Call Gemini API
         response = client.models.generate_content(model=model, contents=contents, config=generate_content_config)
-        
+
         if not response.candidates or len(response.candidates) == 0:
             print(f"No response generated for {pdf_path} page {page_num}")
             return None
-            
+
         if response.candidates[0].finish_reason != types.FinishReason.STOP:
             print(f"Response generation incomplete for {pdf_path} page {page_num}")
             return None
-            
+
         # Parse the response
         response_text = response.candidates[0].content.parts[0].text
 
         print(response_text)
-        
+
         # Parse tables from HTML
         parsed_tables = []
         soup = BeautifulSoup(response_text, "html.parser")
@@ -192,7 +189,7 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
 
         # Return both the parsed tables and the rendered image (base64 string)
         return (parsed_tables, image_base64) if parsed_tables else None
-        
+
     except Exception as e:
         print(f"Error detecting tables in {pdf_path} page {page_num}: {str(e)}")
         return None
@@ -201,17 +198,17 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
 def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str, max_tests_per_table: int = 3) -> List[Dict]:
     """
     Generate table tests from the detected tables by making a second Gemini request for each candidate cell.
-    
+
     For each candidate cell in a table, the function selects one valid relationship (e.g., "left", "up", "top_heading", etc.)
     and sends a prompt to Gemini including the page image. For example:
       "Given a cell in a table with value 'XYZ', please answer: which cell is directly to the left of it? Provide only the cell's text."
-    
+
     Args:
         tables: List of tables as numpy arrays
         pdf_image: Base64 string of the rendered page image
         api_key: Gemini API key to use for generating relationship tests
         max_tests_per_table: Maximum number of tests to generate per table
-        
+
     Returns:
         List of table test dictionaries
     """
@@ -219,13 +216,8 @@ def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str,
     # Initialize Gemini client for test queries
     client = genai.Client(api_key=api_key)
     model = "gemini-2.0-flash"
-    config = types.GenerateContentConfig(
-        temperature=0.2,
-        top_p=0.95,
-        top_k=40,
-        max_output_tokens=100
-    )
-    
+    config = types.GenerateContentConfig(temperature=0.2, top_p=0.95, top_k=40, max_output_tokens=100)
+
     # Mapping for relationship prompts
     prompt_map = {
         "up": "which cell is directly above it?",
@@ -233,19 +225,17 @@ def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str,
         "left": "which cell is directly to the left of it?",
         "right": "which cell is directly to the right of it?",
         "top_heading": "what is the top heading for this cell?",
-        "left_heading": "what is the left heading for this cell?"
+        "left_heading": "what is the left heading for this cell?",
     }
-    
+
     # Create an image part from the rendered pdf image
-    image_part = types.Part(
-        inline_data=types.Blob(mime_type="image/png", data=base64.b64decode(pdf_image))
-    )
-    
+    image_part = types.Part(inline_data=types.Blob(mime_type="image/png", data=base64.b64decode(pdf_image)))
+
     for table in tables:
         rows, cols = table.shape
         if table.size == 0 or rows < 2 or cols < 2:
             continue  # Skip tables that are too small
-        
+
         # Try up to 3x max_tests_per_table candidate cells
         candidate_positions = []
         for _ in range(max_tests_per_table * 3):
@@ -254,52 +244,51 @@ def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str,
             if not table[row, col].strip():
                 continue
             candidate_positions.append((row, col))
-            
+
         random.shuffle(candidate_positions)
         tests_for_this_table = 0
-        
+
         for row, col in candidate_positions:
             if tests_for_this_table >= max_tests_per_table:
                 break
-                
+
             cell_value = table[row, col].strip()
             # Determine valid relationship types based on candidate's position
             valid_relationships = []
-            if row > 0: valid_relationships.append("up")
-            if row < rows - 1: valid_relationships.append("down")
-            if col > 0: valid_relationships.append("left")
-            if col < cols - 1: valid_relationships.append("right")
-            if row > 0: valid_relationships.append("top_heading")
-            if col > 0: valid_relationships.append("left_heading")
+            if row > 0:
+                valid_relationships.append("up")
+            if row < rows - 1:
+                valid_relationships.append("down")
+            if col > 0:
+                valid_relationships.append("left")
+            if col < cols - 1:
+                valid_relationships.append("right")
+            if row > 0:
+                valid_relationships.append("top_heading")
+            if col > 0:
+                valid_relationships.append("left_heading")
             if not valid_relationships:
                 continue
-                
+
             relationship = random.choice(valid_relationships)
-            prompt = (f"Given a cell in a table with value '{cell_value}', please answer: "
-                      f"{prompt_map[relationship]} Provide only the cell's text.")
-            
+            prompt = (
+                f"Given a cell in a table with value '{cell_value}', please answer: "
+                f"{prompt_map[relationship]} Provide only the cell's text or output 'null' if there is not a matching cell."
+            )
+
             try:
-                contents = [
-                    types.Content(
-                        role="user",
-                        parts=[
-                            image_part,
-                            types.Part.from_text(text=prompt)
-                        ]
-                    )
-                ]
+                contents = [types.Content(role="user", parts=[image_part, types.Part.from_text(text=prompt)])]
                 response = client.models.generate_content(model=model, contents=contents, config=config)
-                if (not response.candidates or len(response.candidates) == 0 or
-                        response.candidates[0].finish_reason != types.FinishReason.STOP):
+                if not response.candidates or len(response.candidates) == 0 or response.candidates[0].finish_reason != types.FinishReason.STOP:
                     continue
                 answer_text = response.candidates[0].content.parts[0].text.strip()
-                if answer_text:
+                if answer_text and "null" not in answer_text:
                     test_data = {"cell": cell_value, relationship: answer_text}
                     tests.append(test_data)
                     tests_for_this_table += 1
             except Exception as e:
                 print(f"Error querying Gemini for cell '{cell_value}' and relationship '{relationship}': {str(e)}")
-                
+
     return tests
 
 
@@ -351,7 +340,7 @@ def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str, test
 
             # Generate table tests using the new Gemini query approach with the page image
             table_tests_data = generate_table_tests(tables, image_base64, api_key, max_tests_per_table=5)
-            
+
             if not table_tests_data:
                 print(f"Could not generate valid tests for tables in {pdf_filename} page {page_num+1}")
                 continue
