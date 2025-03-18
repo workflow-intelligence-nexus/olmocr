@@ -209,7 +209,7 @@
             right: 0;
             bottom: 0;
             overflow: hidden;
-            opacity: 0.75;
+            opacity: 0.25;
             text-align: initial;
             line-height: 1.0;
             pointer-events: none;
@@ -368,9 +368,10 @@
                 // Set font styles
                 span.style.fontSize = `${fontHeight}px`;
                 
-                // Adjust for baseline - the critical part for alignment
+                // Adjust for baseline and correct the vertical positioning
+                // Move the text up by applying a negative offset to account for text baseline
                 span.style.left = `${tx[4]}px`;
-                span.style.top = `${tx[5]}px`;
+                span.style.top = `${tx[5] - fontHeight}px`; // Compensate for baseline
                 
                 // Handle text rotation
                 if (angle !== 0) {
