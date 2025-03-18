@@ -394,23 +394,27 @@ def create_templates_directory():
             border-left: 5px solid #dc3545;
         }
         
+        /* PDF.js text layer styles */
         .textLayer {
             position: absolute;
-            top: 0;
             left: 0;
+            top: 0;
             right: 0;
             bottom: 0;
             overflow: hidden;
-            opacity: 0.2;
+            opacity: 0.25;
+            text-align: initial;
             line-height: 1.0;
+            pointer-events: none;
         }
         
-        .textLayer > span {
-            position: absolute;
+        .textLayer span {
             color: transparent;
+            position: absolute;
             white-space: pre;
             cursor: text;
             transform-origin: 0% 0%;
+            pointer-events: all;
         }
         
         .textLayer .highlight {
@@ -519,59 +523,91 @@ def create_templates_directory():
         const ctx = canvas.getContext('2d');
         const loadingIndicator = document.getElementById('loading-indicator');
         
+        // Device pixel ratio for HiDPI displays
+        const pixelRatio = window.devicePixelRatio || 1;
+        
         // Load PDF from the provided path
         const pdfPath = '{{ pdf_path }}';
         
-        // Function to render the page
+        // Function to create text layers with proper alignment
+        function createTextLayer(textContent, viewport) {
+            // Clear previous text layer
+            textLayer.innerHTML = '';
+            
+            // Set text layer dimensions to match viewport
+            textLayer.style.width = `${viewport.width}px`;
+            textLayer.style.height = `${viewport.height}px`;
+
+            // Process each text item
+            const items = [];
+            for (let i = 0; i < textContent.items.length; i++) {
+                const item = textContent.items[i];
+                
+                // Convert text coordinates to viewport ones
+                const tx = pdfjsLib.Util.transform(
+                    viewport.transform,
+                    item.transform
+                );
+                
+                // Calculate text dimensions
+                const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+                const angle = Math.atan2(tx[1], tx[0]);
+                
+                // Create text span
+                const span = document.createElement('span');
+                span.textContent = item.str;
+                span.dataset.text = item.str; // Store for searching
+                
+                // Set font styles
+                span.style.fontSize = `${fontHeight}px`;
+                
+                // Adjust for baseline - the critical part for alignment
+                span.style.left = `${tx[4]}px`;
+                span.style.top = `${tx[5]}px`;
+                
+                // Handle text rotation
+                if (angle !== 0) {
+                    span.style.transform = `rotate(${angle}rad)`;
+                    span.style.transformOrigin = '0% 0%';
+                }
+                
+                textLayer.appendChild(span);
+                items.push(span);
+            }
+            
+            return items;
+        }
+        
+        // Function to render a page
         function renderPage(num) {
             pageRendering = true;
             loadingIndicator.style.display = 'block';
             
-            // Get page
+            // Get page from PDF document
             pdfDoc.getPage(num).then(function(page) {
-                // Set scale based on container width
+                // Create viewport at the requested scale
                 const viewport = page.getViewport({ scale: scale });
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
                 
-                // Render PDF page into canvas context
+                // Handle high-DPI displays
+                canvas.width = viewport.width * pixelRatio;
+                canvas.height = viewport.height * pixelRatio;
+                canvas.style.width = `${viewport.width}px`;
+                canvas.style.height = `${viewport.height}px`;
+                
+                // Set up canvas for rendering
+                ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+                
+                // Render PDF page
                 const renderContext = {
                     canvasContext: ctx,
-                    viewport: viewport
+                    viewport: viewport,
                 };
                 
                 const renderTask = page.render(renderContext);
                 
-                // Get text content for highlighting
+                // Process text content for text layer
                 page.getTextContent().then(function(textContent) {
-                    // Clear previous text layer
-                    textLayer.innerHTML = '';
-                    textLayer.style.width = `${viewport.width}px`;
-                    textLayer.style.height = `${viewport.height}px`;
-                    
-                    // Use PDF.js TextLayerBuilder to create text layer
-                    const textLayerItems = textContent.items.map(item => {
-                        const tx = pdfjsLib.Util.transform(
-                            viewport.transform,
-                            item.transform
-                        );
-                        
-                        const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
-                        const angle = Math.atan2(tx[1], tx[0]);
-                        
-                        const span = document.createElement('span');
-                        span.textContent = item.str;
-                        span.style.left = `${tx[4]}px`;
-                        span.style.top = `${tx[5]}px`;
-                        span.style.fontSize = `${fontHeight}px`;
-                        span.style.transform = `rotate(${angle}rad)`;
-                        span.dataset.text = item.str; // Store text for searching
-                        
-                        return span;
-                    });
-                    
-                    // Add text layers to DOM
-                    textLayerItems.forEach(item => textLayer.appendChild(item));
+                    createTextLayer(textContent, viewport);
                 });
                 
                 // Wait for rendering to finish
