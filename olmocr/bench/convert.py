@@ -183,6 +183,7 @@ if __name__ == "__main__":
         "chatgpt": ("olmocr.bench.runners.run_chatgpt", "run_chatgpt"),
         "gemini": ("olmocr.bench.runners.run_gemini", "run_gemini"),
         "mistral": ("olmocr.bench.runners.run_mistral", "run_mistral"),
+        "transformers": ("olmocr.bench.runners.run_transformers", "run_transformers"),
         "server": ("olmocr.bench.runners.run_server", "run_server"),
     }
 
