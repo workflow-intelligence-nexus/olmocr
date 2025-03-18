@@ -15,8 +15,6 @@ Usage:
 """
 
 import argparse
-import base64
-import json
 import os
 import random
 from typing import Dict, List, Optional, Tuple
@@ -136,13 +134,7 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{image_base64}",
-                                "detail": "high"
-                            }
-                        },
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}", "detail": "high"}},
                         {
                             "type": "text",
                             "text": (
@@ -150,9 +142,9 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
                                 "Output equations as Latex escaped with $$. "
                                 "Output tables in valid HTML format that preserves the structure and content exactly. "
                                 "Output figures with just a simple markdown image placeholder."
-                            )
-                        }
-                    ]
+                            ),
+                        },
+                    ],
                 }
             ],
             temperature=0.2,
@@ -278,26 +270,17 @@ def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str,
                         {
                             "role": "user",
                             "content": [
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/png;base64,{pdf_image}",
-                                        "detail": "high"
-                                    }
-                                },
-                                {
-                                    "type": "text",
-                                    "text": prompt
-                                }
-                            ]
+                                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{pdf_image}", "detail": "high"}},
+                                {"type": "text", "text": prompt},
+                            ],
                         }
                     ],
                     temperature=0.2,
                 )
-                
+
                 if not response.choices or len(response.choices) == 0:
                     continue
-                    
+
                 answer_text = response.choices[0].message.content.strip()
                 if answer_text and "null" not in answer_text:
                     test_data = {"cell": cell_value, relationship: answer_text}

@@ -782,13 +782,16 @@
                     if (textarea.parentNode) {
                         textarea.parentNode.replaceChild(span, textarea);
                     }
+                    
+                    // Important: Reset edit mode flag
+                    isEditMode = false;
                 }
                 
                 // Add keydown event to handle Enter key
                 textarea.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault(); // Prevent default Enter behavior
-                        this.blur(); // Will trigger the blur event
+                        saveAndExitForField(); // Save directly instead of blur
                     }
                 });
                 
@@ -839,13 +842,16 @@
                 if (textarea.parentNode) {
                     textarea.parentNode.replaceChild(span, textarea);
                 }
+                
+                // Important: Reset edit mode flag
+                isEditMode = false;
             }
             
             // Add keydown event to handle Enter key
             textarea.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault(); // Prevent default Enter behavior
-                    this.blur(); // Will trigger the blur event
+                    saveAndExit(); // Save directly rather than triggering blur
                 }
             });
             

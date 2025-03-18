@@ -138,7 +138,7 @@ def detect_tables(pdf_path: str, page_num: int, api_key: str) -> Optional[Tuple[
             parts=[
                 image_part,
                 types.Part.from_text(
-                    text=(                           
+                    text=(
                         "Analyze the document attached and output it in markdown format. "
                         "Output equations as Latex escaped with $$. "
                         "Output tables in valid HTML format that preserves the structure and content exactly. "
