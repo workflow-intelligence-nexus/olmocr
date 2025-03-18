@@ -10,8 +10,6 @@ from typing import Dict, List, Optional, Tuple
 
 from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
-
-
 app = Flask(__name__)
 
 # Global state
