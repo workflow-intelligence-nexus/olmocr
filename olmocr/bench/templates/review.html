@@ -133,6 +133,17 @@
             padding: 15px;
             border: 1px solid #e0e0e0;
             border-radius: 4px;
+            transition: outline 0.15s ease, background-color 0.15s ease;
+            cursor: pointer;
+        }
+        
+        .test-item:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .test-item.highlighted {
+            outline: 2px dotted #4a6fa5;
+            background-color: #f8f9fa;
         }
         
         .test-header {
@@ -213,6 +224,38 @@
         .highlight-btn {
             background-color: #ffc107;
             color: #333;
+        }
+        
+        .kbd-shortcut {
+            display: inline-block;
+            margin-left: 5px;
+            padding: 1px 5px;
+            font-size: 0.8em;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            vertical-align: middle;
+        }
+        
+        .tests-panel {
+            position: relative;
+        }
+        
+        .keyboard-help {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            z-index: 1000;
+            font-size: 0.85em;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+        
+        .keyboard-help.show {
+            display: block;
         }
         
         .next-btn, .prev-btn {
@@ -326,10 +369,10 @@
     <div class="navigation">
         <div>
             <form action="/prev_pdf" method="post" style="display: inline-block;">
-                <button type="submit" class="prev-btn">Previous PDF</button>
+                <button type="submit" class="prev-btn">Previous PDF <span class="kbd-shortcut">P</span></button>
             </form>
             <form action="/next_pdf" method="post" style="display: inline-block;">
-                <button type="submit" class="next-btn">Next PDF</button>
+                <button type="submit" class="next-btn">Next PDF <span class="kbd-shortcut">N</span></button>
             </form>
         </div>
     </div>
@@ -361,10 +404,9 @@
                 <div class="test-header">
                     <span class="test-type {{ test.type }}">{{ test.type|upper }}</span>
                     <div class="test-buttons">
-                        <button class="approve-btn" onclick="updateTestStatus('{{ test.pdf }}', '{{ test.id }}', 'checked', 'verified')">Approve</button>
-                        <button class="reject-btn" onclick="updateTestStatus('{{ test.pdf }}', '{{ test.id }}', 'checked', 'rejected')">Reject</button>
-                        <button class="edit-btn" onclick="toggleEditMode('{{ test.id }}')">Edit</button>
-                        <button class="highlight-btn" onclick="highlightText('{{ test.id }}')">Highlight</button>
+                        <button class="approve-btn" onclick="updateTestStatus('{{ test.pdf }}', '{{ test.id }}', 'checked', 'verified')">Approve <span class="kbd-shortcut">A</span></button>
+                        <button class="reject-btn" onclick="updateTestStatus('{{ test.pdf }}', '{{ test.id }}', 'checked', 'rejected')">Reject <span class="kbd-shortcut">R</span></button>
+                        <button class="edit-btn" onclick="toggleEditMode('{{ test.id }}')">Edit <span class="kbd-shortcut">E</span></button>
                     </div>
                 </div>
                 
@@ -394,6 +436,17 @@
             </div>
             {% endfor %}
         </div>
+    </div>
+    
+    <div class="keyboard-help" id="keyboard-help">
+        <p><strong>Keyboard Shortcuts</strong></p>
+        <p>↑/↓: Navigate tests</p>
+        <p>A: Approve and move to next</p>
+        <p>R: Reject and move to next</p>
+        <p>E: Edit current test</p>
+        <p>N: Next PDF</p>
+        <p>P: Previous PDF</p>
+        <p>?: Toggle this help</p>
     </div>
     
     <script>
@@ -832,12 +885,214 @@
             });
         });
         
-        // Add click event listeners to all editable fields
+        // Keyboard navigation variables
+        let currentTestIndex = 0;
+        let testItems = [];
+        let isEditMode = false;
+        
+        // Function to highlight the current test item
+        function highlightCurrentTest() {
+            // Clear current highlight
+            document.querySelectorAll('.test-item.highlighted').forEach(item => {
+                item.classList.remove('highlighted');
+            });
+            
+            // Highlight current item
+            if (testItems.length > 0 && currentTestIndex >= 0 && currentTestIndex < testItems.length) {
+                testItems[currentTestIndex].classList.add('highlighted');
+                
+                // Scroll to the item if needed
+                testItems[currentTestIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                
+                // Automatically highlight text in PDF for the current test
+                const testId = testItems[currentTestIndex].dataset.id;
+                highlightText(testId);
+            }
+        }
+        
+        // Function to set the current test by index
+        function setCurrentTest(index) {
+            if (index >= 0 && index < testItems.length) {
+                currentTestIndex = index;
+                highlightCurrentTest();
+            }
+        }
+        
+        // Function to move to the next test
+        function moveToNextTest() {
+            if (currentTestIndex < testItems.length - 1) {
+                currentTestIndex++;
+                highlightCurrentTest();
+            } else {
+                // We're at the last test, move to the next PDF
+                document.querySelector('form[action="/next_pdf"] button').click();
+            }
+        }
+        
+        // Function to move to the previous test
+        function moveToPrevTest() {
+            if (currentTestIndex > 0) {
+                currentTestIndex--;
+                highlightCurrentTest();
+            }
+        }
+        
+        // Function to perform action on current test
+        function actionOnCurrentTest(action) {
+            const testItem = testItems[currentTestIndex];
+            if (!testItem) return;
+            
+            const testId = testItem.dataset.id;
+            const pdfName = '{{ pdf_name }}';
+            
+            switch (action) {
+                case 'approve':
+                    updateTestStatus(pdfName, testId, 'checked', 'verified');
+                    testItem.classList.remove('status-rejected');
+                    testItem.classList.add('status-approved');
+                    moveToNextTest();
+                    break;
+                    
+                case 'reject':
+                    updateTestStatus(pdfName, testId, 'checked', 'rejected');
+                    testItem.classList.remove('status-approved');
+                    testItem.classList.add('status-rejected');
+                    moveToNextTest();
+                    break;
+                    
+                case 'edit':
+                    isEditMode = true;
+                    toggleEditMode(testId);
+                    break;
+                    
+                // We no longer need a highlight case as it happens automatically
+            }
+        }
+        
+        // Toggle keyboard help visibility
+        function toggleKeyboardHelp() {
+            const helpPanel = document.getElementById('keyboard-help');
+            helpPanel.classList.toggle('show');
+        }
+        
+        // Keyboard event handler
+        function handleKeyboardShortcuts(event) {
+            // Skip if in edit mode or if modifier keys are pressed
+            if (isEditMode || event.ctrlKey || event.altKey || event.metaKey) return;
+            
+            // Get the active element to check if we're in a form field
+            const activeElement = document.activeElement;
+            const isInFormField = activeElement.tagName === 'INPUT' || 
+                                 activeElement.tagName === 'TEXTAREA' || 
+                                 activeElement.isContentEditable;
+            
+            // Skip if in a form field
+            if (isInFormField) return;
+            
+            switch (event.key.toLowerCase()) {
+                case 'arrowup':
+                    moveToPrevTest();
+                    event.preventDefault();
+                    break;
+                    
+                case 'arrowdown':
+                    moveToNextTest();
+                    event.preventDefault();
+                    break;
+                    
+                case 'a':
+                    actionOnCurrentTest('approve');
+                    event.preventDefault();
+                    break;
+                    
+                case 'r':
+                    actionOnCurrentTest('reject');
+                    event.preventDefault();
+                    break;
+                    
+                case 'e':
+                    actionOnCurrentTest('edit');
+                    event.preventDefault();
+                    break;
+                    
+                // H key removed as highlighting is now automatic
+                
+                case 'n':
+                    // Go to next PDF
+                    document.querySelector('form[action="/next_pdf"] button').click();
+                    event.preventDefault();
+                    break;
+                    
+                case 'p':
+                    // Go to previous PDF
+                    document.querySelector('form[action="/prev_pdf"] button').click();
+                    event.preventDefault();
+                    break;
+                    
+                case '?':
+                    toggleKeyboardHelp();
+                    event.preventDefault();
+                    break;
+            }
+        }
+        
+        // Add click event listeners to all editable fields and initialize keyboard navigation
         document.addEventListener('DOMContentLoaded', function() {
+            // Set up editable fields
             const editables = document.querySelectorAll('.editable');
             editables.forEach(editable => {
-                editable.onclick = function() { startEditField(this); };
+                editable.onclick = function() { 
+                    isEditMode = true;
+                    startEditField(this); 
+                };
             });
+            
+            // Get all test items for keyboard navigation
+            testItems = Array.from(document.querySelectorAll('.test-item'));
+            
+            // Add click event listeners to test items
+            testItems.forEach((item, index) => {
+                item.addEventListener('click', function(e) {
+                    // Only handle clicks on the test item itself or its direct children
+                    // Ignore clicks on buttons and editable elements
+                    if (e.target.tagName !== 'BUTTON' && 
+                        !e.target.closest('.editable') && 
+                        !e.target.classList.contains('kbd-shortcut')) {
+                        setCurrentTest(index);
+                        e.stopPropagation();
+                    }
+                });
+            });
+            
+            // Highlight first test
+            if (testItems.length > 0) {
+                highlightCurrentTest();
+            }
+            
+            // Add keyboard event listener
+            document.addEventListener('keydown', handleKeyboardShortcuts);
+            
+            // Flag to track if we're in edit mode
+            const originalBlurHandlers = [];
+            
+            // Override blur handlers on textareas to reset edit mode flag
+            const addEditModeReset = function(textarea) {
+                const originalBlur = textarea.onblur;
+                originalBlurHandlers.push(originalBlur);
+                
+                textarea.onblur = function(e) {
+                    isEditMode = false;
+                    if (originalBlur) originalBlur.call(this, e);
+                };
+            };
+            
+            // Show keyboard help initially
+            toggleKeyboardHelp();
+            setTimeout(function() {
+                if (document.getElementById('keyboard-help').classList.contains('show')) {
+                    toggleKeyboardHelp();
+                }
+            }, 5000); // Hide after 5 seconds
         });
     </script>
 </body>
