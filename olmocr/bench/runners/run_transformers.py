@@ -19,7 +19,7 @@ _cached_model = None
 _cached_processor = None
 
 
-async def run_transformers(
+def run_transformers(
     pdf_path: str,
     page_num: int = 1,
     model: str = "allenai/olmOCR-7B-0225-preview",
@@ -88,13 +88,14 @@ async def run_transformers(
 
     # Generate the output
     MAX_NEW_TOKENS = 3000
-    output = model.generate(
-        **inputs,
-        temperature=temperature,
-        max_new_tokens=MAX_NEW_TOKENS,
-        num_return_sequences=1,
-        do_sample=True,
-    )
+    with torch.no_grad():
+        output = model.generate(
+            **inputs,
+            temperature=temperature,
+            max_new_tokens=MAX_NEW_TOKENS,
+            num_return_sequences=1,
+            do_sample=True,
+        )
 
     # Decode the output
     prompt_length = inputs["input_ids"].shape[1]
