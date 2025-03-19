@@ -38,6 +38,9 @@ class ValidationError(Exception):
 
 
 def normalize_text(md_content: str) -> str:
+    if md_content is None:
+        return None
+
     # Normalize whitespace in the md_content
     md_content = re.sub(r"\s+", " ", md_content)
 
