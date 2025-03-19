@@ -313,6 +313,26 @@
             margin-bottom: 15px;
         }
         
+        .max-diffs-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn-small {
+            padding: 1px 6px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 3px;
+        }
+        
+        .btn-small:hover {
+            background-color: #e9ecef;
+        }
+        
         /* PDF.js text layer styles */
         .textLayer {
             position: absolute;
@@ -430,7 +450,12 @@
                     {% elif test.type == 'math' %}
                         <div><strong>Math:</strong> <span class="editable" data-field="math" data-id="{{ test.id }}">{{ test.math }}</span></div>
                     {% endif %}
-                    <div><strong>Max Diffs:</strong> {{ test.max_diffs }}</div>
+                    <div class="max-diffs-control">
+                        <strong>Max Diffs:</strong>
+                        <button class="btn-small" onclick="updateMaxDiffs('{{ test.pdf }}', '{{ test.id }}', -1)">-</button>
+                        <span id="max-diffs-{{ test.id }}">{{ test.max_diffs }}</span>
+                        <button class="btn-small" onclick="updateMaxDiffs('{{ test.pdf }}', '{{ test.id }}', 1)">+</button>
+                    </div>
                     <div><strong>Status:</strong> {{ test.checked or 'Not checked' }}</div>
                 </div>
             </div>
@@ -447,6 +472,7 @@
         <p>Q: Reject all tests & next PDF</p>
         <p>N: Next PDF</p>
         <p>P: Previous PDF</p>
+        <p>+ / -: Increase/decrease Max Diffs</p>
         <p>?: Toggle this help</p>
     </div>
     
@@ -739,6 +765,22 @@
             .catch(error => {
                 console.error('Error updating test:', error);
             });
+        }
+        
+        // Function to update max_diffs value
+        function updateMaxDiffs(pdfName, testId, change) {
+            // Get current value
+            const currentElement = document.getElementById(`max-diffs-${testId}`);
+            const currentValue = parseInt(currentElement.textContent, 10);
+            
+            // Calculate new value (prevent going below 0)
+            const newValue = Math.max(0, currentValue + change);
+            
+            // Update UI immediately for responsiveness
+            currentElement.textContent = newValue;
+            
+            // Send update to server
+            updateTestStatus(pdfName, testId, 'max_diffs', newValue);
         }
         
         // Toggle edit mode for a field
@@ -1037,6 +1079,27 @@
                 case 'q':
                     // Reject all tests and go to next PDF
                     rejectAllAndNextPdf();
+                    event.preventDefault();
+                    break;
+                    
+                case '+':
+                case '=':
+                    // Increase max_diffs for current test
+                    if (testItems.length > 0 && currentTestIndex >= 0 && currentTestIndex < testItems.length) {
+                        const testId = testItems[currentTestIndex].dataset.id;
+                        const pdfName = '{{ pdf_name }}';
+                        updateMaxDiffs(pdfName, testId, 1);
+                    }
+                    event.preventDefault();
+                    break;
+                    
+                case '-':
+                    // Decrease max_diffs for current test
+                    if (testItems.length > 0 && currentTestIndex >= 0 && currentTestIndex < testItems.length) {
+                        const testId = testItems[currentTestIndex].dataset.id;
+                        const pdfName = '{{ pdf_name }}';
+                        updateMaxDiffs(pdfName, testId, -1);
+                    }
                     event.preventDefault();
                     break;
                     
