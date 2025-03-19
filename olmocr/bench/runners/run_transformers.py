@@ -19,7 +19,7 @@ _cached_model = None
 _cached_processor = None
 
 
-async def run_transformers(
+def run_transformers(
     pdf_path: str,
     page_num: int = 1,
     model: str = "allenai/olmOCR-7B-0225-preview",
@@ -47,7 +47,7 @@ async def run_transformers(
     if _cached_model is None:
         model = Qwen2VLForConditionalGeneration.from_pretrained(model, torch_dtype=torch.bfloat16).eval()
         processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
-        model.to(device)
+        model = model.to(device)
 
         _cached_model = model
         _cached_processor = processor
@@ -88,13 +88,14 @@ async def run_transformers(
 
     # Generate the output
     MAX_NEW_TOKENS = 3000
-    output = model.generate(
-        **inputs,
-        temperature=temperature,
-        max_new_tokens=MAX_NEW_TOKENS,
-        num_return_sequences=1,
-        do_sample=True,
-    )
+    with torch.no_grad():
+        output = model.generate(
+            **inputs,
+            temperature=temperature,
+            max_new_tokens=MAX_NEW_TOKENS,
+            num_return_sequences=1,
+            do_sample=True,
+        )
 
     # Decode the output
     prompt_length = inputs["input_ids"].shape[1]
