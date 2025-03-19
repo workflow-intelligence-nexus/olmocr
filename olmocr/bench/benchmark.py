@@ -306,7 +306,7 @@ def main():
             half_width = ((ci[1] - ci[0]) / 2) * 100
             ciw_str = f"± {half_width:0.1f}%"
         print(f"{candidate_name:20s} : Average Score: {status} {ciw_str}")
-        
+
         # Sort the test types alphabetically
         for ttype in sorted(test_type_breakdown.keys()):
             scores = test_type_breakdown[ttype]

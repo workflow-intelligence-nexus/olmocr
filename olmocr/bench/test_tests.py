@@ -1,11 +1,10 @@
 import unittest
-import numpy as np
+
 
 from olmocr.bench.tests import (
     BaselineTest,
     BasePDFTest,
     MathTest,
-    TableData,
     TableTest,
     TestChecked,
     TestType,
@@ -609,7 +608,9 @@ gewone nachten      | 2017  | 1,0     | 6,0     | 3,9        | 1,0 |
 | Slaapkwaliteit tijdens
 consignatiediensten | 19816 | 1,0     | 6,0     | 2,8        | 1,2 |
 """
-        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="2,8", left_heading="Slaapkwaliteit tijdens\nconsignatiediensten")
+        test = TableTest(
+            pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="2,8", left_heading="Slaapkwaliteit tijdens\nconsignatiediensten"
+        )
         result, explanation = test.run(table)
         self.assertFalse(result, explanation)
 
@@ -681,7 +682,15 @@ consignatiediensten | 19816 | 1,0     | 6,0     | 2,8        | 1,2 |
         </tbody>
     </table>
 """
-        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, max_diffs=5, cell="Planning for and managing residential, commercial and industrial development", down="Environmental protection,\nsupport for green projects\n(e.g. green grants,\nbuilding retrofits programs,\nzero waste)")
+        test = TableTest(
+            pdf="test.pdf",
+            page=1,
+            id="test_id",
+            type=TestType.TABLE.value,
+            max_diffs=5,
+            cell="Planning for and managing residential, commercial and industrial development",
+            down="Environmental protection,\nsupport for green projects\n(e.g. green grants,\nbuilding retrofits programs,\nzero waste)",
+        )
         result, explanation = test.run(table)
         self.assertTrue(result, explanation)
 
@@ -795,7 +804,7 @@ consignatiediensten | 19816 | 1,0     | 6,0     | 2,8        | 1,2 |
             </tr>
         </tbody>
     </table>"""
-        
+
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Refrigerators", left="Home Appliances")
         result, explanation = test.run(table)
         self.assertTrue(result, explanation)
@@ -851,7 +860,7 @@ consignatiediensten | 19816 | 1,0     | 6,0     | 2,8        | 1,2 |
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Washing Machines", top_heading="Quarterly Sales ($000s)")
         result, explanation = test.run(table)
         self.assertFalse(result, explanation)
-        
+
     def test_multiple_markdown_tables(self):
         """Test that we can find and verify cells in multiple markdown tables in one document"""
         content = """
@@ -874,30 +883,30 @@ Some text between tables...
 | Marketing   | 1.5M  | 12 |
 | HR          | 0.5M  | 5  |
 """
-        
+
         # Test cells in the first table
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="John", right="28")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="32", left="Jane")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         # Test cells in the second table
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Engineering", right="1.2M")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="12", left="1.5M")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         # Verify top headings work correctly across tables
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Bob", top_heading="Name")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="HR", top_heading="Department")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
@@ -975,30 +984,30 @@ Some text between tables...
   </tbody>
 </table>
 """
-        
+
         # Test cells in the first table
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="USA", right="Washington DC")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="126M", left="Tokyo")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         # Test cells in the second table
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="XYZ Inc", right="Healthcare")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="15,000", left="$1.8B")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         # Verify top headings work correctly across tables
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Tokyo", top_heading="Capital")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Finance", top_heading="Industry")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
@@ -1043,71 +1052,314 @@ Some text between tables...
   </tr>
 </table>
 """
-        
+
         # Test cells in the markdown table
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Orange", right="$0.80")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         # Test cells in the HTML table
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="February", right="$12,000")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         # Verify we can find cells with specific top headings
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="100", top_heading="Quantity")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
+
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="$4,800", top_heading="Profit")
         result, explanation = test.run(content)
         self.assertTrue(result, explanation)
-        
-    def test_table_data_string_methods(self):
-        """Test the string representation of TableData"""
-        # Create a simple table
-        data = np.array([
-            ["Header A", "Header B", "Header C"],
-            ["Value 1", "Value 2", "Value 3"],
-            ["Value 4", "Value 5", "Value 6"]
-        ])
-        
-        # Create TableData with headers
-        table_data = TableData(
-            data=data,
-            header_rows={0},
-            header_cols={0},
-            col_headers={
-                0: [(0, "Header A")],
-                1: [(0, "Header B")],
-                2: [(0, "Header C")]
-            },
-            row_headers={
-                1: [(0, "Value 1")],
-                2: [(0, "Value 4")]
-            }
+
+    def test_br_tags_replacement(self):
+        """Test that <br> and <br/> tags are correctly replaced with newlines"""
+        table = """<table>
+          <tr>
+            <th>Header 1</th>
+            <th>Header 2</th>
+          </tr>
+          <tr>
+            <td>Line 1<br/>Line 2<br/>Line 3</td>
+            <td>Single line</td>
+          </tr>
+        </table>"""
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Line 1 Line 2 Line 3")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+    def test_real_complicated_table(self):
+        table = """    <table>
+        <thead>
+            <tr>
+                <th colspan="7">Table 1 &nbsp;&nbsp; Differences in diagnoses, gender and family status for participants with a suicide attempt and those without a suicide attempt within the 12-month follow-up interval</th>
+            </tr>
+            <tr class="header-row">
+                <th rowspan="2"></th>
+                <th colspan="2">Participants with no<br>suicide attempt<br>(n = 132)<sup>a</sup></th>
+                <th colspan="2">Participants with a<br>suicide attempt<br>(n = 43)<sup>b</sup></th>
+                <th colspan="3"></th>
+            </tr>
+            <tr class="header-row">
+                <th>n</th>
+                <th>%</th>
+                <th>n</th>
+                <th>%</th>
+                <th>χ<sup>2</sup></th>
+                <th>d.f.</th>
+                <th>P</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="section-header">ICD-10 diagnoses</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F0</td>
+                <td>1</td>
+                <td>0.76</td>
+                <td>0</td>
+                <td>0.00</td>
+                <td>0.00</td>
+                <td>1</td>
+                <td>1.00</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F1</td>
+                <td>17</td>
+                <td>12.88</td>
+                <td>12</td>
+                <td>27.91</td>
+                <td>4.39</td>
+                <td>1</td>
+                <td>0.04</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F2</td>
+                <td>1</td>
+                <td>0.76</td>
+                <td>0</td>
+                <td>0.00</td>
+                <td>0.00</td>
+                <td>1</td>
+                <td>1.00</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F3</td>
+                <td>106</td>
+                <td>80.30</td>
+                <td>31</td>
+                <td>72.09</td>
+                <td>0.74</td>
+                <td>1</td>
+                <td>0.39</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F4</td>
+                <td>42</td>
+                <td>31.82</td>
+                <td>17</td>
+                <td>39.53</td>
+                <td>0.61</td>
+                <td>1</td>
+                <td>0.43</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F5</td>
+                <td>5</td>
+                <td>3.79</td>
+                <td>5</td>
+                <td>11.63</td>
+                <td>2.44</td>
+                <td>1</td>
+                <td>0.12</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F6</td>
+                <td>20</td>
+                <td>15.15</td>
+                <td>19</td>
+                <td>44.19</td>
+                <td>14.48</td>
+                <td>1</td>
+                <td>0.00</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F7</td>
+                <td>0</td>
+                <td>0.00</td>
+                <td>0</td>
+                <td>0.00</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F8</td>
+                <td>1</td>
+                <td>0.76</td>
+                <td>0</td>
+                <td>0.00</td>
+                <td>0.00</td>
+                <td>1</td>
+                <td>1.00</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;F9</td>
+                <td>2</td>
+                <td>1.52</td>
+                <td>1</td>
+                <td>2.33</td>
+                <td>0.00</td>
+                <td>1</td>
+                <td>1.00</td>
+            </tr>
+            <tr>
+                <td class="section-header">Gender</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>3.09</td>
+                <td>2</td>
+                <td>0.21</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;Female</td>
+                <td>75</td>
+                <td>56.8</td>
+                <td>24</td>
+                <td>55.8</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;Male</td>
+                <td>57</td>
+                <td>43.2</td>
+                <td>18</td>
+                <td>41.9</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;Diverse</td>
+                <td>0</td>
+                <td>0</td>
+                <td>1</td>
+                <td>2.3</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td class="section-header">Family status</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>4.87</td>
+                <td>4</td>
+                <td>0.30</td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;Single</td>
+                <td>55</td>
+                <td>41.7</td>
+                <td>14</td>
+                <td>32.6</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;Partnership</td>
+                <td>25</td>
+                <td>18.9</td>
+                <td>9</td>
+                <td>20.9</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;Married</td>
+                <td>27</td>
+                <td>20.5</td>
+                <td>5</td>
+                <td>11.6</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;Divorced</td>
+                <td>20</td>
+                <td>15.2</td>
+                <td>11</td>
+                <td>25.6</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>&nbsp;&nbsp;Widowed</td>
+                <td>1</td>
+                <td>0.8</td>
+                <td>1</td>
+                <td>2.3</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="8" class="footnote">
+                    F0: Organic, including symptomatic, mental disorders; F1: Mental and behavioural disorders due to psychoactive substance use; F2: Schizophrenia, schizotypal and delusional disorders; F3: affective disorders; F4: Neurotic, stress-related and somatoform disorders; F5: Behavioural syndromes associated with physiological disturbances and physical factors; F6: Disorders of adult personality and behaviour; F7: Mental retardation; F8: Disorders of psychological development; F9: Behavioural and emotional disorders with onset usually occurring in childhood and adolescence.<br>
+                    a. 75.43% of the total sample with full information on suicide reattempts within the entire 12-month follow-up interval.<br>
+                    b. 24.57% of the total sample with full information on suicide reattempts within the entire 12-month follow-up interval.
+                </td>
+            </tr>
+        </tfoot>
+    </table>"""
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="4.39", top_heading="χ2")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="12.88", top_heading="%")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        # Account for the superscript in the header
+        test = TableTest(
+            pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="12.88", top_heading="Participants with no suicide attempt (n = 132)a"
         )
-        
-        # Test __str__ method
-        str_repr = str(table_data)
-        
-        # Verify it includes important information
-        self.assertIn("Table: 3 rows × 3 columns", str_repr)
-        self.assertIn("Header rows: [0]", str_repr)
-        self.assertIn("Header columns: [0]", str_repr)
-        self.assertIn("*Header A*", str_repr)
-        self.assertIn("*Header B*", str_repr)
-        self.assertIn("*Value 1*", str_repr)
-        self.assertIn("Column header mappings:", str_repr)
-        self.assertIn("Row header mappings:", str_repr)
-        
-        # Test __repr__ method
-        repr_str = repr(table_data)
-        
-        # Verify it includes essential information
-        self.assertIn("TableData(shape=(3, 3)", repr_str)
-        self.assertIn("header_rows=1", repr_str)
-        self.assertIn("header_cols=1", repr_str)
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(
+            pdf="test.pdf",
+            page=1,
+            id="test_id",
+            type=TestType.TABLE.value,
+            cell="12.88",
+            top_heading="Table 1    Differences in diagnoses, gender and family status for participants with a suicide attempt and those without a suicide attempt within the 12-month follow-up interval",
+        )
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
 
 class TestBaselineTest(unittest.TestCase):
     """Test the BaselineTest class"""
