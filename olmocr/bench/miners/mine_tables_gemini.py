@@ -463,7 +463,6 @@ def main():
 
     # Reservoir sampling implementation
     s3_paths = []
-    count = 0
     with open(args.input_list, "r") as f:
         for i, line in enumerate(tqdm(f)):
             line = line.strip()

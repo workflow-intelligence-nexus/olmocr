@@ -219,7 +219,7 @@ class TableTest(BasePDFTest):
     def parse_markdown_tables(self, md_content: str) -> List[np.ndarray]:
         """
         Extract and parse all markdown tables from the provided content.
-        Uses a direct approach to find and parse tables, which is more robust for tables 
+        Uses a direct approach to find and parse tables, which is more robust for tables
         at the end of files or with irregular formatting.
 
         Args:
@@ -232,11 +232,11 @@ class TableTest(BasePDFTest):
 
         # Split the content into lines and process line by line
         lines = md_content.strip().split("\n")
-        
+
         parsed_tables = []
         current_table_lines = []
         in_table = False
-        
+
         # Identify potential tables by looking for lines with pipe characters
         for i, line in enumerate(lines):
             # Check if this line has pipe characters (a table row indicator)
@@ -261,7 +261,7 @@ class TableTest(BasePDFTest):
                             table_array = np.array(padded_data)
                             parsed_tables.append(table_array)
                     in_table = False
-        
+
         # Process the last table if we're still tracking one at the end of the file
         if in_table and len(current_table_lines) >= 2:
             table_data = self._process_table_lines(current_table_lines)
@@ -271,22 +271,22 @@ class TableTest(BasePDFTest):
                 padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
                 table_array = np.array(padded_data)
                 parsed_tables.append(table_array)
-        
+
         return parsed_tables
-        
+
     def _process_table_lines(self, table_lines: List[str]) -> List[List[str]]:
         """
         Process a list of lines that potentially form a markdown table.
-        
+
         Args:
             table_lines: List of strings, each representing a line in a potential markdown table
-            
+
         Returns:
             A list of rows, each a list of cell values
         """
         table_data = []
         separator_row_index = None
-        
+
         # First, identify the separator row (the row with dashes)
         for i, line in enumerate(table_lines):
             # Check if this looks like a separator row (contains mostly dashes)
@@ -294,29 +294,29 @@ class TableTest(BasePDFTest):
             if content_without_pipes and all(c in "- :" for c in content_without_pipes):
                 separator_row_index = i
                 break
-        
+
         # Process each line, filtering out the separator row
         for i, line in enumerate(table_lines):
             # Skip the separator row
             if i == separator_row_index:
                 continue
-                
+
             # Skip lines that are entirely formatting
             if line.strip() and all(c in "- :|" for c in line):
                 continue
-                
+
             # Process the cells in this row
             cells = [cell.strip() for cell in line.split("|")]
-            
+
             # Remove empty cells at the beginning and end (caused by leading/trailing pipes)
             if cells and cells[0] == "":
                 cells = cells[1:]
             if cells and cells[-1] == "":
                 cells = cells[:-1]
-                
+
             if cells:  # Only add non-empty rows
                 table_data.append(cells)
-        
+
         return table_data
 
     def parse_html_tables(self, html_content: str) -> List[np.ndarray]:

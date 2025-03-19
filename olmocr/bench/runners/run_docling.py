@@ -1,8 +1,7 @@
-import argparse
 import base64
 import os
 from io import BytesIO
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import torch
 from docling_core.types.doc import DoclingDocument
@@ -24,12 +23,16 @@ def init_model(model_name: str = "ds4sd/SmolDocling-256M-preview"):
 
     if _cached_model is None:
         processor = AutoProcessor.from_pretrained(model_name)
-        model = AutoModelForVision2Seq.from_pretrained(
-            model_name,
-            torch_dtype=torch.bfloat16,
-            # _attn_implementation="flash_attention_2" if device.type == "cuda" else "eager",
-            _attn_implementation="eager",
-        ).eval().to(device)
+        model = (
+            AutoModelForVision2Seq.from_pretrained(
+                model_name,
+                torch_dtype=torch.bfloat16,
+                # _attn_implementation="flash_attention_2" if device.type == "cuda" else "eager",
+                _attn_implementation="eager",
+            )
+            .eval()
+            .to(device)
+        )
 
         _cached_model = model
         _cached_processor = processor
@@ -89,11 +92,7 @@ def run_docling(
     if output_format == "markdown":
         result = doc.export_to_markdown()
     elif output_format == "html":
-        if output_file:
-            doc.save_as_html(output_file)
-            result = f"HTML saved to {output_file}"
-        else:
-            result = doc.export_to_html()
+        result = doc.export_to_html()
     elif output_format == "doctags":
         result = doctags
 
