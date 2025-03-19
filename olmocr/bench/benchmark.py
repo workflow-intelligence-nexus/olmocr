@@ -306,8 +306,10 @@ def main():
             half_width = ((ci[1] - ci[0]) / 2) * 100
             ciw_str = f"± {half_width:0.1f}%"
         print(f"{candidate_name:20s} : Average Score: {status} {ciw_str}")
-        test_type_breakdown.sort(key=lambda f: f[0])
-        for ttype, scores in test_type_breakdown.items():
+        
+        # Sort the test types alphabetically
+        for ttype in sorted(test_type_breakdown.keys()):
+            scores = test_type_breakdown[ttype]
             avg = sum(scores) / len(scores) * 100 if scores else 0.0
             print(f"    {ttype:8s}: {avg:0.1f}% average pass rate over {len(scores)} tests")
         print("")
