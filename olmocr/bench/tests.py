@@ -45,7 +45,7 @@ def normalize_text(md_content: str) -> str:
     md_content = re.sub(r"\s+", " ", md_content)
 
     # Dictionary of characters to replace: keys are fancy characters, values are ASCII equivalents, unicode micro with greek mu comes up often enough too
-    replacements = {"‘": "'", "’": "'", "‚": "'", "“": '"', "”": '"', "„": '"', "＿": "_", "–": "-", "—": "-", "‑": "-", "‒": "-", "\u00b5": "\u03bc"}
+    replacements = {"‘": "'", "’": "'", "‚": "'", "“": '"', "”": '"', "„": '"', "＿": "_", "–": "-", "—": "-", "‑": "-", "‒": "-", "−": "-", "\u00b5": "\u03bc"}
 
     # Apply all replacements from the dictionary
     for fancy_char, ascii_char in replacements.items():

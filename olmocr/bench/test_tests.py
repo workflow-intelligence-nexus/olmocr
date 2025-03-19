@@ -561,6 +561,17 @@ Some text before the table.
         result, explanation = test.run(table)
         self.assertTrue(result, explanation)
 
+    def test_mathematical_minus(self):
+        table = """| Response | Chinese experimenter | White experimenter |
+|----------|----------------------|--------------------|
+|          | Divided attention    | Full attention     | Divided attention | Full attention |
+| Nonverbal| −.34 (.22)           | .54* (.17)         | .12 (.27)         | −.20 (.24)     |
+| Verbal   | −.25 (.23)           | .36 (.20)          | .12 (.27)         | −.34 (.22)     |
+"""
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="-.34 (.22)")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
 
 class TestBaselineTest(unittest.TestCase):
     """Test the BaselineTest class"""
