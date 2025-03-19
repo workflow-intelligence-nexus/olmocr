@@ -1,9 +1,11 @@
 import unittest
+import numpy as np
 
 from olmocr.bench.tests import (
     BaselineTest,
     BasePDFTest,
     MathTest,
+    TableData,
     TableTest,
     TestChecked,
     TestType,
@@ -311,20 +313,20 @@ class TestTableTest(unittest.TestCase):
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Cell A2")
         tables = test.parse_markdown_tables(self.markdown_table)
         self.assertEqual(len(tables), 1)
-        self.assertEqual(tables[0].shape, (3, 3))  # 3 rows, 3 columns
-        self.assertEqual(tables[0][0, 0], "Header 1")
-        self.assertEqual(tables[0][1, 1], "Cell A2")
-        self.assertEqual(tables[0][2, 2], "Cell B3")
+        self.assertEqual(tables[0].data.shape, (3, 3))  # 3 rows, 3 columns
+        self.assertEqual(tables[0].data[0, 0], "Header 1")
+        self.assertEqual(tables[0].data[1, 1], "Cell A2")
+        self.assertEqual(tables[0].data[2, 2], "Cell B3")
 
     def test_parse_html_tables(self):
         """Test HTML table parsing"""
         test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Cell A2")
         tables = test.parse_html_tables(self.html_table)
         self.assertEqual(len(tables), 1)
-        self.assertEqual(tables[0].shape, (3, 3))  # 3 rows, 3 columns
-        self.assertEqual(tables[0][0, 0], "Header 1")
-        self.assertEqual(tables[0][1, 1], "Cell A2")
-        self.assertEqual(tables[0][2, 2], "Cell B3")
+        self.assertEqual(tables[0].data.shape, (3, 3))  # 3 rows, 3 columns
+        self.assertEqual(tables[0].data[0, 0], "Header 1")
+        self.assertEqual(tables[0].data[1, 1], "Cell A2")
+        self.assertEqual(tables[0].data[2, 2], "Cell B3")
 
     def test_match_cell(self):
         """Test finding a cell in a table"""
@@ -572,25 +574,540 @@ Some text before the table.
         result, explanation = test.run(table)
         self.assertTrue(result, explanation)
 
-    def test_big_table(self):
-        # TODO this would work with html tables with a rowspan?
-        table = """| Question - – Satisfaction on scale of 10 | Response | Resident Sample | Business Sample |
-|----------------------------------------|----------|----------------|-----------------|
-| Planning for and managing residential, commercial and industrial development | Rating of 8, 9 or 10 | 13% | 11% |
-| | Average rating | 6.4 | 5.7 |
-| | Don’t know responses | 11% | 6% |
-| Environmental protection, support for green projects (e.g. green grants, building retrofits programs, zero waste) | Rating of 8, 9 or 10 | 35% | 34% |
-| | Average rating | 8.0 | 7.5 |
-| | Don’t know responses | 8% | 6% |
-| Providing and maintaining parks and green spaces | Rating of 8, 9 or 10 | 42% | 41% |
-| | Average rating | 7.7 | 7.3 |
-| | Don’t know responses | 1% | 1% |
-
-Base: Resident respondents (n=1,315) and Business respondents (n=397)
-"""
-        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Planning for and managing residential, commercial and industrial development", down="Environmental protection,\nsupport for green projects\n(e.g. green grants,\nbuilding retrofits programs,\nzero waste)")
+    def test_markdown_marker(self):
+        table = """| CATEGORY     | POINTS EARNED |
+|------------------------------|------------------|
+| Sustainable Sites            | 9                |
+| Water Efficiency             | 3                |
+| Energy & Atmosphere          | 12               |
+| Materials & Resources        | 6                |
+| Indoor Environmental Quality | 11               |
+| Innovation & Design Process  | 5                |
+| TOTAL                        | 46               |"""
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="9", up="POINTS EARNED")
         result, explanation = test.run(table)
         self.assertTrue(result, explanation)
+
+    def test_markdown_marker2(self):
+        table = """| Concentration
+level | [CO]      | [SO2] | [NOx]    |
+|------------------------|-----------|-------|----------|
+| Control                | 0 μM      | 0 μM  | 0 nM     |
+| Low                    | 250
+μM | 8 μM  | 0.002 nM |
+| Medium                 | 625 μM    | 20 μM | 0.005 nM |
+| High                   | 1250 μM   | 40 μM | 0.01 nM  |"""
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="20 μM", up=".002 nM")
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+
+    def test_marker3(self):
+        table = """|                                               | N     | Minimum | Maximum | Gemiddelde | Sd  |
+|-----------------------------------------------|-------|---------|---------|------------|-----|
+| Slaapkwaliteit tijdens
+gewone nachten      | 2017  | 1,0     | 6,0     | 3,9        | 1,0 |
+| Slaapkwaliteit tijdens
+consignatiediensten | 19816 | 1,0     | 6,0     | 2,8        | 1,2 |
+"""
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="2,8", left_heading="Slaapkwaliteit tijdens\nconsignatiediensten")
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+
+    def test_big_table(self):
+        table = """    <table>
+        <caption>Base: Resident respondents (n=1,315) and Business respondents (n=397)</caption>
+        <thead>
+            <tr>
+                <th>Question – Satisfaction on scale of 10</th>
+                <th>Response</th>
+                <th>Resident Sample</th>
+                <th>Business Sample</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- First category -->
+            <tr class="category-row">
+                <td rowspan="3">Planning for and managing residential, commercial and industrial development</td>
+                <td>Rating of 8, 9 or 10</td>
+                <td>13%</td>
+                <td>11%</td>
+            </tr>
+            <tr>
+                <td class="subcategory">Average rating</td>
+                <td>6.4</td>
+                <td>5.7</td>
+            </tr>
+            <tr>
+                <td class="subcategory">Don't know responses</td>
+                <td>11%</td>
+                <td>6%</td>
+            </tr>
+            
+            <!-- Second category -->
+            <tr class="category-row">
+                <td rowspan="3">Environmental protection, support for green projects (e.g. green grants, building retrofits programs, zero waste)</td>
+                <td>Rating of 8, 9 or 10</td>
+                <td>35%</td>
+                <td>34%</td>
+            </tr>
+            <tr>
+                <td class="subcategory">Average rating</td>
+                <td>8.0</td>
+                <td>7.5</td>
+            </tr>
+            <tr>
+                <td class="subcategory">Don't know responses</td>
+                <td>8%</td>
+                <td>6%</td>
+            </tr>
+            
+            <!-- Third category -->
+            <tr class="category-row">
+                <td rowspan="3">Providing and maintaining parks and green spaces</td>
+                <td>Rating of 8, 9 or 10</td>
+                <td>42%</td>
+                <td>41%</td>
+            </tr>
+            <tr>
+                <td class="subcategory">Average rating</td>
+                <td>7.7</td>
+                <td>7.3</td>
+            </tr>
+            <tr>
+                <td class="subcategory">Don't know responses</td>
+                <td>1%</td>
+                <td>1%</td>
+            </tr>
+        </tbody>
+    </table>
+"""
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, max_diffs=5, cell="Planning for and managing residential, commercial and industrial development", down="Environmental protection,\nsupport for green projects\n(e.g. green grants,\nbuilding retrofits programs,\nzero waste)")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+    def test_html_rowspans_colspans(self):
+        table = """    <table>
+        <thead>
+            <tr>
+                <th rowspan="2">Product Category</th>
+                <th rowspan="2">Product Subcategory</th>
+                <th colspan="4">Quarterly Sales ($000s)</th>
+                <th rowspan="2">Annual Total</th>
+            </tr>
+            <tr>
+                <th>Q1</th>
+                <th>Q2</th>
+                <th>Q3</th>
+                <th>Q4</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="category">
+                <td rowspan="4">Electronics</td>
+                <td>Smartphones</td>
+                <td>245</td>
+                <td>278</td>
+                <td>312</td>
+                <td>389</td>
+                <td>1,224</td>
+            </tr>
+            <tr class="subcategory">
+                <td>Laptops</td>
+                <td>187</td>
+                <td>192</td>
+                <td>243</td>
+                <td>297</td>
+                <td>919</td>
+            </tr>
+            <tr class="subcategory">
+                <td>Tablets</td>
+                <td>95</td>
+                <td>123</td>
+                <td>135</td>
+                <td>156</td>
+                <td>509</td>
+            </tr>
+            <tr class="subcategory">
+                <td>Accessories</td>
+                <td>64</td>
+                <td>72</td>
+                <td>87</td>
+                <td>105</td>
+                <td>328</td>
+            </tr>
+            <tr class="category">
+                <td rowspan="3">Home Appliances</td>
+                <td>Refrigerators</td>
+                <td>132</td>
+                <td>145</td>
+                <td>151</td>
+                <td>162</td>
+                <td>590</td>
+            </tr>
+            <tr class="subcategory">
+                <td>Washing Machines</td>
+                <td>98</td>
+                <td>112</td>
+                <td>127</td>
+                <td>143</td>
+                <td>480</td>
+            </tr>
+            <tr class="subcategory">
+                <td>Microwaves</td>
+                <td>54</td>
+                <td>67</td>
+                <td>72</td>
+                <td>84</td>
+                <td>277</td>
+            </tr>
+            <tr class="category">
+                <td rowspan="3">Furniture</td>
+                <td>Sofas</td>
+                <td>112</td>
+                <td>128</td>
+                <td>134</td>
+                <td>142</td>
+                <td>516</td>
+            </tr>
+            <tr class="subcategory">
+                <td>Tables</td>
+                <td>87</td>
+                <td>95</td>
+                <td>103</td>
+                <td>124</td>
+                <td>409</td>
+            </tr>
+            <tr class="subcategory">
+                <td>Chairs</td>
+                <td>76</td>
+                <td>84</td>
+                <td>92</td>
+                <td>110</td>
+                <td>362</td>
+            </tr>
+            <tr class="total">
+                <td colspan="2">Quarterly Totals</td>
+                <td>1,150</td>
+                <td>1,296</td>
+                <td>1,456</td>
+                <td>1,712</td>
+                <td>5,614</td>
+            </tr>
+        </tbody>
+    </table>"""
+        
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Refrigerators", left="Home Appliances")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Washing Machines", left="Home Appliances")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Microwaves", left="Home Appliances")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Sofas", top_heading="Product Subcategory")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="135", top_heading="Q3")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="135", top_heading="Quarterly Sales ($000s)")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="1,712", top_heading="Quarterly Sales ($000s)")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="135", top_heading="Q2")
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="135", top_heading="Q1")
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="135", top_heading="Q4")
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Home Appliances", top_heading="Product Category")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Washing Machines", top_heading="Product Category")
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Washing Machines", top_heading="Q3")
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Washing Machines", top_heading="Quarterly Sales ($000s)")
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+        
+    def test_multiple_markdown_tables(self):
+        """Test that we can find and verify cells in multiple markdown tables in one document"""
+        content = """
+# First Table
+
+| Name | Age | Role |
+| ---- | --- | ---- |
+| John | 28  | Developer |
+| Jane | 32  | Designer |
+| Bob  | 45  | Manager |
+
+Some text between tables...
+
+# Second Table
+
+| Department | Budget | Employees |
+| ---------- | ------ | --------- |
+| Engineering | 1.2M  | 15 |
+| Design      | 0.8M  | 8  |
+| Marketing   | 1.5M  | 12 |
+| HR          | 0.5M  | 5  |
+"""
+        
+        # Test cells in the first table
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="John", right="28")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="32", left="Jane")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        # Test cells in the second table
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Engineering", right="1.2M")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="12", left="1.5M")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        # Verify top headings work correctly across tables
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Bob", top_heading="Name")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="HR", top_heading="Department")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+
+    def test_multiple_html_tables(self):
+        """Test that we can find and verify cells in multiple HTML tables in one document"""
+        content = """
+<h1>First Table</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Country</th>
+      <th>Capital</th>
+      <th>Population</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>USA</td>
+      <td>Washington DC</td>
+      <td>331M</td>
+    </tr>
+    <tr>
+      <td>France</td>
+      <td>Paris</td>
+      <td>67M</td>
+    </tr>
+    <tr>
+      <td>Japan</td>
+      <td>Tokyo</td>
+      <td>126M</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Some text between tables...</p>
+
+<h1>Second Table</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Company</th>
+      <th>Industry</th>
+      <th>Revenue</th>
+      <th>Employees</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ABC Corp</td>
+      <td>Technology</td>
+      <td>$5B</td>
+      <td>10,000</td>
+    </tr>
+    <tr>
+      <td>XYZ Inc</td>
+      <td>Healthcare</td>
+      <td>$2.5B</td>
+      <td>8,500</td>
+    </tr>
+    <tr>
+      <td>Acme Co</td>
+      <td>Manufacturing</td>
+      <td>$1.8B</td>
+      <td>15,000</td>
+    </tr>
+    <tr>
+      <td>Global LLC</td>
+      <td>Finance</td>
+      <td>$3.2B</td>
+      <td>6,200</td>
+    </tr>
+  </tbody>
+</table>
+"""
+        
+        # Test cells in the first table
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="USA", right="Washington DC")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="126M", left="Tokyo")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        # Test cells in the second table
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="XYZ Inc", right="Healthcare")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="15,000", left="$1.8B")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        # Verify top headings work correctly across tables
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Tokyo", top_heading="Capital")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Finance", top_heading="Industry")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+
+    def test_mixed_markdown_and_html_tables(self):
+        """Test that we can find and verify cells in mixed markdown and HTML tables in one document"""
+        content = """
+# Markdown Table
+
+| Product | Price | Quantity |
+| ------- | ----- | -------- |
+| Apple   | $1.20 | 100      |
+| Orange  | $0.80 | 150      |
+| Banana  | $0.60 | 200      |
+
+<h1>HTML Table</h1>
+
+<table>
+  <tr>
+    <th>Month</th>
+    <th>Income</th>
+    <th>Expenses</th>
+    <th>Profit</th>
+  </tr>
+  <tr>
+    <td>January</td>
+    <td>$10,000</td>
+    <td>$8,000</td>
+    <td>$2,000</td>
+  </tr>
+  <tr>
+    <td>February</td>
+    <td>$12,000</td>
+    <td>$9,500</td>
+    <td>$2,500</td>
+  </tr>
+  <tr>
+    <td>March</td>
+    <td>$15,000</td>
+    <td>$10,200</td>
+    <td>$4,800</td>
+  </tr>
+</table>
+"""
+        
+        # Test cells in the markdown table
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Orange", right="$0.80")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        # Test cells in the HTML table
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="February", right="$12,000")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        # Verify we can find cells with specific top headings
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="100", top_heading="Quantity")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="$4,800", top_heading="Profit")
+        result, explanation = test.run(content)
+        self.assertTrue(result, explanation)
+        
+    def test_table_data_string_methods(self):
+        """Test the string representation of TableData"""
+        # Create a simple table
+        data = np.array([
+            ["Header A", "Header B", "Header C"],
+            ["Value 1", "Value 2", "Value 3"],
+            ["Value 4", "Value 5", "Value 6"]
+        ])
+        
+        # Create TableData with headers
+        table_data = TableData(
+            data=data,
+            header_rows={0},
+            header_cols={0},
+            col_headers={
+                0: [(0, "Header A")],
+                1: [(0, "Header B")],
+                2: [(0, "Header C")]
+            },
+            row_headers={
+                1: [(0, "Value 1")],
+                2: [(0, "Value 4")]
+            }
+        )
+        
+        # Test __str__ method
+        str_repr = str(table_data)
+        
+        # Verify it includes important information
+        self.assertIn("Table: 3 rows × 3 columns", str_repr)
+        self.assertIn("Header rows: [0]", str_repr)
+        self.assertIn("Header columns: [0]", str_repr)
+        self.assertIn("*Header A*", str_repr)
+        self.assertIn("*Header B*", str_repr)
+        self.assertIn("*Value 1*", str_repr)
+        self.assertIn("Column header mappings:", str_repr)
+        self.assertIn("Row header mappings:", str_repr)
+        
+        # Test __repr__ method
+        repr_str = repr(table_data)
+        
+        # Verify it includes essential information
+        self.assertIn("TableData(shape=(3, 3)", repr_str)
+        self.assertIn("header_rows=1", repr_str)
+        self.assertIn("header_cols=1", repr_str)
 
 class TestBaselineTest(unittest.TestCase):
     """Test the BaselineTest class"""
