@@ -572,6 +572,25 @@ Some text before the table.
         result, explanation = test.run(table)
         self.assertTrue(result, explanation)
 
+    def test_big_table(self):
+        # TODO this would work with html tables with a rowspan?
+        table = """| Question - – Satisfaction on scale of 10 | Response | Resident Sample | Business Sample |
+|----------------------------------------|----------|----------------|-----------------|
+| Planning for and managing residential, commercial and industrial development | Rating of 8, 9 or 10 | 13% | 11% |
+| | Average rating | 6.4 | 5.7 |
+| | Don’t know responses | 11% | 6% |
+| Environmental protection, support for green projects (e.g. green grants, building retrofits programs, zero waste) | Rating of 8, 9 or 10 | 35% | 34% |
+| | Average rating | 8.0 | 7.5 |
+| | Don’t know responses | 8% | 6% |
+| Providing and maintaining parks and green spaces | Rating of 8, 9 or 10 | 42% | 41% |
+| | Average rating | 7.7 | 7.3 |
+| | Don’t know responses | 1% | 1% |
+
+Base: Resident respondents (n=1,315) and Business respondents (n=397)
+"""
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Planning for and managing residential, commercial and industrial development", down="Environmental protection,\nsupport for green projects\n(e.g. green grants,\nbuilding retrofits programs,\nzero waste)")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
 
 class TestBaselineTest(unittest.TestCase):
     """Test the BaselineTest class"""
