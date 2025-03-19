@@ -73,7 +73,7 @@
         }
         
         .pdf-viewer {
-            flex: 1;
+            flex: 2;
             padding: 20px;
             background-color: white;
             border-radius: 8px;
@@ -396,7 +396,7 @@
         <div class="tests-panel">
             <div class="tests-header">
                 <h2>Tests ({{ tests|length }})</h2>
-                <button id="reject-all-btn" class="reject-all-btn">Reject All Tests</button>
+                <button id="reject-all-btn" class="reject-all-btn">Reject All & Next <span class="kbd-shortcut">Q</span></button>
             </div>
             
             {% for test in tests %}
@@ -444,6 +444,7 @@
         <p>A: Approve and move to next</p>
         <p>R: Reject and move to next</p>
         <p>E: Edit current test</p>
+        <p>Q: Reject all tests & next PDF</p>
         <p>N: Next PDF</p>
         <p>P: Previous PDF</p>
         <p>?: Toggle this help</p>
@@ -861,8 +862,8 @@
             });
         }
         
-        // Reject all tests for the current PDF
-        document.getElementById('reject-all-btn').addEventListener('click', function() {
+        // Function to reject all tests and move to next PDF
+        function rejectAllAndNextPdf() {
             fetch('/reject_all', {
                 method: 'POST',
                 headers: {
@@ -875,20 +876,18 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // Update all test items to show rejected status
-                    const testItems = document.querySelectorAll('.test-item');
-                    testItems.forEach(item => {
-                        item.classList.remove('status-approved');
-                        item.classList.add('status-rejected');
-                    });
-                    
-                    // Refresh the page to update stats
-                    location.reload();
+                    // Go to the next PDF
+                    document.querySelector('form[action="/next_pdf"] button').click();
                 }
             })
             .catch(error => {
                 console.error('Error rejecting all tests:', error);
             });
+        }
+        
+        // Reject all tests for the current PDF
+        document.getElementById('reject-all-btn').addEventListener('click', function() {
+            rejectAllAndNextPdf();
         });
         
         // Keyboard navigation variables
@@ -1032,6 +1031,12 @@
                 case 'p':
                     // Go to previous PDF
                     document.querySelector('form[action="/prev_pdf"] button').click();
+                    event.preventDefault();
+                    break;
+                    
+                case 'q':
+                    // Reject all tests and go to next PDF
+                    rejectAllAndNextPdf();
                     event.preventDefault();
                     break;
                     

@@ -29,6 +29,8 @@ from bs4 import BeautifulSoup
 from google import genai
 from google.genai import types
 
+from tqdm import tqdm
+
 from olmocr.bench.tests import TableTest, save_tests
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.filter import PdfFilter
@@ -377,6 +379,7 @@ def process_pdf(s3_path: str, temp_dir: str, output_dir: str, api_key: str) -> L
                     page=1,  # The extracted PDF has only one page
                     type="table",
                     cell=test_data["cell"],
+                    url=s3_path,  # Added the S3 path as the url field
                     up=test_data.get("up", None),
                     down=test_data.get("down", None),
                     left=test_data.get("left", None),
@@ -466,10 +469,22 @@ def main():
     os.makedirs(args.temp_dir, exist_ok=True)
     os.makedirs(os.path.join(args.output_dir, "pdfs"), exist_ok=True)
 
+    # Reservoir sampling implementation
+    s3_paths = []
+    count = 0
     with open(args.input_list, "r") as f:
-        s3_paths = [line.strip() for line in f if line.strip()]
-
-    random.shuffle(s3_paths)
+        for i, line in enumerate(tqdm(f)):
+            line = line.strip()
+            if not line:
+                continue
+                
+            if i < 100000:
+                s3_paths.append(line)
+            else:
+                # Randomly replace elements with decreasing probability
+                j = random.randint(0, i)
+                if j < 100000:
+                    s3_paths[j] = line
 
     print(f"Found {len(s3_paths)} PDF paths in input list")
 
