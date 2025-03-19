@@ -341,7 +341,7 @@
             right: 0;
             bottom: 0;
             overflow: hidden;
-            opacity: 0.25;
+            opacity: 0.2; /* Slightly reduced opacity for better readability */
             text-align: initial;
             line-height: 1.0;
             pointer-events: none;
@@ -354,11 +354,14 @@
             cursor: text;
             transform-origin: 0% 0%;
             pointer-events: all;
+            box-sizing: border-box;
         }
         
         .textLayer .highlight {
-            background-color: rgba(255, 255, 0, 0.5);
+            background-color: rgba(255, 200, 0, 0.6); /* Brighter, more visible highlight */
             border-radius: 3px;
+            border: 1px solid rgba(255, 150, 0, 0.8); /* Add a border for better visibility */
+            box-shadow: 0 0 3px rgba(255, 150, 0, 0.5); /* Add a subtle glow */
         }
         
         .loading-indicator {
@@ -485,7 +488,7 @@
         let pageNum = 1;
         let pageRendering = false;
         let pageNumPending = null;
-        let scale = 1.5;
+        let scale = 2.0; // Increased from 1.5 to 2.0 for better text alignment
         const canvas = document.getElementById('pdf-canvas');
         const container = document.getElementById('pdf-container');
         const textLayer = document.getElementById('text-layer');
@@ -531,9 +534,10 @@
                 span.style.fontSize = `${fontHeight}px`;
                 
                 // Adjust for baseline and correct the vertical positioning
-                // Move the text up by applying a negative offset to account for text baseline
+                // Apply a transformation matrix for better alignment with rendered content
+                // The vertical position needs to be adjusted to account for text baseline
                 span.style.left = `${tx[4]}px`;
-                span.style.top = `${tx[5] - fontHeight}px`; // Compensate for baseline
+                span.style.top = `${tx[5] - (fontHeight * 0.7)}px`; // Adjusted baseline offset factor
                 
                 // Handle text rotation
                 if (angle !== 0) {
@@ -709,17 +713,40 @@
             if (searchText) {
                 // Search and highlight the text in the PDF
                 const textElements = document.querySelectorAll('#text-layer span');
+                
+                // Improved search term extraction - handle longer phrases better
+                // First try to match longer phrases (3+ words)
+                const longPhrases = extractPhrases(searchText, 3);
+                const mediumPhrases = extractPhrases(searchText, 2);
+                // Also include individual significant words
                 const searchTerms = searchText.split(/\s+/).filter(term => term.length > 2);
                 
-                textElements.forEach(element => {
-                    const elementText = element.dataset.text;
-                    
-                    searchTerms.forEach(term => {
-                        if (elementText.includes(term)) {
-                            element.classList.add('highlight');
-                        }
+                // Try to highlight longer phrases first
+                let highlightCount = 0;
+                
+                // Try with phrases first
+                if (longPhrases.length > 0) {
+                    highlightCount = highlightPhrases(textElements, longPhrases);
+                }
+                
+                // If no highlights found with long phrases, try medium phrases
+                if (highlightCount === 0 && mediumPhrases.length > 0) {
+                    highlightCount = highlightPhrases(textElements, mediumPhrases);
+                }
+                
+                // If still no highlights, fall back to individual terms
+                if (highlightCount === 0) {
+                    textElements.forEach(element => {
+                        const elementText = element.dataset.text;
+                        
+                        searchTerms.forEach(term => {
+                            if (elementText.includes(term)) {
+                                element.classList.add('highlight');
+                                highlightCount++;
+                            }
+                        });
                     });
-                });
+                }
                 
                 // Scroll to the first highlight
                 const firstHighlight = document.querySelector('#text-layer .highlight');
@@ -727,6 +754,74 @@
                     firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
+        }
+        
+        // Helper function to extract phrases of specified word count
+        function extractPhrases(text, minWordCount) {
+            const words = text.split(/\s+/);
+            const phrases = [];
+            
+            if (words.length >= minWordCount) {
+                for (let i = 0; i <= words.length - minWordCount; i++) {
+                    const phrase = words.slice(i, i + minWordCount).join(' ');
+                    if (phrase.length > 5) { // Only consider substantive phrases
+                        phrases.push(phrase);
+                    }
+                }
+            }
+            
+            return phrases;
+        }
+        
+        // Helper function to highlight phrases in text elements
+        function highlightPhrases(textElements, phrases) {
+            let highlightCount = 0;
+            const nodeTexts = [];
+            
+            // First, collect all text node contents to search across node boundaries
+            textElements.forEach(element => {
+                nodeTexts.push({
+                    element: element,
+                    text: element.dataset.text
+                });
+            });
+            
+            // Join adjacent node texts to find phrases that span multiple nodes
+            const combinedText = nodeTexts.map(nt => nt.text).join(' ');
+            
+            // Try to find each phrase in the combined text
+            phrases.forEach(phrase => {
+                if (combinedText.includes(phrase)) {
+                    // Found a match, now highlight individual nodes that are part of this phrase
+                    let startIndex = 0;
+                    let currentPhrase = '';
+                    
+                    // Iterate through nodes to build up phrases and check for matches
+                    for (let i = 0; i < nodeTexts.length; i++) {
+                        const nodeText = nodeTexts[i].text;
+                        currentPhrase += (i > 0 ? ' ' : '') + nodeText;
+                        
+                        if (currentPhrase.includes(phrase)) {
+                            // Mark nodes that contribute to this phrase
+                            for (let j = startIndex; j <= i; j++) {
+                                nodeTexts[j].element.classList.add('highlight');
+                                highlightCount++;
+                            }
+                            break;
+                        }
+                        
+                        // If current phrase is getting too long without a match,
+                        // advance the start index to keep a sliding window
+                        if (currentPhrase.length > phrase.length * 2) {
+                            startIndex++;
+                            currentPhrase = nodeTexts.slice(startIndex, i + 1)
+                                .map(nt => nt.text).join(' ');
+                        }
+                    }
+                }
+            });
+            
+            return highlightCount;
         }
         
         function clearHighlights() {
