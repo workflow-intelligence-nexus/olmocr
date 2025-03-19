@@ -488,6 +488,7 @@ class TableTest(BasePDFTest):
             # Initialize a grid to track filled cells due to rowspan/colspan
             cell_grid = {}
             col_span_info = {}  # Tracks which columns contain headers
+            row_span_info = {}  # Tracks which rows contain headers
             
             # First pass: process each row to build the raw table data and identify headers
             for row_idx, row in enumerate(rows):
@@ -544,10 +545,25 @@ class TableTest(BasePDFTest):
                             col_headers[curr_col].append((row_idx, cell_text))
                             
                             # Store which columns are covered by this header
-                            if cell_text and rowspan > 1:
+                            if cell_text and colspan > 1:
                                 if cell_text not in col_span_info:
                                     col_span_info[cell_text] = set()
                                 col_span_info[cell_text].add(curr_col)
+                            
+                        # Store which rows are covered by this header for rowspan
+                        if cell_text and rowspan > 1:
+                            if cell_text not in row_span_info:
+                                row_span_info[cell_text] = set()
+                            for i in range(rowspan):
+                                row_span_info[cell_text].add(row_idx + i)
+                    
+                    # Also handle row headers from data cells that have rowspan
+                    if cell.name == "td" and rowspan > 1 and col_idx in header_cols:
+                        for i in range(1, rowspan):
+                            if row_idx + i < len(rows):
+                                if row_idx + i not in row_headers:
+                                    row_headers[row_idx + i] = []
+                                row_headers[row_idx + i].append((col_idx, cell_text))
                     
                     col_idx += colspan
                 
@@ -555,27 +571,39 @@ class TableTest(BasePDFTest):
                 table_data.append(row_data)
             
             # Second pass: expand headers to cells that should inherit them
-            # Check for header cells that span multiple columns and propagate to cells below
+            # First handle column headers
             for header_text, columns in col_span_info.items():
                 for col in columns:
-                    if col in col_headers:
-                        # Add this header to all data columns it spans over
-                        for row_idx in range(len(table_data)):
-                            if row_idx not in header_rows:  # Only apply to data rows
-                                for j in range(col, len(table_data[row_idx]) if row_idx < len(table_data) else 0):
-                                    # Add header info to data cells in these columns
-                                    if j not in col_headers:
-                                        col_headers[j] = []
-                                    if not any(h[1] == header_text for h in col_headers[j]):
-                                        col_headers[j].append((0, header_text))  # Use row 0 as the header row
+                    # Add this header to all columns it spans over
+                    for row_idx in range(len(table_data)):
+                        if row_idx not in header_rows:  # Only apply to data rows
+                            for j in range(col, len(table_data[row_idx]) if row_idx < len(table_data) else 0):
+                                # Add header info to data cells in these columns
+                                if j not in col_headers:
+                                    col_headers[j] = []
+                                if not any(h[1] == header_text for h in col_headers[j]):
+                                    header_row = min([r for r, t in col_headers.get(col, [(0, "")])])
+                                    col_headers[j].append((header_row, header_text))
             
-            # Process row headers - each cell in a header column becomes a header for its row
+            # Handle row headers
+            for header_text, rows in row_span_info.items():
+                for row in rows:
+                    if row < len(table_data):
+                        # Find first header column
+                        header_col = min(header_cols) if header_cols else 0
+                        if row not in row_headers:
+                            row_headers[row] = []
+                        if not any(h[1] == header_text for h in row_headers.get(row, [])):
+                            row_headers[row].append((header_col, header_text))
+            
+            # Process regular row headers - each cell in a header column becomes a header for its row
             for col_idx in header_cols:
                 for row_idx, row in enumerate(table_data):
                     if col_idx < len(row) and row[col_idx].strip():
                         if row_idx not in row_headers:
                             row_headers[row_idx] = []
-                        row_headers[row_idx].append((col_idx, row[col_idx]))
+                        if not any(h[1] == row[col_idx] for h in row_headers.get(row_idx, [])):
+                            row_headers[row_idx].append((col_idx, row[col_idx]))
             
             # Calculate max columns for padding
             max_cols = max(len(row) for row in table_data) if table_data else 0
