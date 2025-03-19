@@ -47,7 +47,7 @@ def run_transformers(
     if _cached_model is None:
         model = Qwen2VLForConditionalGeneration.from_pretrained(model, torch_dtype=torch.bfloat16).eval()
         processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
-        model.to(device)
+        model = model.to(device)
 
         _cached_model = model
         _cached_processor = processor

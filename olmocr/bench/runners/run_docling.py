@@ -29,7 +29,7 @@ def init_model(model_name: str = "ds4sd/SmolDocling-256M-preview"):
             torch_dtype=torch.bfloat16,
             # _attn_implementation="flash_attention_2" if device.type == "cuda" else "eager",
             _attn_implementation="eager",
-        ).to(device)
+        ).eval().to(device)
 
         _cached_model = model
         _cached_processor = processor
