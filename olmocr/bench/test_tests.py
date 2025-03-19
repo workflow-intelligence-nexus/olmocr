@@ -811,7 +811,147 @@ class TestTableTest(unittest.TestCase):
         stripped_table = self.markdown_table.strip()
         result, explanation = test.run(stripped_table)
         self.assertTrue(result, f"Table test failed with stripped content: {explanation}")
+    
+    def test_table_at_end_of_file(self):
+        """Test that a table at the very end of the file is correctly detected"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Create content with text followed by a table at the very end with no trailing newline
+        content_with_table_at_end = "Some text before the table.\n" + self.markdown_table.strip()
+        result, explanation = test.run(content_with_table_at_end)
+        self.assertTrue(result, f"Table at end of file not detected: {explanation}")
         
+    def test_table_at_end_with_no_trailing_newline(self):
+        """Test that a table at the end with no trailing newline is detected"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Remove the trailing newline from the markdown table
+        content_without_newline = self.markdown_table.rstrip()
+        result, explanation = test.run(content_without_newline)
+        self.assertTrue(result, f"Table without trailing newline not detected: {explanation}")
+    
+    def test_table_at_end_with_extra_spaces(self):
+        """Test that a table at the end with extra spaces is detected"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Add extra spaces to the end of lines in the table
+        lines = self.markdown_table.split('\n')
+        content_with_extra_spaces = '\n'.join([line + "   " for line in lines])
+        result, explanation = test.run(content_with_extra_spaces)
+        self.assertTrue(result, f"Table with extra spaces not detected: {explanation}")
+    
+    def test_table_at_end_with_mixed_whitespace(self):
+        """Test that a table at the end with mixed whitespace is detected"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Add various whitespace characters to the table
+        content_with_mixed_whitespace = "Some text before the table.\n" + self.markdown_table.strip() + "  \t  "
+        result, explanation = test.run(content_with_mixed_whitespace)
+        self.assertTrue(result, f"Table with mixed whitespace not detected: {explanation}")
+
+    def test_malformed_table_at_end(self):
+        """Test that a slightly malformed table at the end is still detected"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Create a table with irregular pipe placement at the end
+        malformed_table = """
+Some text before the table.
+| Header 1 | Header 2 | Header 3
+| -------- | -------- | --------
+| Cell A1  | Cell A2  | Cell A3  |
+| Cell B1  | Cell B2  | Cell B3"""
+        result, explanation = test.run(malformed_table)
+        self.assertTrue(result, f"Malformed table at end not detected: {explanation}")
+    
+    def test_incomplete_table_at_end(self):
+        """Test that an incomplete table at the end still gets detected if it contains valid rows"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Missing the separator row
+        incomplete_table = """
+Some text before the table.
+| Header 1 | Header 2 | Header 3 |
+| Cell A1  | Cell A2  | Cell A3  |
+| Cell B1  | Cell B2  | Cell B3  |"""
+        result, explanation = test.run(incomplete_table)
+        self.assertTrue(result, f"Incomplete table at end not detected: {explanation}")
+    
+    def test_table_with_excessive_blank_lines_at_end(self):
+        """Test that a table followed by many blank lines is detected"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Add many blank lines after the table
+        table_with_blanks = self.markdown_table + "\n\n\n\n\n\n\n\n\n\n"
+        result, explanation = test.run(table_with_blanks)
+        self.assertTrue(result, f"Table with blank lines at end not detected: {explanation}")
+    
+    def test_table_at_end_after_long_text(self):
+        """Test that a table at the end after a very long text is detected"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Create a very long text before the table
+        long_text = "Lorem ipsum dolor sit amet, " * 100
+        content_with_long_text = long_text + "\n" + self.markdown_table.strip()
+        result, explanation = test.run(content_with_long_text)
+        self.assertTrue(result, f"Table after long text not detected: {explanation}")
+    
+    def test_valid_table_at_eof_without_newline(self):
+        """Test that a valid table at EOF without a trailing newline is detected"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Valid table but without trailing newline at the very end of the file
+        valid_table_eof = """
+| Header 1 | Header 2 | Header 3 |
+| -------- | -------- | -------- |
+| Cell A1  | Cell A2  | Cell A3  |
+| Cell B1  | Cell B2  | Cell B3  |""".strip()
+        result, explanation = test.run(valid_table_eof)
+        self.assertTrue(result, f"Valid table at EOF without newline not detected: {explanation}")
 
 class TestBaselineTest(unittest.TestCase):
     """Test the BaselineTest class"""

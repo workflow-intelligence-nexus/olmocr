@@ -219,6 +219,8 @@ class TableTest(BasePDFTest):
     def parse_markdown_tables(self, md_content: str) -> List[np.ndarray]:
         """
         Extract and parse all markdown tables from the provided content.
+        Uses a direct approach to find and parse tables, which is more robust for tables 
+        at the end of files or with irregular formatting.
 
         Args:
             md_content: The markdown content containing tables
@@ -226,55 +228,96 @@ class TableTest(BasePDFTest):
         Returns:
             A list of numpy arrays, each representing a parsed table
         """
-        import re
-
         import numpy as np
 
-        # Updated regex to allow optional leading and trailing pipes
-        table_pattern = r"(\|?(?:[^|\n]*\|)+[^|\n]*\|?)\s*\n" r"\|?(?:[ :-]+\|)+[ :-]+\|?\s*\n" r"((?:\|?(?:[^|\n]*\|)+[^|\n]*\|?\s*\n)+)"
-        table_matches = re.finditer(table_pattern, md_content)
-
+        # Split the content into lines and process line by line
+        lines = md_content.strip().split("\n")
+        
         parsed_tables = []
-
-        for table_match in table_matches:
-            # Extract header and body from the table match
-            header_row = table_match.group(1).strip()
-            body_rows = table_match.group(2).strip().split("\n")
-
-            # Process header and rows to remove leading/trailing pipes
-            header_cells = [cell.strip() for cell in header_row.split("|")]
-            if header_cells and header_cells[0] == "":
-                header_cells = header_cells[1:]
-            if header_cells and header_cells[-1] == "":
-                header_cells = header_cells[:-1]
-
-            # Process table body rows
-            table_data = []
-            for row in [header_row] + body_rows:
-                if "|" not in row:  # Skip separator row
-                    continue
-
-                cells = [cell.strip() for cell in row.split("|")]
-                if cells and cells[0] == "":
-                    cells = cells[1:]
-                if cells and cells[-1] == "":
-                    cells = cells[:-1]
-
-                table_data.append(cells)
-
-            # Skip separator row (second row with dashes)
-            if len(table_data) > 1 and all("-" in cell for cell in table_data[1]):
-                table_data = [table_data[0]] + table_data[2:]
-
-            # Convert to numpy array for easier manipulation
-            # Ensure all rows have the same number of columns by padding if necessary
-            max_cols = max(len(row) for row in table_data)
-            padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
-            table_array = np.array(padded_data)
-
-            parsed_tables.append(table_array)
-
+        current_table_lines = []
+        in_table = False
+        
+        # Identify potential tables by looking for lines with pipe characters
+        for i, line in enumerate(lines):
+            # Check if this line has pipe characters (a table row indicator)
+            if "|" in line:
+                # If we weren't in a table before, start a new one
+                if not in_table:
+                    in_table = True
+                    current_table_lines = [line]
+                else:
+                    # Continue adding to the current table
+                    current_table_lines.append(line)
+            else:
+                # No pipes in this line, so if we were in a table, we've reached its end
+                if in_table:
+                    # Process the completed table if it has at least 2 rows
+                    if len(current_table_lines) >= 2:
+                        table_data = self._process_table_lines(current_table_lines)
+                        if table_data and len(table_data) > 0:
+                            # Convert to numpy array for easier manipulation
+                            max_cols = max(len(row) for row in table_data)
+                            padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
+                            table_array = np.array(padded_data)
+                            parsed_tables.append(table_array)
+                    in_table = False
+        
+        # Process the last table if we're still tracking one at the end of the file
+        if in_table and len(current_table_lines) >= 2:
+            table_data = self._process_table_lines(current_table_lines)
+            if table_data and len(table_data) > 0:
+                # Convert to numpy array
+                max_cols = max(len(row) for row in table_data)
+                padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
+                table_array = np.array(padded_data)
+                parsed_tables.append(table_array)
+        
         return parsed_tables
+        
+    def _process_table_lines(self, table_lines: List[str]) -> List[List[str]]:
+        """
+        Process a list of lines that potentially form a markdown table.
+        
+        Args:
+            table_lines: List of strings, each representing a line in a potential markdown table
+            
+        Returns:
+            A list of rows, each a list of cell values
+        """
+        table_data = []
+        separator_row_index = None
+        
+        # First, identify the separator row (the row with dashes)
+        for i, line in enumerate(table_lines):
+            # Check if this looks like a separator row (contains mostly dashes)
+            content_without_pipes = line.replace("|", "").strip()
+            if content_without_pipes and all(c in "- :" for c in content_without_pipes):
+                separator_row_index = i
+                break
+        
+        # Process each line, filtering out the separator row
+        for i, line in enumerate(table_lines):
+            # Skip the separator row
+            if i == separator_row_index:
+                continue
+                
+            # Skip lines that are entirely formatting
+            if line.strip() and all(c in "- :|" for c in line):
+                continue
+                
+            # Process the cells in this row
+            cells = [cell.strip() for cell in line.split("|")]
+            
+            # Remove empty cells at the beginning and end (caused by leading/trailing pipes)
+            if cells and cells[0] == "":
+                cells = cells[1:]
+            if cells and cells[-1] == "":
+                cells = cells[:-1]
+                
+            if cells:  # Only add non-empty rows
+                table_data.append(cells)
+        
+        return table_data
 
     def parse_html_tables(self, html_content: str) -> List[np.ndarray]:
         """
