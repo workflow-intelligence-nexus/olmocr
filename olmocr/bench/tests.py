@@ -114,6 +114,7 @@ class TextPresenceTest(BasePDFTest):
         super().__post_init__()
         if self.type not in {TestType.PRESENT.value, TestType.ABSENT.value}:
             raise ValidationError(f"Invalid type for TextPresenceTest: {self.type}")
+        self.text = normalize_text(self.text)
         if not self.text.strip():
             raise ValidationError("Text field cannot be empty")
 
@@ -169,6 +170,8 @@ class TextOrderTest(BasePDFTest):
         super().__post_init__()
         if self.type != TestType.ORDER.value:
             raise ValidationError(f"Invalid type for TextOrderTest: {self.type}")
+        self.before = normalize_text(self.before)
+        self.after = normalize_text(self.after)
         if not self.before.strip():
             raise ValidationError("Before field cannot be empty")
         if not self.after.strip():
@@ -215,6 +218,15 @@ class TableTest(BasePDFTest):
         super().__post_init__()
         if self.type != TestType.TABLE.value:
             raise ValidationError(f"Invalid type for TableTest: {self.type}")
+
+        # Normalize the search text too
+        self.cell = normalize_text(self.cell)
+        self.up = normalize_text(self.up)
+        self.down = normalize_text(self.down)
+        self.left = normalize_text(self.left)
+        self.right = normalize_text(self.right)
+        self.top_heading = normalize_text(self.top_heading)
+        self.left_heading = normalize_text(self.left_heading)
 
     def parse_markdown_tables(self, md_content: str) -> List[np.ndarray]:
         """
@@ -390,7 +402,7 @@ class TableTest(BasePDFTest):
             matches = []
             for i in range(table_array.shape[0]):
                 for j in range(table_array.shape[1]):
-                    cell_content = table_array[i, j]
+                    cell_content = normalize_text(table_array[i, j])
                     similarity = fuzz.ratio(self.cell, cell_content) / 100.0
 
                     if similarity >= threshold:
@@ -407,7 +419,7 @@ class TableTest(BasePDFTest):
 
                 # Check up relationship
                 if self.up and row_idx > 0:
-                    up_cell = table_array[row_idx - 1, col_idx]
+                    up_cell = normalize_text(table_array[row_idx - 1, col_idx])
                     up_similarity = fuzz.ratio(self.up, up_cell) / 100.0
                     if up_similarity < threshold:
                         all_relationships_satisfied = False
@@ -415,7 +427,7 @@ class TableTest(BasePDFTest):
 
                 # Check down relationship
                 if self.down and row_idx < table_array.shape[0] - 1:
-                    down_cell = table_array[row_idx + 1, col_idx]
+                    down_cell = normalize_text(table_array[row_idx + 1, col_idx])
                     down_similarity = fuzz.ratio(self.down, down_cell) / 100.0
                     if down_similarity < threshold:
                         all_relationships_satisfied = False
@@ -423,7 +435,7 @@ class TableTest(BasePDFTest):
 
                 # Check left relationship
                 if self.left and col_idx > 0:
-                    left_cell = table_array[row_idx, col_idx - 1]
+                    left_cell = normalize_text(table_array[row_idx, col_idx - 1])
                     left_similarity = fuzz.ratio(self.left, left_cell) / 100.0
                     if left_similarity < threshold:
                         all_relationships_satisfied = False
@@ -433,7 +445,7 @@ class TableTest(BasePDFTest):
 
                 # Check right relationship
                 if self.right and col_idx < table_array.shape[1] - 1:
-                    right_cell = table_array[row_idx, col_idx + 1]
+                    right_cell = normalize_text(table_array[row_idx, col_idx + 1])
                     right_similarity = fuzz.ratio(self.right, right_cell) / 100.0
                     if right_similarity < threshold:
                         all_relationships_satisfied = False
@@ -447,7 +459,7 @@ class TableTest(BasePDFTest):
                     top_heading_cell = ""
                     for i in range(row_idx):
                         if table_array[i, col_idx].strip():
-                            top_heading_cell = table_array[i, col_idx]
+                            top_heading_cell = normalize_text(table_array[i, col_idx])
                             break
 
                     if not top_heading_cell:
@@ -467,7 +479,7 @@ class TableTest(BasePDFTest):
                     left_heading_cell = ""
                     for j in range(col_idx):
                         if table_array[row_idx, j].strip():
-                            left_heading_cell = table_array[row_idx, j]
+                            left_heading_cell = normalize_text(table_array[row_idx, j])
                             break
 
                     if not left_heading_cell:

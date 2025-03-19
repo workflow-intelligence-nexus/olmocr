@@ -1,6 +1,5 @@
 import unittest
 
-
 from olmocr.bench.tests import (
     BaselineTest,
     BasePDFTest,
@@ -545,6 +544,22 @@ Some text before the table.
 | Cell B1  | Cell B2  | Cell B3  |""".strip()
         result, explanation = test.run(valid_table_eof)
         self.assertTrue(result, f"Valid table at EOF without newline not detected: {explanation}")
+
+    def test_normalizing(self):
+        table = """| Question - – Satisfaction on scale of 10 | Response | Resident Sample | Business Sample |
+|----------------------------------------|----------|----------------|-----------------|
+| Planning for and managing residential, commercial and industrial development | Rating of 8, 9 or 10 | 13% | 11% |
+| | Average rating | 6.4 | 5.7 |
+| | Don’t know responses | 11% | 6% |
+| Environmental protection, support for green projects (e.g. green grants, building retrofits programs, zero waste) | Rating of 8, 9 or 10 | 35% | 34% |
+| | Average rating | 8.0 | 7.5 |
+| | Don’t know responses | 8% | 6% |
+| Providing and maintaining parks and green spaces | Rating of 8, 9 or 10 | 42% | 41% |
+| | Average rating | 7.7 | 7.3 |
+| | Don’t know responses | 1% | 1% |"""
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="6%", top_heading="Business\nSample")
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
 
 
 class TestBaselineTest(unittest.TestCase):
