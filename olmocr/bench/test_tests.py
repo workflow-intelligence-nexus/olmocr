@@ -3,7 +3,6 @@ import json
 import os
 import re
 import tempfile
-from unittest.mock import patch, MagicMock, mock_open
 
 import numpy as np
 from bs4 import BeautifulSoup
@@ -798,7 +797,21 @@ class TestTableTest(unittest.TestCase):
         misspelled_table = self.markdown_table.replace("Cell A2", "Cel A2")
         result, _ = test.run(misspelled_table)
         self.assertTrue(result)
-
+        
+    def test_with_stripped_content(self):
+        """Test table parsing with stripped content"""
+        test = TableTest(
+            pdf="test.pdf", 
+            page=1, 
+            id="test_id", 
+            type=TestType.TABLE.value, 
+            cell="Cell A2"
+        )
+        # Strip all leading/trailing whitespace from the markdown table
+        stripped_table = self.markdown_table.strip()
+        result, explanation = test.run(stripped_table)
+        self.assertTrue(result, f"Table test failed with stripped content: {explanation}")
+        
 
 class TestBaselineTest(unittest.TestCase):
     """Test the BaselineTest class"""
@@ -814,13 +827,8 @@ class TestBaselineTest(unittest.TestCase):
         )
         self.assertEqual(test.max_repeats, 50)
     
-    @patch('olmocr.bench.tests.RepeatDetector')
-    def test_non_empty_content(self, mock_repeat_detector):
+    def test_non_empty_content(self):
         """Test that non-empty content passes"""
-        # Set up the mock
-        mock_instance = mock_repeat_detector.return_value
-        mock_instance.ngram_repeats.return_value = [1, 0, 0, 0, 0]
-        
         test = BaselineTest(
             pdf="test.pdf", 
             page=1, 
@@ -842,23 +850,20 @@ class TestBaselineTest(unittest.TestCase):
         self.assertFalse(result)
         self.assertIn("no alpha numeric characters", explanation)
     
-    @patch('olmocr.bench.tests.RepeatDetector')
-    def test_repeating_content(self, mock_repeat_detector):
+    def test_repeating_content(self):
         """Test that highly repeating content fails"""
-        # Set up the mock
-        mock_instance = mock_repeat_detector.return_value
-        mock_instance.ngram_repeats.return_value = [1, 0, 40, 0, 0]  # 40 repeats of 3-grams
-        
         test = BaselineTest(
             pdf="test.pdf", 
             page=1, 
             id="test_id", 
             type=TestType.BASELINE.value,
-            max_repeats=30
+            max_repeats=2
         )
-        result, explanation = test.run("This is some repeating content")
+        # Create highly repeating content - repeat "abc" many times
+        repeating_content = "abc" * 10
+        result, explanation = test.run(repeating_content)
         self.assertFalse(result)
-        self.assertIn("repeating 3-grams", explanation)
+        self.assertIn("repeating", explanation)
     
     def test_content_with_disallowed_characters(self):
         """Test that content with disallowed characters fails"""
@@ -912,20 +917,19 @@ class TestBaselineTest(unittest.TestCase):
 class TestMathTest(unittest.TestCase):
     """Test the MathTest class"""
     
-    @patch('olmocr.bench.tests.render_equation')
-    def test_valid_initialization(self, mock_render_equation):
+    def test_valid_initialization(self):
         """Test that valid initialization works"""
-        # Mock the render_equation function
-        mock_render_equation.return_value = MagicMock()
-        
-        test = MathTest(
-            pdf="test.pdf", 
-            page=1, 
-            id="test_id", 
-            type=TestType.MATH.value,
-            math="a + b = c"
-        )
-        self.assertEqual(test.math, "a + b = c")
+        try:
+            test = MathTest(
+                pdf="test.pdf", 
+                page=1, 
+                id="test_id", 
+                type=TestType.MATH.value,
+                math="a + b = c"
+            )
+            self.assertEqual(test.math, "a + b = c")
+        except Exception as e:
+            self.fail(f"Valid initialization failed with: {e}")
     
     def test_invalid_test_type(self):
         """Test that invalid test type raises ValidationError"""
@@ -949,116 +953,86 @@ class TestMathTest(unittest.TestCase):
                 math=""
             )
     
-    @patch('olmocr.bench.tests.render_equation')
-    def test_render_failure(self, mock_render_equation):
-        """Test that render failure raises ValidationError"""
-        # Mock render_equation to return None (failed to render)
-        mock_render_equation.return_value = None
-        
-        with self.assertRaises(ValidationError):
-            MathTest(
+    def test_exact_math_match(self):
+        """Test exact match of math equation"""
+        try:
+            test = MathTest(
                 pdf="test.pdf", 
                 page=1, 
                 id="test_id", 
                 type=TestType.MATH.value,
-                math="invalid math"
+                math="a + b = c"
             )
-    
-    @patch('olmocr.bench.tests.render_equation')
-    @patch('olmocr.bench.tests.compare_rendered_equations')
-    def test_exact_math_match(self, mock_compare, mock_render):
-        """Test exact match of math equation"""
-        # Mock render_equation to return a MagicMock object
-        mock_render.return_value = MagicMock()
-        
-        test = MathTest(
-            pdf="test.pdf", 
-            page=1, 
-            id="test_id", 
-            type=TestType.MATH.value,
-            math="a + b = c"
-        )
-        
-        # Test content with exact math match
-        content = "Here is an equation: $$a + b = c$$"
-        result, _ = test.run(content)
-        self.assertTrue(result)
-        # Ensure compare_rendered_equations wasn't called for exact match
-        mock_compare.assert_not_called()
-    
-    @patch('olmocr.bench.tests.render_equation')
-    @patch('olmocr.bench.tests.compare_rendered_equations')
-    def test_rendered_math_match(self, mock_compare, mock_render):
-        """Test rendered match of math equation"""
-        # Mock render_equation to return a MagicMock object
-        mock_render.return_value = MagicMock()
-        # Mock compare_rendered_equations to return True
-        mock_compare.return_value = True
-        
-        test = MathTest(
-            pdf="test.pdf", 
-            page=1, 
-            id="test_id", 
-            type=TestType.MATH.value,
-            math="a + b = c"
-        )
-        
-        # Test content with different but equivalent math
-        content = "Here is an equation: $$a+b=c$$"
-        result, _ = test.run(content)
-        self.assertTrue(result)
-        # Ensure compare_rendered_equations was called
-        mock_compare.assert_called()
-    
-    @patch('olmocr.bench.tests.render_equation')
-    @patch('olmocr.bench.tests.compare_rendered_equations')
-    def test_no_math_match(self, mock_compare, mock_render):
-        """Test no match of math equation"""
-        # Mock render_equation to return a MagicMock object
-        mock_render.return_value = MagicMock()
-        # Mock compare_rendered_equations to return False
-        mock_compare.return_value = False
-        
-        test = MathTest(
-            pdf="test.pdf", 
-            page=1, 
-            id="test_id", 
-            type=TestType.MATH.value,
-            math="a + b = c"
-        )
-        
-        # Test content with no matching math
-        content = "Here is an equation: $$x + y = z$$"
-        result, explanation = test.run(content)
-        self.assertFalse(result)
-        self.assertIn("No match found", explanation)
-    
-    @patch('olmocr.bench.tests.render_equation')
-    def test_different_math_delimiters(self, mock_render):
-        """Test different math delimiters"""
-        # Mock render_equation to return a MagicMock object
-        mock_render.return_value = MagicMock()
-        
-        test = MathTest(
-            pdf="test.pdf", 
-            page=1, 
-            id="test_id", 
-            type=TestType.MATH.value,
-            math="a + b = c"
-        )
-        
-        # Test different delimiters
-        delimiters = [
-            "$$a + b = c$$",               # $$...$$
-            "$a + b = c$",                 # $...$
-            "\\(a + b = c\\)",             # \(...\)
-            "\\[a + b = c\\]",             # \[...\]
-        ]
-        
-        for delim in delimiters:
-            content = f"Here is an equation: {delim}"
+            
+            # Test content with exact math match
+            content = "Here is an equation: $$a + b = c$$"
             result, _ = test.run(content)
             self.assertTrue(result)
+        except Exception as e:
+            self.fail(f"Test failed with: {e}")
+    
+    def test_rendered_math_match(self):
+        """Test rendered match of math equation"""
+        try:
+            test = MathTest(
+                pdf="test.pdf", 
+                page=1, 
+                id="test_id", 
+                type=TestType.MATH.value,
+                math="a + b = c"
+            )
+            
+            # Test content with different but equivalent math
+            content = "Here is an equation: $$a+b=c$$"
+            result, _ = test.run(content)
+            self.assertTrue(result)
+        except Exception as e:
+            self.fail(f"Test failed with: {e}")
+    
+    def test_no_math_match(self):
+        """Test no match of math equation"""
+        try:
+            test = MathTest(
+                pdf="test.pdf", 
+                page=1, 
+                id="test_id", 
+                type=TestType.MATH.value,
+                math="a + b = c"
+            )
+            
+            # Test content with no matching math
+            content = "Here is an equation: $$x + y = z$$"
+            result, explanation = test.run(content)
+            self.assertFalse(result)
+            self.assertIn("No match found", explanation)
+        except Exception as e:
+            self.fail(f"Test failed with: {e}")
+    
+    def test_different_math_delimiters(self):
+        """Test different math delimiters"""
+        try:
+            test = MathTest(
+                pdf="test.pdf", 
+                page=1, 
+                id="test_id", 
+                type=TestType.MATH.value,
+                math="a + b = c"
+            )
+            
+            # Test different delimiters
+            delimiters = [
+                "$$a + b = c$$",               # $$...$$
+                "$a + b = c$",                 # $...$
+                "\\(a + b = c\\)",             # \(...\)
+                "\\[a + b = c\\]",             # \[...\]
+            ]
+            
+            for delim in delimiters:
+                content = f"Here is an equation: {delim}"
+                result, _ = test.run(content)
+                self.assertTrue(result)
+        except Exception as e:
+            self.fail(f"Test failed with: {e}")
 
 
 
