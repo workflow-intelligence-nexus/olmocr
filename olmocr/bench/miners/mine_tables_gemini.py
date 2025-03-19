@@ -28,7 +28,6 @@ import pypdf
 from bs4 import BeautifulSoup
 from google import genai
 from google.genai import types
-
 from tqdm import tqdm
 
 from olmocr.bench.tests import TableTest, save_tests
@@ -470,7 +469,7 @@ def main():
             line = line.strip()
             if not line:
                 continue
-                
+
             if i < 100000:
                 s3_paths.append(line)
             else:
