@@ -30,6 +30,9 @@ class Args:
     max_page_error_rate: float = 0.004
 
 
+server_check_lock = asyncio.Lock()
+
+
 async def run_olmocr_pipeline(pdf_path: str, page_num: int = 1) -> Optional[str]:
     """
     Process a single page of a PDF using the official olmocr pipeline's process_page function
@@ -53,14 +56,15 @@ async def run_olmocr_pipeline(pdf_path: str, page_num: int = 1) -> Optional[str]
     worker_id = 0  # Using 0 as default worker ID
 
     # Ensure server is running
-    _server_task = None
-    try:
-        await asyncio.wait_for(sglang_server_ready(), timeout=5)
-        logger.info("Using existing sglang server")
-    except Exception:
-        logger.info("Starting new sglang server")
-        _server_task = asyncio.create_task(sglang_server_host(args, semaphore))
-        await sglang_server_ready()
+    async with server_check_lock:
+        _server_task = None
+        try:
+            await asyncio.wait_for(sglang_server_ready(), timeout=5)
+            logger.info("Using existing sglang server")
+        except Exception:
+            logger.info("Starting new sglang server")
+            _server_task = asyncio.create_task(sglang_server_host(args, semaphore))
+            await sglang_server_ready()
 
     try:
         # Process the page using the pipeline's process_page function
