@@ -231,8 +231,8 @@ def generate_table_tests(tables: List[np.ndarray], pdf_image: str, api_key: str,
         "down": "which cell is directly below it?",
         "left": "which cell is directly to the left of it?",
         "right": "which cell is directly to the right of it?",
-        "top_heading": "what is the top heading for this cell?",
-        "left_heading": "what is the left heading for this cell?",
+        "top_heading": "what is the top heading (the heading for the column at the top of the table) for this cell?",
+        "left_heading": "what is the left heading (the heading for this row on the left part of the table) for this cell?",
     }
 
     # Create an image part from the rendered pdf image

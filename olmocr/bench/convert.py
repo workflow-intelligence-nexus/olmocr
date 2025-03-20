@@ -1,12 +1,17 @@
 import argparse
 import asyncio
+import base64
 import glob
 import importlib
 import os
+import tempfile
 from functools import partial
 
+import img2pdf
 from pypdf import PdfReader
 from tqdm import tqdm
+
+from olmocr.data.renderpdf import render_pdf_to_base64png
 
 
 def parse_method_arg(method_arg):
@@ -79,7 +84,7 @@ async def process_pdf(pdf_path, page_num, method, kwargs, output_path, is_async)
         return False
 
 
-async def process_pdfs(config, pdf_directory, data_directory, repeats, force, max_parallel=None):
+async def process_pdfs(config, pdf_directory, data_directory, repeats, remove_text, force, max_parallel=None):
     """
     Process PDFs using asyncio for both sync and async methods,
     limiting the number of concurrent tasks to max_parallel.
@@ -122,6 +127,13 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, force, ma
                         print(f"Skipping {base_name}_pg{page_num}_repeat{repeat} for {candidate}, file already exists")
                         print("Rerun with --force flag to force regeneration")
                         continue
+
+                    if remove_text:
+                        pdf_rendered = render_pdf_to_base64png(pdf_path, page_num, target_longest_image_dim=2048)
+                        temp_pdf = tempfile.NamedTemporaryFile("w", suffix=".pdf", delete=False)
+
+                        temp_pdf.write(img2pdf.convert(base64.b64decode(pdf_rendered)))
+                        pdf_path = temp_pdf.name
 
                     task = process_pdf(pdf_path, page_num, method, kwargs, output_path, is_async)
                     tasks.append(task)
@@ -172,6 +184,11 @@ if __name__ == "__main__":
     )
     parser.add_argument("--force", action="store_true", default=False, help="Force regenerating of output files, even if they already exist")
     parser.add_argument("--parallel", type=int, default=1, help="Maximum number of concurrent tasks")
+    parser.add_argument(
+        "--remove_text",
+        action="store_true",
+        help="When your PDF gets processed, we will take a screenshot of it first, to erase any text content in it. This would disable document-anchoring for olmocr.",
+    )
     args = parser.parse_args()
 
     # Mapping of method names to a tuple: (module path, function name)
@@ -204,4 +221,4 @@ if __name__ == "__main__":
     pdf_directory = os.path.join(data_directory, "pdfs")
 
     # Run the async process function with the parallel argument
-    asyncio.run(process_pdfs(config, pdf_directory, data_directory, args.repeats, args.force, args.parallel))
+    asyncio.run(process_pdfs(config, pdf_directory, data_directory, args.repeats, args.remove_text, args.force, args.parallel))
