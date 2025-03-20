@@ -14,6 +14,7 @@ app = Flask(__name__)
 
 # Global state
 DATASET_DIR = ""
+DATASET_FILE = None
 CURRENT_PDF = None
 PDF_TESTS = {}
 ALL_PDFS = []
@@ -120,7 +121,7 @@ def index():
 @app.route("/update_test", methods=["POST"])
 def update_test():
     """API endpoint to update a test."""
-    global PDF_TESTS, DATASET_DIR
+    global PDF_TESTS, DATASET_DIR, DATASET_FILE
 
     data = request.json
     pdf_name = data.get("pdf")
@@ -135,8 +136,7 @@ def update_test():
             break
 
     # Save the updated tests
-    dataset_file = os.path.join(DATASET_DIR, "table_tests.jsonl")
-    save_dataset(dataset_file)
+    save_dataset(DATASET_FILE)
 
     return jsonify({"status": "success"})
 
@@ -144,7 +144,7 @@ def update_test():
 @app.route("/reject_all", methods=["POST"])
 def reject_all():
     """API endpoint to reject all tests for a PDF."""
-    global PDF_TESTS, DATASET_DIR
+    global PDF_TESTS, DATASET_DIR, DATASET_FILE
 
     data = request.json
     pdf_name = data.get("pdf")
@@ -155,8 +155,7 @@ def reject_all():
             test["checked"] = "rejected"
 
         # Save the updated tests
-        dataset_file = os.path.join(DATASET_DIR, "table_tests.jsonl")
-        save_dataset(dataset_file)
+        save_dataset(DATASET_FILE)
 
         return jsonify({"status": "success", "count": len(PDF_TESTS[pdf_name])})
 
@@ -204,10 +203,8 @@ def goto_pdf(index):
     return redirect(url_for("index"))
 
 
-def load_dataset(dataset_dir: str) -> Tuple[Dict[str, List[Dict]], List[str]]:
+def load_dataset(dataset_file: str) -> Tuple[Dict[str, List[Dict]], List[str]]:
     """Load tests from the dataset file and organize them by PDF."""
-    dataset_file = os.path.join(dataset_dir, "table_tests.jsonl")
-
     if not os.path.exists(dataset_file):
         raise FileNotFoundError(f"Dataset file not found: {dataset_file}")
 
@@ -240,10 +237,10 @@ def create_templates_directory():
 
 def main():
     """Main entry point with command-line arguments."""
-    global DATASET_DIR, PDF_TESTS, ALL_PDFS, CURRENT_PDF
+    global DATASET_DIR, DATASET_FILE, PDF_TESTS, ALL_PDFS, CURRENT_PDF
 
     parser = argparse.ArgumentParser(description="Interactive Test Review App")
-    parser.add_argument("dataset_dir", help="Path to the dataset directory containing table_tests.jsonl and pdfs/ folder")
+    parser.add_argument("dataset_file", help="Path to the dataset jsonl file")
     parser.add_argument("--port", type=int, default=5000, help="Port for the Flask app")
     parser.add_argument("--host", default="127.0.0.1", help="Host for the Flask app")
     parser.add_argument("--debug", action="store_true", help="Run Flask in debug mode")
@@ -251,21 +248,22 @@ def main():
     args = parser.parse_args()
 
     # Validate dataset directory
-    if not os.path.isdir(args.dataset_dir):
-        print(f"Error: Dataset directory not found: {args.dataset_dir}")
+    if not os.path.exists(args.dataset_file):
+        print(f"Error: Dataset not found: {args.dataset_file}")
         return 1
 
-    pdf_dir = os.path.join(args.dataset_dir, "pdfs")
+    # Store dataset directory globally
+    DATASET_DIR = os.path.dirname(os.path.abspath(args.dataset_file))
+    DATASET_FILE = args.dataset_file
+
+    pdf_dir = os.path.join(DATASET_DIR, "pdfs")
     if not os.path.isdir(pdf_dir):
         print(f"Error: PDF directory not found: {pdf_dir}")
         return 1
 
-    # Store dataset directory globally
-    DATASET_DIR = args.dataset_dir
-
     # Load dataset
     try:
-        PDF_TESTS, ALL_PDFS = load_dataset(args.dataset_dir)
+        PDF_TESTS, ALL_PDFS = load_dataset(args.dataset_file)
     except Exception as e:
         print(f"Error loading dataset: {str(e)}")
         return 1

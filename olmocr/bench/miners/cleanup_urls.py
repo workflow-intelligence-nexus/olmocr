@@ -40,15 +40,16 @@ if __name__ == "__main__":
 
                 assert j["url"]
                 hash = parse_pdf_hash(j["url"])
-                print(j["url"], hash)
-                assert hash
-                url = get_uri_from_db(args.db, hash)
+                if hash:
+                    url = get_uri_from_db(args.db, hash)
 
-                if url:
-                    j["url"] = url
-                    data.append(j)
+                    if url:
+                        j["url"] = url
+                        data.append(j)
+                    else:
+                        skipped += 1
                 else:
-                    skipped += 1
+                    data.append(j)
 
     print(data)
 
