@@ -1,3 +1,16 @@
+Table 1 Composition of the pretraining data for OLMo 2. The OLMo 2 1124 Mix is composed of StarCoder (Li et al., 2023b; Kocetkov et al., 2022), peS2o (Soldaini and Lo, 2023), web text from DCLM (Li et al., 2024) and Wiki come from Dolma 1.7 (Soldaini et al., 2024). arXiv comes from Red-Pajama (Together AI, 2023), while OpenWebMath (Paster et al., 2023) and Algebraic Stack come from ProofPile II (Azerbayev et al., 2023).
+
+| Source                        | Type                  | Tokens  | Words  | Bytes  | Docs  |
+|-------------------------------|-----------------------|---------|--------|--------|-------|
+| DCLM-Baseline                 | Web pages             | 3.71T   | 3.32T  | 21.32T | 2.95B |
+| StarCoder                     | Code                  | 83.0B   | 70.0B  | 459B   | 78.7M |
+| filtered version from OLMoE Mix | Academic papers      | 58.6B   | 51.1B  | 413B   | 38.8M |
+| peS2o from Dolma 1.7          | Math web pages        | 12.2B   | 11.1B  | 47.2B  | 2.89M |
+| arXiv                         | Math proofs code      | 11.8B   | 10.8B  | 44.0B  | 2.83M |
+| OpenWebMath                   | Encyclopedic          | 3.7B    | 3.16B  | 16.2B  | 6.17M |
+| Wikipedia & Wikibooks from Dolma 1.7 |                      |         |        |        |       |
+| Total                         |                       | 3.90T   | 3.48T  | 22.38T | 3.08B |
+
 2.1.1 Pretraining data: OLMo 2 Mix 1124
 
 The mix used for this stage is shown in Table 1. It consists of approximately 3.9 trillion tokens, with over 95% derived from web data. We refer to this set as OLMo 2 Mix 1124. This is the same pretraining data used in OLMoE (Muennighoff et al., 2024).

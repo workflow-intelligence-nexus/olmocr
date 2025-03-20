@@ -4,13 +4,13 @@ On light loams, the returns to the Doncaster Committee give bones a preference t
 
 On peat soils, if previously drained and laid dry, their advantages are reported to be so striking, that from fifteen to twenty bushels of dust per acre, drilled, have been also found to very far surpass the ordinary dressing of stable-dung, and even of lime and pigeons'-dung.
 
-On gravels, the reports are meagre and contradictory, though perhaps reconcilable in principle, as it has been justly observed, that "a gravelly soil may embrace every variety of texture and quality, from the light dry sand to the water-logged yellow clay—preserving in each the necessary admixture of stones and grit." To wet gravel, their application has been found decidedly unfavourable *.
+On gravels, the reports are meagre and contradictory, though perhaps reconcilable in principle, as it has been justly observed, that "a gravelly soil may embrace every variety of texture and quality, from the light dry sand to the water-logged yellow clay—preserving in each the necessary admixture of stones and grit." To wet gravel, their application has been found decidedly unfavourable.
 
-ANALYSIS.
+**ANALYSIS.**
 
 An examination of the component parts of soils, and of the power of bones, when applied to them as manure, would go far to explain the irregularity of their different effects upon various kinds of soil. Bone is known to consist of about equal parts of earthy and animal matter; the former chiefly composed of gypsum—which is of so indestructible a nature as to have been termed, by early chemists, the "earth of bones"—and a small portion of carbonate of lime; from which we may conclude that probably half the weight of bones is in the greater part consumed by plants as direct nourishment in their state of growth, and that the remainder is more gradually absorbed by the soil, as well also as by the plants; for lime, though in small amount, is always present, in greater or less quantity, in all vegetable substances.
 
-"The quantity of earthy matter varies according to the age of the animal; and, in like manner, the quantity of animal matter varies also in proportion to the condition of the animal. In the best kinds of bones for manure, viz., those from fat young animals, perhaps the following proportions may give an approximation to the relative quantities of each in 100 parts:—
+"The quantity of earthy matter varies according to the age of the animal; and, in like manner, the quantity of animal matter varies also in proportion to the condition of the animal. In the best kinds of bones for manure, viz., those from fat young animals, perhaps the following proportions may give an approximation to the relative quantities of each in 100 parts:
 
 | Earthy and saline matter | 40 |
 | Cartilage and jelly | 40 |

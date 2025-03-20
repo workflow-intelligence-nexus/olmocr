@@ -22,12 +22,12 @@ Stock-based compensation expense is associated with RSUs, PSUs, market-based PSU
 
 Consolidated Statements of Income include stock-based compensation expense, net of amounts capitalized into inventory and subsequently recognized to cost of revenue, as follows:
 
-| Year Ended      | Jan 29, 2023 | Jan 28, 2024 | Jan 27, 2023 |
-|-----------------|-------------|-------------|-------------|
-|                 | (In millions) |            |             |
-| Cost of revenue | $178        | $141        | $138        |
-| Research and development | 3,423        | 2,532       | 1,892       |
-| Sales, general and administrative | 1,136        | 876         | 680         |
-| Total           | $4,737       | $3,549      | $2,710      |
+| Year Ended | Jan 29, 2023 | Jan 28, 2024 | Jan 29, 2023 |
+|------------|--------------|--------------|--------------|
+| (In millions) | $138 | $141 | $138 |
+| Cost of revenue | $178 | $141 | $138 |
+| Research and development | 3,423 | 2,532 | 1,892 |
+| Sales, general and administrative | 1,136 | 876 | 680 |
+| Total | $4,737 | $3,549 | $2,710 |
 
 Stock-based compensation capitalized in inventories was not significant during fiscal years 2025, 2024, and 2023.

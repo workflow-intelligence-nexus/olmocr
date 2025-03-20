@@ -158,7 +158,7 @@ source activate olmocr
 
 # Run olmocr benchmarks, exactly as the pipeline.py does it
 echo "Running olmocr benchmarks..."
-python -m olmocr.bench.convert olmocr_pipeline --repeats 5
+python -m olmocr.bench.convert olmocr_pipeline --parralel 50
 
 # Install marker-pdf and run benchmarks
 echo "Installing marker-pdf and running benchmarks..."
