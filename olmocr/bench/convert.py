@@ -120,8 +120,10 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, remove_te
                 for page_num in range(1, num_pages + 1):
                     page_images.append(render_pdf_to_base64png(pdf_path, page_num, target_longest_image_dim=2048))
 
+                print(f"Converting {pdf_path} into images to remove text-content...")
                 temp_pdf = tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False)
                 temp_pdf.write(img2pdf.convert([base64.b64decode(x) for x in page_images]))
+                temp_pdf.flush()
                 pdf_path = temp_pdf.name
 
             for repeat in range(1, repeats + 1):
