@@ -139,19 +139,14 @@ def main():
         mediod_path = file_paths[mediod_idx]
 
         # Create the output path, preserving the directory structure relative to input_dir
-        if os.path.isabs(mediod_path) and os.path.isabs(input_dir):
-            rel_path = os.path.relpath(mediod_path, input_dir)
-            # Change the repeat number to 1 in the output filename
-            output_filename = re.sub(r"_repeat\d+\.md$", "_repeat1.md", os.path.basename(rel_path))
-            output_subdir = os.path.dirname(rel_path)
-            output_path = os.path.join(output_dir, output_subdir, output_filename)
+        rel_path = os.path.relpath(mediod_path, input_dir)
+        # Change the repeat number to 1 in the output filename
+        output_filename = re.sub(r"_repeat\d+\.md$", "_repeat1.md", os.path.basename(rel_path))
+        output_subdir = os.path.dirname(rel_path)
+        output_path = os.path.join(output_dir, output_subdir, output_filename)
 
-            # Create directories if needed
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        else:
-            # Just output to the root of output_dir with renamed file
-            output_filename = re.sub(r"_repeat\d+\.md$", "_repeat1.md", os.path.basename(mediod_path))
-            output_path = os.path.join(output_dir, output_filename)
+        # Create directories if needed
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         # Copy the mediod file
         try:
