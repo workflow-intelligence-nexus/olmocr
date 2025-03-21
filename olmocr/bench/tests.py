@@ -116,6 +116,14 @@ def normalize_text(md_content: str) -> str:
     # Normalize whitespace in the md_content
     md_content = re.sub(r"\s+", " ", md_content)
 
+    # Remove markdown bold formatting (** or __ for bold)
+    md_content = re.sub(r"\*\*(.*?)\*\*", r"\1", md_content)
+    md_content = re.sub(r"__(.*?)__", r"\1", md_content)
+
+    # Remove markdown italics formatting (* or _ for italics)
+    md_content = re.sub(r"\*(.*?)\*", r"\1", md_content)
+    md_content = re.sub(r"_(.*?)_", r"\1", md_content)
+
     # Dictionary of characters to replace: keys are fancy characters, values are ASCII equivalents, unicode micro with greek mu comes up often enough too
     replacements = {"‘": "'", "’": "'", "‚": "'", "“": '"', "”": '"', "„": '"', "＿": "_", "–": "-", "—": "-", "‑": "-", "‒": "-", "−": "-", "\u00b5": "\u03bc"}
 
