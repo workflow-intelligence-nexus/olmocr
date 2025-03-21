@@ -2,26 +2,29 @@ V-February Flow
 
 Data Components:
 
-- **Code:**
-  - The-Stack-V2
+Code:
+The-Stack-V2
 
-- **CodeText:**
-  - SE, whatever we've scraped
+CodeText:
+SE, whatever we've scraped
 
-- **WebText:**
-  - HQ DCLM
+WebText:
+HQ DCLM
 
-**DATA MIXES**
+DATA MIXES
 
-- ~85% Source Code
-- ~10% CodeText
-- ~5% WebText
+~85% Source Code
+~10% CodeText
+~5% Webtext
 
-| Deepseek      |
-|---------------|
-| Coder         |
-| StarCoder 2   |
+~85% The-stack-V2
+~15% CodeText
+~0% Webtext
 
-| Arctic        |
-|---------------|
-| Source Code   |
+~100% Source Code
+
+Deepseek Coder
+
+StarCoder 2
+
+Arctic

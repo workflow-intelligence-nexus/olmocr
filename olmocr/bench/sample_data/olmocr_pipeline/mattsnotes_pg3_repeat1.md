@@ -1,9 +1,9 @@
 ARCH + TRAINING
 
-- Pick Arch like OLMO-1B
+- Pick Arch like OLMO-IB
 - OR replicate a 3D model
 - Follow standard LR flow
 
 Eval:
 
-HACKY NONSENSE FOR NOW
+Hacky nonsense for now

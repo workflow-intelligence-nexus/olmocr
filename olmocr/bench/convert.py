@@ -115,6 +115,17 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, remove_te
             relative_pdf_path = os.path.relpath(pdf_path, pdf_directory)
             pdf_relative_dir = os.path.dirname(relative_pdf_path)
 
+            if remove_text:
+                page_images = []
+                for page_num in range(1, num_pages + 1):
+                    page_images.append(render_pdf_to_base64png(pdf_path, page_num, target_longest_image_dim=2048))
+
+                print(f"Converting {pdf_path} into images to remove text-content...")
+                temp_pdf = tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False)
+                temp_pdf.write(img2pdf.convert([base64.b64decode(x) for x in page_images]))
+                temp_pdf.flush()
+                pdf_path = temp_pdf.name
+
             for repeat in range(1, repeats + 1):
                 for page_num in range(1, num_pages + 1):
                     output_filename = f"{base_name}_pg{page_num}_repeat{repeat}.md"
@@ -127,13 +138,6 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, remove_te
                         print(f"Skipping {base_name}_pg{page_num}_repeat{repeat} for {candidate}, file already exists")
                         print("Rerun with --force flag to force regeneration")
                         continue
-
-                    if remove_text:
-                        pdf_rendered = render_pdf_to_base64png(pdf_path, page_num, target_longest_image_dim=2048)
-                        temp_pdf = tempfile.NamedTemporaryFile("w", suffix=".pdf", delete=False)
-
-                        temp_pdf.write(img2pdf.convert(base64.b64decode(pdf_rendered)))
-                        pdf_path = temp_pdf.name
 
                     task = process_pdf(pdf_path, page_num, method, kwargs, output_path, is_async)
                     tasks.append(task)

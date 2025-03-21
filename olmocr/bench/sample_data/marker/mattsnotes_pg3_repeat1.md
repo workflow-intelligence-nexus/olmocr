@@ -1,1 +1,0 @@
-ARCH TRAINING Pick Arch like OLMO 18 or replicate <sup>a</sup> 30 model Follow standard LR flow Eval Hacky nonsense for now
