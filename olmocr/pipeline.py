@@ -1047,35 +1047,38 @@ async def main():
     await download_model(args.model)
 
     # Initialize the work queue
-    await work_queue.initialize_queue()
+    qsize = await work_queue.initialize_queue()
 
-    # Create a semaphore to control worker access
-    # We only allow one worker to move forward with requests, until the server has no more requests in its queue
-    # This lets us get full utilization by having many workers, but also to be outputting dolma docs as soon as possible
-    # As soon as one worker is no longer saturating the gpu, the next one can start sending requests
-    semaphore = asyncio.Semaphore(1)
+    if qsize > 0:
+        # Create a semaphore to control worker access
+        # We only allow one worker to move forward with requests, until the server has no more requests in its queue
+        # This lets us get full utilization by having many workers, but also to be outputting dolma docs as soon as possible
+        # As soon as one worker is no longer saturating the gpu, the next one can start sending requests
+        semaphore = asyncio.Semaphore(1)
 
-    sglang_server = asyncio.create_task(sglang_server_host(args, semaphore))
+        sglang_server = asyncio.create_task(sglang_server_host(args, semaphore))
 
-    await sglang_server_ready()
+        await sglang_server_ready()
 
-    metrics_task = asyncio.create_task(metrics_reporter(work_queue))
+        metrics_task = asyncio.create_task(metrics_reporter(work_queue))
 
-    # Create worker tasks to process the queue concurrently.
-    worker_tasks = []
-    for i in range(args.workers):
-        task = asyncio.create_task(worker(args, work_queue, semaphore, worker_id=i))
-        worker_tasks.append(task)
+        # Create worker tasks to process the queue concurrently.
+        worker_tasks = []
+        for i in range(args.workers):
+            task = asyncio.create_task(worker(args, work_queue, semaphore, worker_id=i))
+            worker_tasks.append(task)
 
-    # Wait for all worker tasks to finish
-    await asyncio.gather(*worker_tasks)
+        # Wait for all worker tasks to finish
+        await asyncio.gather(*worker_tasks)
 
-    # Wait for server to stop
-    process_pool.shutdown(wait=False)
+        # Wait for server to stop
+        process_pool.shutdown(wait=False)
 
-    sglang_server.cancel()
-    metrics_task.cancel()
-    logger.info("Work done")
+        sglang_server.cancel()
+        metrics_task.cancel()
+        logger.info("Work done")
+    else:
+        logger.info("No work to do, exiting")
 
 
 if __name__ == "__main__":
