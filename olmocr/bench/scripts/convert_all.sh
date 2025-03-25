@@ -218,14 +218,9 @@ stop_server
 # python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 50
 # stop_server
 
-# TODO: qwen2.5 Not working right now in sglang
-# qwen25_vl_7b
-# create_conda_env "qwen25" "3.11"
-# source activate qwen25
-# pip install olmocr
-# pip install "sglang[all]>=0.4.3.post2" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python transformers==4.48.3
-# start_server sglang "Qwen/Qwen2.5-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
-# python -m olmocr.bench.convert server:name=qwen25_vl_7b:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 50
+# qwen2.5 works best with vllm for now, in a fresh environment
+# start_server vllm "Qwen/Qwen2.5-VL-7B-Instruct" --max-model-len 8192
+# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=qwen25vl_prompt3:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=basic:response_template=plain --parallel 50
 # stop_server
 
 # TODO: Fix this, I was not able to get it to all install successfully
