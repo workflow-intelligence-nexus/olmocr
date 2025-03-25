@@ -29,6 +29,18 @@ class TestNormalizeText(unittest.TestCase):
         expected = "This has 'fancy' \"quotes\" and-dashes"
         self.assertEqual(normalize_text(input_text), expected)
 
+    def test_markdown1(self):
+        """Test that fancy characters are replaced with ASCII equivalents"""
+        input_text = "this is *bold*"
+        expected = "this is bold"
+        self.assertEqual(normalize_text(input_text), expected)
+
+    def test_markdown2(self):
+        """Test that fancy characters are replaced with ASCII equivalents"""
+        input_text = "_italic__ is *bold*"
+        expected = "italic_ is bold"
+        self.assertEqual(normalize_text(input_text), expected)
+
     def test_empty_input(self):
         """Test that empty input returns empty output"""
         self.assertEqual(normalize_text(""), "")
