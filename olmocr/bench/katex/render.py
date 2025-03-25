@@ -528,6 +528,11 @@ class TestRenderedEquationComparison(unittest.TestCase):
         align_rendered = render_equation("C_T \\left(u^T_n X^{\\text{Test}}_n,\\overline{ x}^{\\text{Test}}\\right)")
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
 
+    def test_parens(self):
+        ref_rendered = render_equation("\\left\\{ \\left( 0_{X},0_{Y},-1\\right) \\right\\} ")
+        align_rendered = render_equation("\\{(0_{X}, 0_{Y}, -1)\\}")
+        self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
+
     def test_dot_end2(self):
         ref_rendered = render_equation(
             "\\lambda_{g}=\\sum_{s \\in S} \\zeta_{n}^{\\psi(g s)}=\\sum_{i=1}^{k}\\left[\\sum_{s, R s=\\mathcal{I}_{i}} \\zeta_{n}^{\\psi(g s)}\\right]"
