@@ -284,7 +284,7 @@ def render_equation(
 
     page.wait_for_selector(".katex", state="attached")
 
-    if True:
+    if debug_dom:
         katex_dom_html = page.evaluate(
             """
         () => {
