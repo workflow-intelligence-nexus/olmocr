@@ -392,6 +392,14 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
     H = [span for span in H if span.text != "\u200b"]
     R = [span for span in R if span.text != "\u200b"]
 
+    def expand_span_info(span_info: SpanInfo) -> list[SpanInfo]:
+        total_elems = len(span_info.text)
+        return [SpanInfo(c, BoundingBox(span_info.bounding_box.x + (span_info.bounding_box.width * index) / total_elems, span_info.bounding_box.y,
+                                        span_info.bounding_box.width / total_elems, span_info.bounding_box.height)) for index, c in enumerate(span_info.text)]
+
+    H = [span for sublist in H for span in expand_span_info(sublist)]
+    R = [span for sublist in R for span in expand_span_info(sublist)]
+
     candidate_map = {}
     for i, hspan in enumerate(H):
         candidate_map[i] = [j for j, rsp in enumerate(R) if rsp.text == hspan.text]
