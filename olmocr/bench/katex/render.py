@@ -284,7 +284,7 @@ def render_equation(
 
     page.wait_for_selector(".katex", state="attached")
 
-    if debug_dom:
+    if True:
         katex_dom_html = page.evaluate(
             """
         () => {
@@ -394,8 +394,18 @@ def compare_rendered_equations(reference: RenderedEquation, hypothesis: Rendered
 
     def expand_span_info(span_info: SpanInfo) -> list[SpanInfo]:
         total_elems = len(span_info.text)
-        return [SpanInfo(c, BoundingBox(span_info.bounding_box.x + (span_info.bounding_box.width * index) / total_elems, span_info.bounding_box.y,
-                                        span_info.bounding_box.width / total_elems, span_info.bounding_box.height)) for index, c in enumerate(span_info.text)]
+        return [
+            SpanInfo(
+                c,
+                BoundingBox(
+                    span_info.bounding_box.x + (span_info.bounding_box.width * index) / total_elems,
+                    span_info.bounding_box.y,
+                    span_info.bounding_box.width / total_elems,
+                    span_info.bounding_box.height,
+                ),
+            )
+            for index, c in enumerate(span_info.text)
+        ]
 
     H = [span for sublist in H for span in expand_span_info(sublist)]
     R = [span for sublist in R for span in expand_span_info(sublist)]
@@ -559,6 +569,113 @@ class TestRenderedEquationComparison(unittest.TestCase):
         ref_rendered = render_equation("u \\in (R/\\operatorname{Ann}_R(x_i))^{\\times}")
         align_rendered = render_equation("u \\in\\left(R / \\operatorname{Ann}_{R}\\left(x_{i}\\right)\\right)^{\\times}")
         self.assertTrue(compare_rendered_equations(ref_rendered, align_rendered))
+
+    def test_fraction_vs_divided_by(self):
+        eq1 = render_equation("\\frac{a}{b}", use_cache=False)
+        eq2 = render_equation("a / b", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_different_bracket_types(self):
+        eq1 = render_equation("\\left[ a + b \\right]", use_cache=False)
+        eq2 = render_equation("\\left\\{ a + b \\right\\}", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_inline_vs_display_style_fraction(self):
+        eq1 = render_equation("\\frac{1}{2}", use_cache=False)
+        eq2 = render_equation("\\displaystyle\\frac{1}{2}", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_matrix_equivalent_forms(self):
+        eq1 = render_equation("\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}", use_cache=False)
+        eq2 = render_equation("\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_different_matrix_types(self):
+        eq1 = render_equation("\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}", use_cache=False)
+        eq2 = render_equation("\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_thinspace_vs_regular_space(self):
+        eq1 = render_equation("a \\, b", use_cache=False)
+        eq2 = render_equation("a \\: b", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    @unittest.skip("Currently these compare to the same thing, because they use the symbol 'x' with a different span class and thus font")
+    def test_mathbf_vs_boldsymbol(self):
+        eq1 = render_equation("\\mathbf{x}", use_cache=False)
+        eq2 = render_equation("\\boldsymbol{x}", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_tensor_notation_equivalent(self):
+        eq1 = render_equation("T_{ij}^{kl}", use_cache=False)
+        eq2 = render_equation("T^{kl}_{ij}", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_partial_derivative_forms(self):
+        eq1 = render_equation("\\frac{\\partial f}{\\partial x}", use_cache=False)
+        eq2 = render_equation("\\frac{\\partial_f}{\\partial_x}", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_equivalent_sin_forms_diff_parens(self):
+        eq1 = render_equation("\\sin(\\theta)", use_cache=False)
+        eq2 = render_equation("\\sin \\theta", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_aligned_multiline_equation(self):
+        eq1 = render_equation("\\begin{align*} a &= b \\\\ c &= d \\end{align*}", use_cache=False)
+        eq2 = render_equation("\\begin{aligned} a &= b \\\\ c &= d \\end{aligned}", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_subscript_order_invariance(self):
+        eq1 = render_equation("x_{i,j}", use_cache=False)
+        eq2 = render_equation("x_{j,i}", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_hat_vs_widehat(self):
+        eq1 = render_equation("\\hat{x}", use_cache=False)
+        eq2 = render_equation("\\widehat{x}", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_equivalent_integral_bounds(self):
+        eq1 = render_equation("\\int_{a}^{b} f(x) dx", use_cache=False)
+        eq2 = render_equation("\\int\\limits_{a}^{b} f(x) dx", use_cache=False)
+        # Could go either way honestly?
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_equivalent_summation_notation(self):
+        eq1 = render_equation("\\sum_{i=1}^{n} x_i", use_cache=False)
+        eq2 = render_equation("\\sum\\limits_{i=1}^{n} x_i", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_different_symbol_with_same_appearance(self):
+        eq1 = render_equation("\\phi", use_cache=False)
+        eq2 = render_equation("\\varphi", use_cache=False)
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_aligned_vs_gathered(self):
+        eq1 = render_equation("\\begin{aligned} a &= b \\\\ c &= d \\end{aligned}", use_cache=False)
+        eq2 = render_equation("\\begin{gathered} a = b \\\\ c = d \\end{gathered}", use_cache=False)
+        # Different whitespacing, should be invariant to that.
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_identical_but_with_color1(self):
+        eq1 = render_equation("a + b", use_cache=False)
+        eq2 = render_equation("\\color{black}{a + b}", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_identical_but_with_color2(self):
+        eq1 = render_equation("a + b", use_cache=False)
+        eq2 = render_equation("\\color{black}{a} + \\color{black}{b}", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+        eq1 = render_equation("a + b", use_cache=False)
+        eq2 = render_equation("\\color{red}{a} + \\color{black}{b}", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+    def test_newcommand_expansion(self):
+        eq1 = render_equation("\\alpha + \\beta", use_cache=False)
+        eq2 = render_equation("\\newcommand{\\ab}{\\alpha + \\beta}\\ab", use_cache=False)
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
 
 
 if __name__ == "__main__":
