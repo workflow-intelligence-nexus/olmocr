@@ -1,16 +1,26 @@
 import argparse
 import asyncio
 import concurrent.futures
+import json
 import os
 import random
 import subprocess
+import uuid
 from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, List, Optional, Tuple
 
 import pypdf
 from anthropic import Anthropic
+from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 from tqdm import tqdm
 
+from olmocr.bench.tests import (
+    TableTest,
+    TestType,
+    TextOrderTest,
+    TextPresenceTest,
+)
 from olmocr.data.renderpdf import (
     get_png_dimensions_from_base64,
     render_pdf_to_base64png,
@@ -151,6 +161,212 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
         return False
 
 
+def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> List[Dict]:
+    """
+    Generate tests from HTML content parsed from the PDF.
+
+    Args:
+        html_content: The HTML content of the page
+        pdf_id: The unique identifier for the PDF
+        page_num: The page number
+
+    Returns:
+        A list of test dictionaries that can be saved as JSONL
+    """
+    tests = []
+    pdf_filename = f"{pdf_id}_page{page_num}.pdf"
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    # Step 1: Process headers, footers, and page numbers for TextAbsenceTests
+    headers = soup.find_all("header")
+    footers = soup.find_all("footer")
+    page_numbers = soup.find_all("div", class_="page-number")
+
+    # Create TextAbsenceTests for headers
+    for header in headers:
+        header_text = header.get_text().strip()
+        if header_text:
+            tests.append(
+                {
+                    "pdf": pdf_filename,
+                    "page": page_num,
+                    "id": f"{pdf_id}_header_{uuid.uuid4().hex[:8]}",
+                    "type": TestType.ABSENT.value,
+                    "text": header_text,
+                    "max_diffs": 5,
+                }
+            )
+
+    # Create TextAbsenceTests for footers
+    for footer in footers:
+        footer_text = footer.get_text().strip()
+        if footer_text:
+            tests.append(
+                {
+                    "pdf": pdf_filename,
+                    "page": page_num,
+                    "id": f"{pdf_id}_footer_{uuid.uuid4().hex[:8]}",
+                    "type": TestType.ABSENT.value,
+                    "text": footer_text,
+                    "max_diffs": 5,
+                }
+            )
+
+    # Create TextAbsenceTests for page numbers
+    for page_number in page_numbers:
+        page_number_text = page_number.get_text().strip()
+        if page_number_text:
+            tests.append(
+                {
+                    "pdf": pdf_filename,
+                    "page": page_num,
+                    "id": f"{pdf_id}_page_number_{uuid.uuid4().hex[:8]}",
+                    "type": TestType.ABSENT.value,
+                    "text": page_number_text,
+                    "max_diffs": 5,
+                }
+            )
+
+    # Step 2: Generate tests from tables
+    tables = soup.find_all("table")
+    for table_idx, table in enumerate(tables):
+        # Get all cells in the table
+        cells = table.find_all(["td", "th"])
+
+        # Skip empty tables or tables with very few cells
+        if len(cells) < 4:
+            continue
+
+        # Generate tests for some randomly selected cells
+        sampled_cells = random.sample(cells, min(3, len(cells)))
+
+        for cell in sampled_cells:
+            cell_text = cell.get_text().strip()
+            if not cell_text or len(cell_text) < 3:
+                continue
+
+            # Find position of this cell in the table
+            row = cell.find_parent("tr")
+            rows = table.find_all("tr")
+            row_idx = rows.index(row)
+
+            # Find cells in this row
+            row_cells = row.find_all(["td", "th"])
+            col_idx = row_cells.index(cell)
+
+            # Create a TableTest with relevant relationships
+            test_data = {
+                "pdf": pdf_filename,
+                "page": page_num,
+                "id": f"{pdf_id}_table{table_idx}_{uuid.uuid4().hex[:8]}",
+                "type": TestType.TABLE.value,
+                "cell": cell_text,
+                "max_diffs": 5,
+            }
+
+            # Check cell up
+            if row_idx > 0:
+                prev_row = rows[row_idx - 1]
+                prev_row_cells = prev_row.find_all(["td", "th"])
+                if col_idx < len(prev_row_cells):
+                    up_text = prev_row_cells[col_idx].get_text().strip()
+                    if up_text:
+                        test_data["up"] = up_text
+
+            # Check cell down
+            if row_idx < len(rows) - 1:
+                next_row = rows[row_idx + 1]
+                next_row_cells = next_row.find_all(["td", "th"])
+                if col_idx < len(next_row_cells):
+                    down_text = next_row_cells[col_idx].get_text().strip()
+                    if down_text:
+                        test_data["down"] = down_text
+
+            # Check cell left
+            if col_idx > 0:
+                left_text = row_cells[col_idx - 1].get_text().strip()
+                if left_text:
+                    test_data["left"] = left_text
+
+            # Check cell right
+            if col_idx < len(row_cells) - 1:
+                right_text = row_cells[col_idx + 1].get_text().strip()
+                if right_text:
+                    test_data["right"] = right_text
+
+            # Check top heading (first row in the table or a header row)
+            if row_idx > 0:
+                header_row = rows[0]
+                header_cells = header_row.find_all(["td", "th"])
+                if col_idx < len(header_cells):
+                    top_heading = header_cells[col_idx].get_text().strip()
+                    if top_heading:
+                        test_data["top_heading"] = top_heading
+
+            # Check left heading (first column in the table)
+            if col_idx > 0:
+                left_heading = row_cells[0].get_text().strip()
+                if left_heading:
+                    test_data["left_heading"] = left_heading
+
+            # Only add the test if we have at least one relation
+            if len(test_data) > 6:  # 6 is the number of required fields
+                tests.append(test_data)
+
+    # Step 3: Generate TextPresenceTests for main body content
+    # Make a copy of the soup for the main content
+    main_soup = BeautifulSoup(str(soup), "html.parser")
+
+    # Remove headers, footers, and tables from the main_soup
+    for element in main_soup.find_all(["header", "footer", "table"]):
+        element.extract()
+
+    # Get all paragraphs and headings in the main content
+    paragraphs = main_soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6"])
+
+    # Sample a few paragraphs to use for presence tests
+    if paragraphs:
+        sampled_paragraphs = random.sample(paragraphs, min(5, len(paragraphs)))
+
+        for paragraph in sampled_paragraphs:
+            text = paragraph.get_text().strip()
+            # Only create tests for paragraphs with sufficient content
+            if text and len(text) > 20:
+                tests.append(
+                    {
+                        "pdf": pdf_filename,
+                        "page": page_num,
+                        "id": f"{pdf_id}_text_{uuid.uuid4().hex[:8]}",
+                        "type": TestType.PRESENT.value,
+                        "text": text[:200],  # Limit to 200 chars to keep tests manageable
+                        "max_diffs": 10,
+                    }
+                )
+
+    # Generate some TextOrderTests for content that should appear in a specific order
+    if len(paragraphs) >= 2:
+        # Get pairs of paragraphs that should be in order
+        for i in range(min(3, len(paragraphs) - 1)):
+            first_text = paragraphs[i].get_text().strip()
+            second_text = paragraphs[i + 1].get_text().strip()
+
+            # Only create tests if we have enough text
+            if first_text and second_text and len(first_text) > 10 and len(second_text) > 10:
+                tests.append(
+                    {
+                        "pdf": pdf_filename,
+                        "page": page_num,
+                        "id": f"{pdf_id}_order_{uuid.uuid4().hex[:8]}",
+                        "type": TestType.ORDER.value,
+                        "before": first_text[:100],  # Limit to 100 chars
+                        "after": second_text[:100],  # Limit to 100 chars
+                        "max_diffs": 10,
+                    }
+                )
+
+    return tests
+
+
 def process_pdf(pdf_info, args, client):
     """Process a single PDF, render a random page, and create an HTML template."""
     s3_path, index = pdf_info
@@ -196,6 +412,18 @@ def process_pdf(pdf_info, args, client):
         with open(html_path, "w") as f:
             f.write(html_content)
 
+        # Generate tests from the HTML content
+        tests = generate_tests_from_html(html_content, pdf_id, page_num)
+
+        # Save tests to a JSONL file
+        tests_dir = os.path.join(args.output_dir, "tests")
+        os.makedirs(tests_dir, exist_ok=True)
+        tests_path = os.path.join(tests_dir, f"{pdf_id}_page{page_num}_tests.jsonl")
+        with open(tests_path, "w") as f:
+            for test in tests:
+                f.write(json.dumps(test) + "\n")
+        print(f"Generated {len(tests)} tests for {pdf_id}, page {page_num}")
+
         # Extract the page and save as PDF
         pdf_path = os.path.join(templates_dir, f"{pdf_id}_page{page_num}.pdf")
         if not extract_page_from_pdf(local_pdf_path, pdf_path, page_num):
@@ -225,6 +453,8 @@ def process_pdf(pdf_info, args, client):
             "html_path": html_path,
             "pdf_path": pdf_path,
             "playwright_pdf_path": playwright_pdf_path,
+            "tests_path": tests_path,
+            "num_tests": len(tests),
         }
     except Exception as e:
         print(f"Error processing {s3_path}: {e}")
@@ -303,6 +533,31 @@ def main():
     playwright_success = sum(1 for r in results if r and r.get("playwright_pdf_path"))
     if not args.skip_playwright:
         print(f"Playwright PDF rendering: {playwright_success}/{len(results)} successful")
+
+    # Print summary of generated tests
+    total_tests = sum(r.get("num_tests", 0) for r in results if r)
+    print(f"Generated a total of {total_tests} tests across {len(results)} templates")
+
+    # Optional: Collect and display test type statistics
+    if total_tests > 0:
+        # Count the tests by type from a sample of result files
+        test_types = {"present": 0, "absent": 0, "table": 0, "order": 0}
+        for r in results[: min(10, len(results))]:
+            if r and r.get("tests_path"):
+                try:
+                    with open(r.get("tests_path"), "r") as f:
+                        for line in f:
+                            test = json.loads(line)
+                            test_type = test.get("type", "")
+                            if test_type in test_types:
+                                test_types[test_type] += 1
+                except Exception as e:
+                    print(f"Error reading test file {r.get('tests_path')}: {e}")
+
+        # Print test type distribution for the sample
+        print("Test type distribution (from sample):")
+        for test_type, count in test_types.items():
+            print(f"  - {test_type}: {count} tests")
 
 
 if __name__ == "__main__":
