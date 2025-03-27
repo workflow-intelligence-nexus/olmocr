@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import concurrent.futures
 import os
 import random
@@ -7,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pypdf
 from anthropic import Anthropic
+from playwright.async_api import async_playwright
 from tqdm import tqdm
 
 from olmocr.data.renderpdf import render_pdf_to_base64png, get_png_dimensions_from_base64
@@ -114,6 +116,39 @@ def extract_page_from_pdf(input_path, output_path, page_num):
         return False
 
 
+async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, png_height):
+    """
+    Render HTML content using Playwright and save it as PDF.
+    
+    Args:
+        html_content: HTML content to render
+        output_html_path: Path to save the HTML content
+        output_pdf_path: Path to save the rendered PDF
+        png_width: Width of the viewport
+        png_height: Height of the viewport
+        
+    Returns:
+        bool: True if rendering was successful, False otherwise
+    """
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page(viewport={"width": png_width // 2, "height": png_height // 2})
+            
+            # Set the HTML content
+            await page.set_content(html_content)
+            
+            # Save as PDF
+            await page.pdf(path=output_pdf_path)
+            
+            await browser.close()
+            
+            return True
+    except Exception as e:
+        print(f"Error rendering PDF with Playwright: {str(e)}")
+        return False
+
+
 def process_pdf(pdf_info, args, client):
     """Process a single PDF, render a random page, and create an HTML template."""
     s3_path, index = pdf_info
@@ -163,8 +198,32 @@ def process_pdf(pdf_info, args, client):
         pdf_path = os.path.join(templates_dir, f"{pdf_id}_page{page_num}.pdf")
         if not extract_page_from_pdf(local_pdf_path, pdf_path, page_num):
             print(f"Failed to extract page {page_num} from {local_pdf_path}")
+            
+        # Render PDF using Playwright if not skipped
+        playwright_pdf_path = None
+        
+        if not args.skip_playwright:
+            playwright_pdf_path = os.path.join(templates_dir, f"{pdf_id}_page{page_num}_playwright.pdf")
+            
+            try:
+                # Get PNG dimensions
+                png_width, png_height = get_png_dimensions_from_base64(image_base64)
+                
+                # Run the async function in the synchronous context
+                asyncio.run(render_pdf_with_playwright(html_content, playwright_pdf_path, png_width, png_height))
+                print(f"Successfully rendered with Playwright: {playwright_pdf_path}")
+            except Exception as e:
+                print(f"Failed to render with Playwright: {e}")
+                playwright_pdf_path = None
 
-        return {"pdf_id": pdf_id, "s3_path": s3_path, "page_number": page_num, "html_path": html_path, "pdf_path": pdf_path}
+        return {
+            "pdf_id": pdf_id, 
+            "s3_path": s3_path, 
+            "page_number": page_num, 
+            "html_path": html_path, 
+            "pdf_path": pdf_path,
+            "playwright_pdf_path": playwright_pdf_path
+        }
     except Exception as e:
         print(f"Error processing {s3_path}: {e}")
         return None
@@ -175,13 +234,14 @@ def process_pdf(pdf_info, args, client):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert PDFs to HTML templates")
+    parser = argparse.ArgumentParser(description="Convert PDFs to HTML templates and render with Playwright")
     parser.add_argument("--input_list", required=True, help="Path to a file containing S3 paths to PDFs")
     parser.add_argument("--output_dir", required=True, help="Directory to store extracted pages and tests")
     parser.add_argument("--temp_dir", default="/tmp/mine_tables", help="Directory for temporary files")
     parser.add_argument("--max_tests", type=int, default=100, help="Maximum number of tests to generate")
     parser.add_argument("--parallel", type=int, default=1, help="Number of parallel threads to use")
     parser.add_argument("--api_key", help="Claude API key (or set ANTHROPIC_API_KEY environment variable)")
+    parser.add_argument("--skip_playwright", action="store_true", help="Skip Playwright PDF rendering")
     args = parser.parse_args()
 
     # Ensure output and temp directories exist
@@ -236,6 +296,11 @@ def main():
                 print(f"Error processing {s3_path}: {e}")
 
     print(f"Generated {len(results)} HTML templates")
+    
+    # Print summary of Playwright rendering results
+    playwright_success = sum(1 for r in results if r and r.get("playwright_pdf_path"))
+    if not args.skip_playwright:
+        print(f"Playwright PDF rendering: {playwright_success}/{len(results)} successful")
 
 
 if __name__ == "__main__":
