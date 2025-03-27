@@ -11,7 +11,10 @@ from anthropic import Anthropic
 from playwright.async_api import async_playwright
 from tqdm import tqdm
 
-from olmocr.data.renderpdf import render_pdf_to_base64png, get_png_dimensions_from_base64
+from olmocr.data.renderpdf import (
+    get_png_dimensions_from_base64,
+    render_pdf_to_base64png,
+)
 
 
 def download_s3_pdf(s3_path, local_path):
@@ -43,8 +46,7 @@ def generate_html_from_image(client, image_base64):
                             "If the document has a multi-column layout, you MUST have the same number of columns in your version. "
                             "Focus on creating valid, accessible HTML that preserves the appearance and formatting of the original page as closely as possible. "
                             f"The webpage will be viewed with a fixed viewport size of {png_width // 2} pixels wide by {png_height // 2} pixels tall. "
-                            "Before you start, output a basic analysis of the layout and a plan before enclosing your final html in a ```html block."
-                            ,
+                            "Before you start, output a basic analysis of the layout and a plan before enclosing your final html in a ```html block.",
                         },
                     ],
                 }
@@ -119,14 +121,14 @@ def extract_page_from_pdf(input_path, output_path, page_num):
 async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, png_height):
     """
     Render HTML content using Playwright and save it as PDF.
-    
+
     Args:
         html_content: HTML content to render
         output_html_path: Path to save the HTML content
         output_pdf_path: Path to save the rendered PDF
         png_width: Width of the viewport
         png_height: Height of the viewport
-        
+
     Returns:
         bool: True if rendering was successful, False otherwise
     """
@@ -134,15 +136,15 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             page = await browser.new_page(viewport={"width": png_width // 2, "height": png_height // 2})
-            
+
             # Set the HTML content
             await page.set_content(html_content)
-            
+
             # Save as PDF
             await page.pdf(path=output_pdf_path)
-            
+
             await browser.close()
-            
+
             return True
     except Exception as e:
         print(f"Error rendering PDF with Playwright: {str(e)}")
@@ -198,17 +200,17 @@ def process_pdf(pdf_info, args, client):
         pdf_path = os.path.join(templates_dir, f"{pdf_id}_page{page_num}.pdf")
         if not extract_page_from_pdf(local_pdf_path, pdf_path, page_num):
             print(f"Failed to extract page {page_num} from {local_pdf_path}")
-            
+
         # Render PDF using Playwright if not skipped
         playwright_pdf_path = None
-        
+
         if not args.skip_playwright:
             playwright_pdf_path = os.path.join(templates_dir, f"{pdf_id}_page{page_num}_playwright.pdf")
-            
+
             try:
                 # Get PNG dimensions
                 png_width, png_height = get_png_dimensions_from_base64(image_base64)
-                
+
                 # Run the async function in the synchronous context
                 asyncio.run(render_pdf_with_playwright(html_content, playwright_pdf_path, png_width, png_height))
                 print(f"Successfully rendered with Playwright: {playwright_pdf_path}")
@@ -217,12 +219,12 @@ def process_pdf(pdf_info, args, client):
                 playwright_pdf_path = None
 
         return {
-            "pdf_id": pdf_id, 
-            "s3_path": s3_path, 
-            "page_number": page_num, 
-            "html_path": html_path, 
+            "pdf_id": pdf_id,
+            "s3_path": s3_path,
+            "page_number": page_num,
+            "html_path": html_path,
             "pdf_path": pdf_path,
-            "playwright_pdf_path": playwright_pdf_path
+            "playwright_pdf_path": playwright_pdf_path,
         }
     except Exception as e:
         print(f"Error processing {s3_path}: {e}")
@@ -296,7 +298,7 @@ def main():
                 print(f"Error processing {s3_path}: {e}")
 
     print(f"Generated {len(results)} HTML templates")
-    
+
     # Print summary of Playwright rendering results
     playwright_success = sum(1 for r in results if r and r.get("playwright_pdf_path"))
     if not args.skip_playwright:
