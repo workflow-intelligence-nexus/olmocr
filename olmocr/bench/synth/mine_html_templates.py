@@ -9,7 +9,7 @@ import pypdf
 from anthropic import Anthropic
 from tqdm import tqdm
 
-from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.data.renderpdf import render_pdf_to_base64png, get_png_dimensions_from_base64
 
 
 def download_s3_pdf(s3_path, local_path):
@@ -21,6 +21,8 @@ def download_s3_pdf(s3_path, local_path):
 
 def generate_html_from_image(client, image_base64):
     """Call Claude API to generate HTML from an image."""
+    png_width, png_height = get_png_dimensions_from_base64(image_base64)
+
     try:
         response = client.messages.create(
             model="claude-3-7-sonnet-20250219",
@@ -36,8 +38,11 @@ def generate_html_from_image(client, image_base64):
                             "text": "Render this document as clean, semantic HTML. Use appropriate HTML tags for elements like headings, paragraphs, lists, tables, etc. "
                             "Use the <header> and <footer> tags to represent content at the top/bottom which would not normally be part of the main content, such as page numbers, etc. "
                             "Use a placeholder <div> tag with class 'image' which will render as a grey box with black outline to make sure images have their original size, shape, and position on the page. "
-                            "Preserve any multi-column layouts exactly as they appear. "
-                            "Focus on creating valid, accessible HTML that preserves the appearance and formatting of the original page as closely as possible. ",
+                            "If the document has a multi-column layout, you MUST have the same number of columns in your version. "
+                            "Focus on creating valid, accessible HTML that preserves the appearance and formatting of the original page as closely as possible. "
+                            f"The webpage will be viewed with a fixed viewport size of {png_width // 2} pixels wide by {png_height // 2} pixels tall. "
+                            "Before you start, output a basic analysis of the layout and a plan before enclosing your final html in a ```html block."
+                            ,
                         },
                     ],
                 }
