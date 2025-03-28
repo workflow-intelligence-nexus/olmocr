@@ -45,7 +45,7 @@ class WorkQueue(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def initialize_queue(self) -> None:
+    async def initialize_queue(self) -> int:
         """
         Load the work queue from the relevant store (local or remote)
         and initialize it for processing.
@@ -255,7 +255,7 @@ class LocalWorkQueue(WorkQueue):
             # Write the combined data back to disk in zstd CSV format
             await asyncio.to_thread(upload_zstd_csv_local, self._index_path, combined_lines)
 
-    async def initialize_queue(self) -> None:
+    async def initialize_queue(self) -> int:
         """
         Load the work queue from the local index file and initialize it for processing.
         Removes already completed work items and randomizes the order.
@@ -281,6 +281,8 @@ class LocalWorkQueue(WorkQueue):
             await self._queue.put(item)
 
         logger.info(f"Initialized local queue with {self._queue.qsize()} work items")
+
+        return self._queue.qsize()
 
     async def is_completed(self, work_hash: str) -> bool:
         """
@@ -459,7 +461,7 @@ class S3WorkQueue(WorkQueue):
         if new_groups:
             await asyncio.to_thread(upload_zstd_csv, self.s3_client, self._index_path, combined_lines)
 
-    async def initialize_queue(self) -> None:
+    async def initialize_queue(self) -> int:
         """
         Load the work queue from S3 and initialize it for processing.
         Removes already completed work items and randomizes the order.
@@ -491,6 +493,8 @@ class S3WorkQueue(WorkQueue):
             await self._queue.put(item)
 
         logger.info(f"Initialized queue with {self._queue.qsize()} work items")
+
+        return self._queue.qsize()
 
     async def is_completed(self, work_hash: str) -> bool:
         """

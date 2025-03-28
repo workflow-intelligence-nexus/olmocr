@@ -1051,8 +1051,11 @@ async def main():
     await download_model(args.model)
 
     # Initialize the work queue
-    await work_queue.initialize_queue()
+    qsize = await work_queue.initialize_queue()
 
+    if qsize == 0:
+        logger.info("No work to do, exiting")
+        return
     # Create a semaphore to control worker access
     # We only allow one worker to move forward with requests, until the server has no more requests in its queue
     # This lets us get full utilization by having many workers, but also to be outputting dolma docs as soon as possible
