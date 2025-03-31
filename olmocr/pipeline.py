@@ -37,10 +37,10 @@ from olmocr.check import (
 )
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.filter.filter import Language, PdfFilter
+from olmocr.image_utils import convert_image_to_pdf_bytes, is_jpeg, is_png
 from olmocr.metrics import MetricsKeeper, WorkerTracker
 from olmocr.prompts import PageResponse, build_finetuning_prompt
 from olmocr.prompts.anchor import get_anchor_text
-from olmocr.image_utils import is_png, is_jpeg, convert_image_to_pdf_bytes
 from olmocr.s3_utils import (
     download_zstd_csv,
     expand_s3_glob,
@@ -89,7 +89,8 @@ process_pool = ProcessPoolExecutor(max_workers=min(multiprocessing.cpu_count() /
 # Filter object, cached so it will only get loaded when/if you need it
 get_pdf_filter = cache(lambda: PdfFilter(languages_to_keep={Language.ENGLISH, None}, apply_download_spam_check=True, apply_form_check=True))
 
-SGLANG_SERVER_PORT = None
+# Specify a default port, but it can be overridden by args
+SGLANG_SERVER_PORT = 30024
 
 
 @dataclass(frozen=True)
@@ -995,7 +996,12 @@ async def main():
                 logger.info(f"Expanding s3 glob at {pdf_path}")
                 pdf_work_paths |= set(expand_s3_glob(pdf_s3, pdf_path))
             elif os.path.exists(pdf_path):
-                if pdf_path.lower().endswith(".pdf") or pdf_path.lower().endswith(".png") or pdf_path.lower().endswith(".jpg") or pdf_path.lower().endswith(".jpeg"):
+                if (
+                    pdf_path.lower().endswith(".pdf")
+                    or pdf_path.lower().endswith(".png")
+                    or pdf_path.lower().endswith(".jpg")
+                    or pdf_path.lower().endswith(".jpeg")
+                ):
                     if open(pdf_path, "rb").read(4) == b"%PDF":
                         logger.info(f"Loading file at {pdf_path} as PDF document")
                         pdf_work_paths.add(pdf_path)
