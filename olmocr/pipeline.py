@@ -40,6 +40,7 @@ from olmocr.filter.filter import Language, PdfFilter
 from olmocr.metrics import MetricsKeeper, WorkerTracker
 from olmocr.prompts import PageResponse, build_finetuning_prompt
 from olmocr.prompts.anchor import get_anchor_text
+from olmocr.image_utils import is_png, is_jpeg, convert_image_to_pdf_bytes
 from olmocr.s3_utils import (
     download_zstd_csv,
     expand_s3_glob,
@@ -325,6 +326,12 @@ async def process_pdf(args, worker_id: int, pdf_orig_path: str):
                 return None
             else:
                 raise
+
+        if is_png(tf.name) or is_jpeg(tf.name):
+            logger.info(f"Converting {pdf_orig_path} from image to PDF format...")
+            tf.seek(0)
+            tf.write(convert_image_to_pdf_bytes(tf.name))
+            tf.flush()
 
         try:
             reader = PdfReader(tf.name)
@@ -988,13 +995,16 @@ async def main():
                 logger.info(f"Expanding s3 glob at {pdf_path}")
                 pdf_work_paths |= set(expand_s3_glob(pdf_s3, pdf_path))
             elif os.path.exists(pdf_path):
-                if pdf_path.endswith(".pdf"):
+                if pdf_path.lower().endswith(".pdf") or pdf_path.lower().endswith(".png") or pdf_path.lower().endswith(".jpg") or pdf_path.lower().endswith(".jpeg"):
                     if open(pdf_path, "rb").read(4) == b"%PDF":
                         logger.info(f"Loading file at {pdf_path} as PDF document")
                         pdf_work_paths.add(pdf_path)
+                    elif is_png(pdf_path) or is_jpeg(pdf_path):
+                        logger.info(f"Loading file at {pdf_path} as image document")
+                        pdf_work_paths.add(pdf_path)
                     else:
                         logger.warning(f"File at {pdf_path} is not a valid PDF")
-                elif pdf_path.endswith(".txt"):
+                elif pdf_path.lower().endswith(".txt"):
                     logger.info(f"Loading file at {pdf_path} as list of paths")
                     with open(pdf_path, "r") as f:
                         pdf_work_paths |= set(filter(None, (line.strip() for line in f)))
@@ -1016,8 +1026,11 @@ async def main():
                 with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp_file:
                     tmp_file.write(get_s3_bytes(pdf_s3, pdf))
                     tmp_file.flush()
-                    reader = PdfReader(tmp_file.name)
-                    page_counts.append(len(reader.pages))
+                    if is_png(tmp_file.name) or is_jpeg(tmp_file.name):
+                        page_counts.append(1)
+                    else:
+                        reader = PdfReader(tmp_file.name)
+                        page_counts.append(len(reader.pages))
             except Exception as e:
                 logger.warning(f"Failed to read {pdf}: {e}")
 
