@@ -79,8 +79,8 @@ def list_result_files(s3_client, workspace_path):
         if "Contents" in page:
             all_files.extend([f"s3://{bucket}/{obj['Key']}" for obj in page["Contents"] if obj["Key"].endswith(".jsonl") or obj["Key"].endswith(".json")])
 
-        if len(all_files) > 1000:
-            break
+        # if len(all_files) > 1000:
+        #     break
 
     return all_files
 
@@ -243,14 +243,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             }}
             
             .info-item h3 {{
-                font-size: 0.875rem;
+                font-size: 0.6rem;
                 color: var(--text-light);
                 margin-bottom: 0.25rem;
             }}
             
             .info-item p {{
-                font-size: 1rem;
-                font-weight: 500;
+                font-size: 0.6rem;
             }}
             
             .page-grid {{
@@ -317,16 +316,46 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 text-decoration: underline;
             }}
             
+            /* New button group styling for connected Yes/No buttons */
+            .btn-group {{
+                display: inline-flex;
+                margin-bottom: 0.5rem;
+            }}
+            
+            .btn-group .toggle-button {{
+                padding: 0.5rem 1rem;
+                border: 1px solid var(--border-color);
+                background-color: #f8fafc;
+                cursor: pointer;
+                margin: 0;
+                /* Remove individual border radius so we can set unified ones */
+                border-radius: 0;
+            }}
+            
+            .btn-group .toggle-button:first-child {{
+                border-right: none;
+                border-top-left-radius: 0.25rem;
+                border-bottom-left-radius: 0.25rem;
+            }}
+            
+            .btn-group .toggle-button:last-child {{
+                border-top-right-radius: 0.25rem;
+                border-bottom-right-radius: 0.25rem;
+            }}
+            
             .feedback {{
                 margin-top: 0.5rem;
                 padding: 0.5rem;
                 border-top: 1px solid var(--border-color);
             }}
             
-            .feedback label {{
-                margin-right: 1rem;
-                font-size: 0.875rem;
-                color: var(--text-light);
+            .feedback .toggle-group {{
+                margin-bottom: 0.5rem;
+            }}
+            
+            .toggle-button.active {{
+                background-color: var(--primary-color);
+                color: white;
             }}
             
             .feedback textarea {{
@@ -370,7 +399,43 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
         <div class="container">
             <header>
                 <h1>OLMOCR Random Samples</h1>
-                <p>A visual survey of randomly selected pages from processed documents</p>
+                <div style="display: flex; font-family: Arial, sans-serif; font-size: 14px; max-width: 1000px; margin: 0 auto;">
+                <div style="flex: 1; padding: 15px; background-color: #f5f7f9; border-radius: 8px; margin-right: 10px;">
+                    <h3 style="color: #2c3e50; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 8px;">PII Direct Identifiers</h3>
+                    <p style="font-style: italic; color: #555; margin-bottom: 15px;">Information that identifies a data subject without further context</p>
+                    <ul style="padding-left: 20px; line-height: 1.5; margin-top: 0;">
+                    <li>Names: Full names, first names, last names, nicknames, maiden names, birth names, aliases</li>
+                    <li>Addresses: Street addresses, postal codes, city, state, country</li>
+                    <li>Contact Information: Phone numbers, email addresses</li>
+                    <li>Government IDs: Social Security Numbers (SSNs), passport numbers, driver's license numbers, tax identification numbers</li>
+                    <li>Financial Information: Credit card numbers, bank account numbers, routing numbers</li>
+                    <li>Biometric Data: Fingerprints, retina scans, voice signatures, facial recognition data</li>
+                    <li>Date of Birth of data subject</li>
+                    <li>Place of Birth of data subject</li>
+                    <li>Gender of data subject</li>
+                    <li>Race of data subject</li>
+                    <li>Religion of data subject</li>
+                    </ul>
+                </div>
+                
+                <div style="flex: 1; padding: 15px; background-color: #f5f7f9; border-radius: 8px; margin-left: 10px;">
+                    <h3 style="color: #2c3e50; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 8px;">PII Indirect Identifiers</h3>
+                    <p style="font-style: italic; color: #555; margin-bottom: 15px;">Information that can be used to identify a data subject in context or in combination with other information</p>
+                    <ul style="padding-left: 20px; line-height: 1.5; margin-top: 0;">
+                    <li>IP Addresses</li>
+                    <li>Login IDs</li>
+                    <li>Geolocations</li>
+                    <li>Employment Information</li>
+                    <li>Education Information</li>
+                    <li>Medical Information</li>
+                    <li>Usernames</li>
+                    <li>Passwords</li>
+                    <li>Keys</li>
+                    <li>URLs</li>
+                    <li>Company Names</li>
+                    </ul>
+                </div>
+                </div>
             </header>
             
             <div class="info-bar">
@@ -415,7 +480,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             # Render PDF to base64 webp
             base64_image = render_pdf_to_base64webp(temp_file_path, page_num, resolution)
 
-            # Add to HTML with feedback checkboxes and textarea.
+            # Add to HTML with the connected Yes/No button group.
             html_content += f"""
             <div class="page-container">
                 <div class="page-info">
@@ -423,14 +488,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     <p>Page {page_num}</p>
                     <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
                     <div class="feedback" data-id="page-{i}">
-                        <label>
-                            <input type="checkbox" data-type="personal_info" onchange="saveFeedback(this)" />
-                            Personal information
-                        </label>
-                        <label>
-                            <input type="checkbox" data-type="cannot_read" onchange="saveFeedback(this)" />
-                            I cannot read this
-                        </label>
+                        <span class="btn-group">
+                            <button type="button" class="toggle-button personal-info" data-value="yes" onclick="togglePersonalInfo(this)">Yes PII</button>
+                            <button type="button" class="toggle-button personal-info" data-value="no" onclick="togglePersonalInfo(this)">No PII</button>
+                        </span>
+                        <span class="btn-group">
+                            <button type="button" class="toggle-button cannot-read" onclick="toggleCannotRead(this)">I cannot read this</button>
+                        </span>
                         <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)"></textarea>
                     </div>
                 </div>
@@ -451,14 +515,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     <p>Page {page_num}</p>
                     <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
                     <div class="feedback" data-id="page-{i}">
-                        <label>
-                            <input type="checkbox" data-type="personal_info" onchange="saveFeedback(this)" />
-                            Personal information
-                        </label>
-                        <label>
-                            <input type="checkbox" data-type="cannot_read" onchange="saveFeedback(this)" />
-                            I cannot read this
-                        </label>
+                        <span class="btn-group">
+                            <button type="button" class="toggle-button personal-info" data-value="yes" onclick="togglePersonalInfo(this)">Yes PII</button>
+                            <button type="button" class="toggle-button personal-info" data-value="no" onclick="togglePersonalInfo(this)">No PII</button>
+                        </span>
+                        <span class="toggle-group">
+                            <button type="button" class="toggle-button cannot-read" onclick="toggleCannotRead(this)">I cannot read this</button>
+                        </span>
                         <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)"></textarea>
                     </div>
                 </div>
@@ -475,43 +538,68 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
         <script>
             // Using externally injected async functions: fetchDatastore() and putDatastore()
 
-            async function saveFeedback(el) {
-                const feedbackDiv = el.closest('.feedback');
+            async function saveFeedback(source) {
+                const feedbackDiv = source.classList.contains('feedback') ? source : source.closest('.feedback');
                 const id = feedbackDiv.getAttribute('data-id');
-                const personalInfo = feedbackDiv.querySelector('input[data-type="personal_info"]').checked;
-                const cannotRead = feedbackDiv.querySelector('input[data-type="cannot_read"]').checked;
+                // Get the personal info state from the active toggle button
+                const personalButton = feedbackDiv.querySelector('button.personal-info.active');
+                const personalInfo = personalButton ? personalButton.getAttribute('data-value') : null;
+                // Get the state of the "I cannot read this" toggle
+                const cannotReadButton = feedbackDiv.querySelector('button.cannot-read');
+                const cannotRead = cannotReadButton ? cannotReadButton.classList.contains('active') : false;
                 const piiDescription = feedbackDiv.querySelector('textarea').value;
 
-                // Retrieve the current datastore (or initialize as empty object)
                 const datastore = await fetchDatastore() || {};
-
-                // Update the datastore for this feedback div
                 datastore[id] = {
                     personalInfo: personalInfo,
                     cannotRead: cannotRead,
                     piiDescription: piiDescription
                 };
 
-                // Save the updated datastore back to S3
                 await putDatastore(datastore);
             }
 
+            function togglePersonalInfo(btn) {
+                const feedbackDiv = btn.closest('.feedback');
+                // Remove active class from all personal info buttons in this group
+                feedbackDiv.querySelectorAll('button.personal-info').forEach(function(b) {
+                    b.classList.remove('active');
+                });
+                // Toggle on the clicked button
+                btn.classList.add('active');
+                saveFeedback(feedbackDiv);
+            }
+
+            function toggleCannotRead(btn) {
+                btn.classList.toggle('active');
+                const feedbackDiv = btn.closest('.feedback');
+                saveFeedback(feedbackDiv);
+            }
+
             document.addEventListener("DOMContentLoaded", async function() {
-                // Fetch the entire datastore on page load
                 const datastore = await fetchDatastore() || {};
 
-                // Populate each feedback div based on the saved datastore
                 document.querySelectorAll('.feedback').forEach(function(feedbackDiv) {
                     const id = feedbackDiv.getAttribute('data-id');
                     if (datastore[id]) {
                         const data = datastore[id];
-                        const personalCheckbox = feedbackDiv.querySelector('input[data-type="personal_info"]');
-                        const cannotReadCheckbox = feedbackDiv.querySelector('input[data-type="cannot_read"]');
-                        const textarea = feedbackDiv.querySelector('textarea');
-
-                        personalCheckbox.checked = data.personalInfo;
-                        cannotReadCheckbox.checked = data.cannotRead;
-                        textarea.value = data.piiDescription;
+                        // Set active state for personal info toggle buttons
+                        feedbackDiv.querySelectorAll('button.personal-info').forEach(function(btn) {
+                            if (btn.getAttribute('data-value') === data.personalInfo) {
+                                btn.classList.add('active');
+                            } else {
+                                btn.classList.remove('active');
+                            }
+                        });
+                        // Set active state for "I cannot read this"
+                        const cannotReadButton = feedbackDiv.querySelector('button.cannot-read');
+                        if (data.cannotRead) {
+                            cannotReadButton.classList.add('active');
+                        } else {
+                            cannotReadButton.classList.remove('active');
+                        }
+                        // Set the textarea value
+                        feedbackDiv.querySelector('textarea').value = data.piiDescription;
                     }
                 });
             });

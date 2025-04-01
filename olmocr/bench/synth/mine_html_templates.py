@@ -144,7 +144,7 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
         bool: True if rendering was successful with exactly one page, False otherwise
     """
     scale_factors = [1.0, 0.9, 0.8, 0.7]  # Try these scale factors in order
-    
+
     for scale in scale_factors:
         try:
             async with async_playwright() as p:
@@ -162,7 +162,7 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
                 )
 
                 await browser.close()
-                
+
                 # Check if the output PDF has exactly one page
                 try:
                     reader = pypdf.PdfReader(output_pdf_path)
@@ -175,11 +175,11 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
                 except Exception as pdf_check_error:
                     print(f"Error checking PDF page count: {pdf_check_error}")
                     return False
-                    
+
         except Exception as e:
             print(f"Error rendering PDF with Playwright at scale {scale}: {str(e)}")
             # Try the next scale factor
-    
+
     print("Failed to render PDF as a single page with any scale factor")
     return False
 
@@ -209,35 +209,37 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
     def create_absence_tests_from_elements(parent_element, element_type):
         # Find all text-containing elements within the parent
         text_elements = []
-        
+
         # First get direct text nodes within spans, divs, p, and heading tags
-        for tag in parent_element.find_all(['span', 'div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+        for tag in parent_element.find_all(["span", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6"]):
             text = tag.get_text().strip()
             if text:
                 text_elements.append(text)
-        
+
         # If no elements found, use the parent's text as a fallback
         if not text_elements:
             parent_text = parent_element.get_text().strip()
             if parent_text:
                 text_elements.append(parent_text)
-        
+
         # Create tests for each text element
         for text in text_elements:
             if len(text) > 3:  # Only create tests for meaningful text
-                tests.append({
-                    "pdf": pdf_filename,
-                    "page": page_num,
-                    "id": f"{pdf_id}_{element_type}_{uuid.uuid4().hex[:8]}",
-                    "type": TestType.ABSENT.value,
-                    "text": text,
-                    "max_diffs": 5
-                })
-    
+                tests.append(
+                    {
+                        "pdf": pdf_filename,
+                        "page": page_num,
+                        "id": f"{pdf_id}_{element_type}_{uuid.uuid4().hex[:8]}",
+                        "type": TestType.ABSENT.value,
+                        "text": text,
+                        "max_diffs": 5,
+                    }
+                )
+
     # Create TextAbsenceTests for headers
     for header in headers:
         create_absence_tests_from_elements(header, "header")
-    
+
     # Create TextAbsenceTests for footers
     for footer in footers:
         create_absence_tests_from_elements(footer, "footer")
@@ -377,7 +379,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
     if len(paragraphs) >= 2:
         # Extract all text from the main content
         all_text = " ".join([p.get_text().strip() for p in paragraphs])
-        
+
         # Use syntok to segment the text into sentences
         sentences = []
         for paragraph in process(all_text):
@@ -386,7 +388,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                 sentence_text = " ".join([token.value for token in sentence]).strip()
                 if sentence_text and len(sentence_text) > 10 and len(sentence_text) < 100:
                     sentences.append(sentence_text)
-        
+
         # Create TextOrderTests from pairs of sentences that are at least 3 sentences apart
         # to ensure they're from different parts of the document
         if len(sentences) >= 5:
@@ -395,19 +397,21 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                 # Get two random indices with sufficient distance between them
                 i = random.randint(0, len(sentences) - 4)
                 j = random.randint(i + 3, min(i + 10, len(sentences) - 1))
-                
+
                 first_sentence = sentences[i]
                 second_sentence = sentences[j]
-                
-                tests.append({
-                    "pdf": pdf_filename,
-                    "page": page_num,
-                    "id": f"{pdf_id}_order_{uuid.uuid4().hex[:8]}",
-                    "type": TestType.ORDER.value,
-                    "before": first_sentence,
-                    "after": second_sentence,
-                    "max_diffs": 10,
-                })
+
+                tests.append(
+                    {
+                        "pdf": pdf_filename,
+                        "page": page_num,
+                        "id": f"{pdf_id}_order_{uuid.uuid4().hex[:8]}",
+                        "type": TestType.ORDER.value,
+                        "before": first_sentence,
+                        "after": second_sentence,
+                        "max_diffs": 10,
+                    }
+                )
 
     return tests
 
@@ -487,7 +491,7 @@ def process_pdf(pdf_info, args, client):
 
                 # Run the async function in the synchronous context
                 render_success = asyncio.run(render_pdf_with_playwright(html_content, playwright_pdf_path, png_width, png_height))
-                
+
                 if render_success:
                     print(f"Successfully rendered with Playwright: {playwright_pdf_path}")
                 else:
@@ -501,7 +505,7 @@ def process_pdf(pdf_info, args, client):
                 print(f"Failed to render with Playwright: {e}")
                 playwright_pdf_path = None
                 render_success = False
-                
+
         # If playwright rendering failed and was required, return None to skip this test
         if not args.skip_playwright and not render_success:
             return None
