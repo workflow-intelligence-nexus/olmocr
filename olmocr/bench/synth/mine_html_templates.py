@@ -33,11 +33,41 @@ def download_s3_pdf(s3_path, local_path):
 
 
 def generate_html_from_image(client, image_base64):
-    """Call Claude API to generate HTML from an image."""
+    """Call Claude API to generate HTML from an image using a multi-step prompting strategy."""
     png_width, png_height = get_png_dimensions_from_base64(image_base64)
 
     try:
-        response = client.messages.create(
+        # Step 1: Initial analysis and column detection
+        analysis_response = client.messages.create(
+            model="claude-3-7-sonnet-20250219",
+            max_tokens=2000,
+            temperature=0.1,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_base64}},
+                        {
+                            "type": "text",
+                            "text": "Analyze this document and provide a detailed assessment of its structure. Focus specifically on:\n"
+                            "1. How many columns does the document have? Is it single-column, two-column, three-column, or a mixed layout?\n"
+                            "2. What are the main sections and content types (headings, paragraphs, lists, tables, images, etc.)?\n"
+                            "3. Does it have headers, footers, page numbers, or other special elements?\n"
+                            "4. Is there any complex formatting that would be challenging to reproduce in HTML?\n\n"
+                            "Please be very precise about the number of columns and how they're arranged."
+                        },
+                    ],
+                }
+            ],
+        )
+
+        analysis_text = ""
+        for content in analysis_response.content:
+            if content.type == "text":
+                analysis_text += content.text
+
+        # Step 2: Initial HTML generation with detailed layout instructions
+        initial_response = client.messages.create(
             model="claude-3-7-sonnet-20250219",
             max_tokens=6000,
             temperature=0.2,
@@ -48,51 +78,46 @@ def generate_html_from_image(client, image_base64):
                         {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_base64}},
                         {
                             "type": "text",
-                            "text": "Render this document as clean, semantic HTML. Use appropriate HTML tags for elements like headings, paragraphs, lists, tables, etc. "
-                            "Use the <header> and <footer> tags to represent content at the top/bottom which would not normally be part of the main content, such as page numbers, etc. "
-                            "Use a placeholder <div> tag with class 'image' which will render as a grey box with black outline to make sure images have their original size, shape, and position on the page. "
-                            "If the document has a multi-column layout, you MUST have the same number of columns in your version. "
-                            "Focus on creating valid, accessible HTML that preserves the appearance and formatting of the original page as closely as possible. "
-                            f"The webpage will be viewed with a fixed viewport size of {png_width // 2} pixels wide by {png_height // 2} pixels tall. "
-                            "Before you start, output a basic analysis of the layout and a plan before enclosing your final html in a ```html block.",
+                            "text": "Render this document as clean, semantic HTML. Here's my analysis of the document structure:\n\n"
+                            f"{analysis_text}\n\n"
+                            "Important requirements:\n"
+                            "1. Use appropriate HTML tags for elements like headings, paragraphs, lists, tables, etc.\n"
+                            "2. Use the <header> and <footer> tags to represent content at the top/bottom which would not normally be part of the main content, such as page numbers, etc.\n"
+                            "3. Use a placeholder <div> tag with class 'image' which will render as a grey box with black outline to make sure images have their original size, shape, and position on the page.\n"
+                            "4. CRITICAL: If the document has a multi-column layout, you MUST preserve the exact same number of columns in your HTML. Use CSS flexbox or grid to create the columns.\n"
+                            "5. Focus on creating valid, accessible HTML that preserves the appearance and formatting of the original page as closely as possible.\n"
+                            f"6. The webpage will be viewed with a fixed viewport size of {png_width // 2} pixels wide by {png_height // 2} pixels tall.\n\n"
+                            "7. For multi-column layouts, use explicit CSS. The most important aspect is preserving the column structure of the original document - this is critical.\n\n"
+                            "Enclose your HTML in a ```html code block."
                         },
                     ],
                 }
             ],
         )
 
-        if response.stop_reason == "stop_sequence":
-            print("Response completed normally (STOP)")
-        elif response.stop_reason == "max_tokens":
-            print("Response truncated due to LENGTH limit")
-            return None
-        else:
-            print(f"Response stopped for reason: {response.stop_reason}")
-            return None
-
-        # Extract HTML from response
-        html_content = ""
-        for content in response.content:
+        # Extract initial HTML
+        initial_html = ""
+        for content in initial_response.content:
             if content.type == "text":
-                html_content += content.text
+                initial_html += content.text
 
-        # Extract code blocks from response if HTML is wrapped in them
-        if "```html" in html_content:
-            start = html_content.find("```html") + 7
-            end = html_content.rfind("```")
+        # Extract code block
+        if "```html" in initial_html:
+            start = initial_html.find("```html") + 7
+            end = initial_html.rfind("```")
             if end > start:
-                html_content = html_content[start:end].strip()
+                initial_html = initial_html[start:end].strip()
             else:
-                html_content = html_content[start:].strip()
-        elif "```" in html_content:
-            start = html_content.find("```") + 3
-            end = html_content.rfind("```")
+                initial_html = initial_html[start:].strip()
+        elif "```" in initial_html:
+            start = initial_html.find("```") + 3
+            end = initial_html.rfind("```")
             if end > start:
-                html_content = html_content[start:end].strip()
+                initial_html = initial_html[start:end].strip()
             else:
-                html_content = html_content[start:].strip()
+                initial_html = initial_html[start:].strip()
 
-        return html_content
+        return initial_html
     except Exception as e:
         print(f"Error calling Claude API: {e}")
         return None
