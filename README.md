@@ -68,6 +68,11 @@ Convert a Single PDF:
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/horribleocr.pdf
 ```
 
+Convert an Image file:
+```bash
+python -m olmocr.pipeline ./localworkspace --pdfs random_page.png
+```
+
 Convert Multiple PDFs:
 ```bash
 python -m olmocr.pipeline ./localworkspace --pdfs tests/gnarly_pdfs/*.pdf

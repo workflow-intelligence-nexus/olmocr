@@ -37,6 +37,7 @@ dependencies = [
   "httpx",
   "torch>=2.5.1",
   "transformers==4.46.2",
+  "img2pdf",
   "beaker-py",
 ]
 license = {file = "LICENSE"}
@@ -90,7 +91,7 @@ bench = [
     "mistralai",
     "lxml",
     "flask",
-    "img2pdf",
+
 ]
 
 train = [

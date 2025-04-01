@@ -7,11 +7,11 @@ import os
 import tempfile
 from functools import partial
 
-import img2pdf
 from pypdf import PdfReader
 from tqdm import tqdm
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
+from olmocr.image_utils import convert_image_to_pdf_bytes
 
 
 def parse_method_arg(method_arg):
@@ -116,15 +116,39 @@ async def process_pdfs(config, pdf_directory, data_directory, repeats, remove_te
             pdf_relative_dir = os.path.dirname(relative_pdf_path)
 
             if remove_text:
-                page_images = []
-                for page_num in range(1, num_pages + 1):
-                    page_images.append(render_pdf_to_base64png(pdf_path, page_num, target_longest_image_dim=2048))
-
                 print(f"Converting {pdf_path} into images to remove text-content...")
-                temp_pdf = tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False)
-                temp_pdf.write(img2pdf.convert([base64.b64decode(x) for x in page_images]))
-                temp_pdf.flush()
-                pdf_path = temp_pdf.name
+
+                # Generate image files from each page
+                temp_image_files = []
+                try:
+                    for page_num in range(1, num_pages + 1):
+                        # Get base64 PNG data for the current page
+                        base64_png = render_pdf_to_base64png(pdf_path, page_num, target_longest_image_dim=2048)
+
+                        # Decode base64 and save to temporary file
+                        temp_img = tempfile.NamedTemporaryFile("wb", suffix=".png", delete=False)
+                        temp_img.write(base64.b64decode(base64_png))
+                        temp_img.close()
+                        temp_image_files.append(temp_img.name)
+
+                    # Convert all images to a single PDF using our enhanced function
+                    pdf_bytes = convert_image_to_pdf_bytes(temp_image_files)
+
+                    # Write the PDF bytes to a temporary file
+                    temp_pdf = tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False)
+                    temp_pdf.write(pdf_bytes)
+                    temp_pdf.close()
+
+                    # Update pdf_path to the new file
+                    pdf_path = temp_pdf.name
+
+                finally:
+                    # Clean up temporary image files
+                    for temp_file in temp_image_files:
+                        try:
+                            os.remove(temp_file)
+                        except Exception as e:
+                            print(f"Warning: Failed to remove temporary file {temp_file}: {e}")
 
             for repeat in range(1, repeats + 1):
                 for page_num in range(1, num_pages + 1):
