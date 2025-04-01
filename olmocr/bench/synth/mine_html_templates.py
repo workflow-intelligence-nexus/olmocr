@@ -7,7 +7,7 @@ import random
 import subprocess
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 import pypdf
 from anthropic import Anthropic
@@ -17,10 +17,7 @@ from syntok.segmenter import process
 from tqdm import tqdm
 
 from olmocr.bench.tests import (
-    TableTest,
     TestType,
-    TextOrderTest,
-    TextPresenceTest,
 )
 from olmocr.data.renderpdf import (
     get_png_dimensions_from_base64,
