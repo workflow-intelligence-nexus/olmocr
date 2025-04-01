@@ -398,39 +398,22 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 temp_file_path = temp_file.name
 
             # Render PDF to base64 webp
-            try:
-                base64_image = render_pdf_to_base64webp(temp_file_path, page_num, resolution)
+            base64_image = render_pdf_to_base64webp(temp_file_path, page_num, resolution)
 
-                # Add to HTML
-                html_content += f"""
-                <div class="page-container">
-                    <div class="page-info">
-                        <h2 title="{pdf_path}"><a href="{original_url}" target="_blank">{original_url}</a></h2>
-                        <p>Page {page_num}</p>
-                    </div>
-                    <div class="page-image-wrapper">
-                        <img class="page-image" src="data:image/webp;base64,{base64_image}" alt="PDF Page {page_num}" loading="lazy" />
-                    </div>
-                    <div class="s3-link">
-                        S3: {f'<a href="{presigned_url}" target="_blank">{pdf_path}</a>' if presigned_url else pdf_path}
-                        {f'<br><a href="{original_url}" target="_blank">{original_url}</a>' if original_url else ''}
-                    </div>
+            # Add to HTML
+            html_content += f"""
+            <div class="page-container">
+                <div class="page-info">
+                    <h2 title="{pdf_path}"><a href="{original_url}" target="_blank">{original_url}</a></h2>
+                    <p>Page {page_num}</p>
+                    <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
                 </div>
-                """
-            except Exception as e:
-                html_content += f"""
-                <div class="page-container">
-                    <div class="page-info">
-                        <h2 title="{pdf_path}"><a href="{original_url}" target="_blank">{original_url}</a></h2>
-                        <p>Page {page_num}</p>
-                    </div>
-                    <div class="error">Error rendering: {str(e)}</div>
-                    <div class="s3-link">
-                        S3: {f'<a href="{presigned_url}" target="_blank">{pdf_path}</a>' if presigned_url else pdf_path}
-                        {f'<br><a href="{original_url}" target="_blank">{original_url}</a>' if original_url else ''}
-                    </div>
+                <div class="page-image-wrapper">
+                    <img class="page-image" src="data:image/webp;base64,{base64_image}" alt="PDF Page {page_num}" loading="lazy" />
                 </div>
-                """
+            </div>
+            """
+
 
             # Clean up temp file
             os.unlink(temp_file_path)
@@ -441,12 +424,9 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 <div class="page-info">
                     <h2 title="{pdf_path}"><a href="{original_url}" target="_blank">{original_url}</a></h2>
                     <p>Page {page_num}</p>
+                    <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
                 </div>
                 <div class="error">Error: {str(e)}</div>
-                <div class="s3-link">
-                    S3: {f'<a href="{presigned_url}" target="_blank">{pdf_path}</a>' if presigned_url else pdf_path}
-                    {f'<br><a href="{original_url}" target="_blank">{original_url}</a>' if original_url else ''}
-                </div>
             </div>
             """
 
