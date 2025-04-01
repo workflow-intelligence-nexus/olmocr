@@ -39,7 +39,7 @@ def generate_html_from_image(client, image_base64):
     try:
         response = client.messages.create(
             model="claude-3-7-sonnet-20250219",
-            max_tokens=4000,
+            max_tokens=6000,
             temperature=0.2,
             messages=[
                 {
@@ -61,6 +61,15 @@ def generate_html_from_image(client, image_base64):
             ],
         )
 
+        if response.stop_reason == "stop_sequence":
+            print("Response completed normally (STOP)")
+        elif response.stop_reason == "max_tokens":
+            print("Response truncated due to LENGTH limit")
+            return None
+        else:
+            print(f"Response stopped for reason: {response.stop_reason}")
+            return None
+
         # Extract HTML from response
         html_content = ""
         for content in response.content:
@@ -73,11 +82,15 @@ def generate_html_from_image(client, image_base64):
             end = html_content.rfind("```")
             if end > start:
                 html_content = html_content[start:end].strip()
+            else:
+                html_content = html_content[start:].strip()
         elif "```" in html_content:
             start = html_content.find("```") + 3
             end = html_content.rfind("```")
             if end > start:
                 html_content = html_content[start:end].strip()
+            else:
+                html_content = html_content[start:].strip()
 
         return html_content
     except Exception as e:
