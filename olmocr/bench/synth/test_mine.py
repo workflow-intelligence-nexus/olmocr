@@ -757,5 +757,99 @@ class TestMineTests(unittest.TestCase):
 
         tests = generate_tests_from_html(html_content, "0", 1)
 
+        self.assertTrue(len(tests) > 10)
+
+    def test_sup(self):
+        html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A ROSE BY ANY OTHER NAME</title>
+    <style>
+        body {
+            font-family: Georgia, serif;
+            line-height: 1.5;
+            margin: 0 auto;
+            max-width: 666px;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .page-number-left {
+            text-align: left;
+        }
+        .title {
+            text-align: center;
+            font-weight: bold;
+            flex-grow: 1;
+        }
+        .page-number-right {
+            text-align: right;
+        }
+        .section-heading {
+            text-align: center;
+            margin: 20px 0;
+        }
+        p {
+            text-indent: 2em;
+            margin: 0 0 10px 0;
+        }
+        .footnotes {
+            margin-top: 30px;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+            font-size: 0.9em;
+        }
+        .footnote {
+            text-indent: -1.5em;
+            padding-left: 1.5em;
+            margin-bottom: 5px;
+        }
+        .italic {
+            font-style: italic;
+        }
+        sup {
+            font-size: 0.7em;
+            vertical-align: super;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="page-number-left">2016]</div>
+        <div class="title">A ROSE BY ANY OTHER NAME</div>
+        <div class="page-number-right">1083</div>
+    </header>
+
+    <main>
+        <p>cases were decided within a year of each other (2000 and 2001, respectively). <span class="italic">Save the Manatee Club</span> largely consists of a truncated version of the <span class="italic">Consolidated-Tomoka</span> analysis, with minor adjustments to conform the opinion to the 1999 amendments. <span class="italic">Day Cruise</span>, on the other hand, closely analyzes the 1999 version of section 120.52(8). However, it is <span class="italic">Save the Manatee Club</span> that has come to dominate Florida court opinions on rulemaking challenges and not the more detailed <span class="italic">Day Cruise</span> analysis.<sup>78</sup> The following Sections will discuss the facts of the two cases, examine the differences between their analyses of section 120.52(8), and finally conclude with an opinion on which analysis is better to apply in section 120.52(8) rulemaking challenges.</p>
+
+        <h2 class="section-heading">A. Southwest Florida Water Management District v. Save the Manatee Club, Inc.</h2>
+
+        <p>After the legislature amended the APA, the First DCA analyzed the statutory language of section 120.52(8) again in <span class="italic">Southwest Florida Water Management District v. Save the Manatee Club, Inc.</span><sup>79</sup> <span class="italic">Save the Manatee Club</span> concerned the Southwest Florida Water Management District's (the "District's") authority to create exemptions to environmental resource permitting requirements.<sup>80</sup> South Shores Partners, Ltd. ("South Shores") applied "for a permit to develop a 720-acre tract of land in Southwest Hillsborough County."<sup>81</sup> As part of the development project, South Shores wanted "to build a connecting waterway between the [existing] canal system [on the property] and the [Tampa] Bay."<sup>82</sup> The Save the Manatee Club believed that the resulting increase in power boat traffic in this new waterway would "endanger the manatee and its habitat."<sup>83</sup></p>
+
+        <p>The District has the authority to grant either a general permit or an environmental resource permit to a development project, depending on the type of project involved.<sup>84</sup> When granting an environmental resource permit, the District must consider "[t]he impact a proposed development will have on wildlife" as a factor; it does not have to do so when it grants a general permit.<sup>85</sup> The District granted South</p>
+    </main>
+
+    <footer class="footnotes">
+        <div class="footnote">78. As of December 14, 2015, a search of the "Citing References" on WestLaw shows that <span class="italic">Save the Manatee Club</span> has been cited by forty court opinions. <span class="italic">Day Cruise</span>, by comparison, has been cited by fifteen court opinions. These numbers do not include citations to either case in DOAH decisions.</div>
+        <div class="footnote">79. 773 So. 2d 594 (Fla. 1st DCA 2000).</div>
+        <div class="footnote">80. <span class="italic">Id.</span> at 596.</div>
+        <div class="footnote">81. <span class="italic">Id.</span></div>
+        <div class="footnote">82. <span class="italic">Id.</span></div>
+        <div class="footnote">83. <span class="italic">Id.</span></div>
+        <div class="footnote">84. <span class="italic">See id.</span></div>
+        <div class="footnote">85. <span class="italic">Id.</span></div>
+    </footer>
+</body>
+</html>"""
+
+        tests = generate_tests_from_html(html_content, "0", 1)
+
         for test in tests:
             print(test)

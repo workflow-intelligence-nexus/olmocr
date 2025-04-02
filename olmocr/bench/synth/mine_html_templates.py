@@ -453,8 +453,11 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
                 if right_text and "\n" not in right_text:
                     test_data["right"] = right_text
 
-            # Check for top heading using header information
-            if col_idx in table_data.col_headers:
+            # Check if current cell is a heading cell
+            is_header_cell = row_idx in table_data.header_rows or col_idx in table_data.header_cols
+            
+            # Check for top heading using header information (skip if current cell is a heading)
+            if not is_header_cell and col_idx in table_data.col_headers:
                 # Get the headers for this column
                 col_headers = table_data.col_headers[col_idx]
                 if col_headers:
@@ -463,8 +466,8 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
                     if top_heading and "\n" not in top_heading:
                         test_data["top_heading"] = top_heading
 
-            # Check for left heading using header information
-            if row_idx in table_data.row_headers:
+            # Check for left heading using header information (skip if current cell is a heading)
+            if not is_header_cell and row_idx in table_data.row_headers:
                 # Get the headers for this row
                 row_headers = table_data.row_headers[row_idx]
                 if row_headers:
@@ -575,10 +578,56 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
     # If they do, filter them out
     tests = [t for t in tests if t["type"] != "absent" or t["text"] not in full_text]
 
-    # Remove any tests where the text has no alpha numeric characters
-    tests = [t for t in tests if "text" not in t or len([c for c in t["text"] if c.isalnum()])]    
-
-    return tests
+    # Remove any tests where text-based fields have no alphanumeric characters or contain LaTeX
+    text_fields = ["text", "cell", "before", "after", "up", "down", "left", "right", "top_heading", "left_heading"]
+    
+    def contains_alphanumeric(value):
+        return any(c.isalnum() for c in value) if isinstance(value, str) else False
+    
+    def contains_latex(value):
+        if not isinstance(value, str):
+            return False
+        # Check for LaTeX delimiters
+        latex_patterns = [r'\(', r'\)', r'\[', r'\]']
+        return any(pattern in value for pattern in latex_patterns)
+    
+    filtered_tests = []
+    for test in tests:
+        # Check all text fields in the test for alphanumeric content and LaTeX
+        all_valid = True
+        for field in text_fields:
+            if field in test:
+                # Skip test if field has no alphanumeric characters
+                if not contains_alphanumeric(test[field]):
+                    all_valid = False
+                    break
+                # Skip test if field contains LaTeX delimiters
+                if contains_latex(test[field]):
+                    all_valid = False
+                    break
+        if all_valid:
+            filtered_tests.append(test)
+    
+    tests = filtered_tests
+    
+    # Remove duplicate tests (identical on everything but the id field)
+    unique_tests = []
+    test_signatures = set()
+    
+    for test in tests:
+        # Create a signature for the test by using all fields except 'id'
+        test_dict = test.copy()
+        test_id = test_dict.pop('id')
+        
+        # Convert dict to a sorted tuple of items for hashability
+        test_signature = tuple(sorted((k, str(v)) for k, v in test_dict.items()))
+        
+        # Only add the test if we haven't seen an identical one
+        if test_signature not in test_signatures:
+            test_signatures.add(test_signature)
+            unique_tests.append(test)
+    
+    return unique_tests
 
 
 def process_pdf(pdf_info, args, client):
