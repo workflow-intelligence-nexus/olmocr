@@ -242,15 +242,22 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
 
     # Function to create absence tests from text elements
     def create_absence_tests_from_elements(parent_element, element_type):
-        # Find all text-containing elements within the parent
+        # Find all text-containing leaf elements within the parent
         text_elements = []
 
-        # First get direct text nodes within spans, divs, p, and heading tags
-        for tag in parent_element.find_all(["span", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6"]):
-            text = tag.get_text().strip()
-            if text:
-                text_elements.append(text)
-
+        # Get all target elements
+        target_tags = parent_element.find_all(["span", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6"])
+        
+        # Filter to only include leaf nodes (elements that don't contain other target elements)
+        for tag in target_tags:
+            # Check if this element has no children from our target tags
+            is_leaf = not tag.find(["span", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6"])
+            
+            if is_leaf:
+                text = tag.get_text().strip()
+                if text:
+                    text_elements.append(text)
+                    
         # If no elements found, use the parent's text as a fallback
         if not text_elements:
             parent_text = parent_element.get_text().strip()
