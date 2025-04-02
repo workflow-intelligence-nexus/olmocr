@@ -646,6 +646,12 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
         if "\n" in second_sentence:
             second_sentence = second_sentence.split("\n")[0].strip()
 
+        max_diffs = round(max(len(first_sentence), len(second_sentence)) * 0.05)
+
+        # Too big of a length discrepancy causes issues
+        if max_diffs > len(first_sentence) // 2 or max_diffs > len(second_sentence) // 2:
+            continue
+
         tests.append(
             {
                 "pdf": pdf_filename,
@@ -654,7 +660,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
                 "type": TestType.ORDER.value,
                 "before": first_sentence,
                 "after": second_sentence,
-                "max_diffs": round(max(len(first_sentence), len(second_sentence)) * 0.05),
+                "max_diffs": max_diffs,
             }
         )
         num_order_tests += 1
