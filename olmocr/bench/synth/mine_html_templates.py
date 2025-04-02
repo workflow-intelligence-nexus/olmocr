@@ -487,38 +487,29 @@ def process_pdf(pdf_info, args, client):
             print(f"Failed to generate HTML for {s3_path}, page {page_num}")
             return None
 
-        # Create output directory
-        templates_dir = os.path.join(args.output_dir, "templates")
-        os.makedirs(templates_dir, exist_ok=True)
+        # Create output directories
+        html_dir = os.path.join(args.output_dir, "html")
+        pdfs_dir = os.path.join(args.output_dir, "pdfs")
+        os.makedirs(html_dir, exist_ok=True)
+        os.makedirs(pdfs_dir, exist_ok=True)
 
         # Save HTML to output directory
-        html_path = os.path.join(templates_dir, f"{pdf_id}_page{page_num}.html")
+        html_path = os.path.join(html_dir, f"{pdf_id}_page{page_num}.html")
         with open(html_path, "w") as f:
             f.write(html_content)
 
-        # Generate tests from the HTML content
-        tests = generate_tests_from_html(html_content, pdf_id, page_num)
-
-        # Save tests to a JSONL file
-        tests_dir = os.path.join(args.output_dir, "tests")
-        os.makedirs(tests_dir, exist_ok=True)
-        tests_path = os.path.join(tests_dir, f"{pdf_id}_page{page_num}_tests.jsonl")
-        with open(tests_path, "w") as f:
-            for test in tests:
-                f.write(json.dumps(test) + "\n")
-        print(f"Generated {len(tests)} tests for {pdf_id}, page {page_num}")
-
         # Extract the page and save as PDF
-        pdf_path = os.path.join(templates_dir, f"{pdf_id}_page{page_num}.pdf")
-        if not extract_page_from_pdf(local_pdf_path, pdf_path, page_num):
+        original_pdf_path = os.path.join(pdfs_dir, f"{pdf_id}_page{page_num}_original.pdf")
+        if not extract_page_from_pdf(local_pdf_path, original_pdf_path, page_num):
             print(f"Failed to extract page {page_num} from {local_pdf_path}")
 
         # Render PDF using Playwright if not skipped
         playwright_pdf_path = None
         render_success = False
+        playwright_pdf_filename = f"{pdf_id}_page{page_num}.pdf"  # This will be used in the tests
 
         if not args.skip_playwright:
-            playwright_pdf_path = os.path.join(templates_dir, f"{pdf_id}_page{page_num}_playwright.pdf")
+            playwright_pdf_path = os.path.join(pdfs_dir, playwright_pdf_filename)
 
             try:
                 # Get PNG dimensions
@@ -531,10 +522,6 @@ def process_pdf(pdf_info, args, client):
                     print(f"Successfully rendered with Playwright: {playwright_pdf_path}")
                 else:
                     print(f"Failed to render as a single page PDF: {playwright_pdf_path}")
-                    # Remove the tests if we couldn't render a proper single-page PDF
-                    if os.path.exists(tests_path):
-                        os.remove(tests_path)
-                        print(f"Removed tests for {pdf_id} due to rendering failure")
                     playwright_pdf_path = None
             except Exception as e:
                 print(f"Failed to render with Playwright: {e}")
@@ -544,15 +531,23 @@ def process_pdf(pdf_info, args, client):
         # If playwright rendering failed and was required, return None to skip this test
         if not args.skip_playwright and not render_success:
             return None
-
+            
+        # Generate tests from the HTML content
+        # Use the playwright rendered PDF path for tests
+        tests = generate_tests_from_html(html_content, pdf_id, page_num)
+        
+        # Update the PDF path in all tests to use the playwright rendered PDF
+        for test in tests:
+            test["pdf"] = playwright_pdf_filename
+                
         return {
             "pdf_id": pdf_id,
             "s3_path": s3_path,
             "page_number": page_num,
             "html_path": html_path,
-            "pdf_path": pdf_path,
+            "original_pdf_path": original_pdf_path,
             "playwright_pdf_path": playwright_pdf_path,
-            "tests_path": tests_path,
+            "tests": tests,
             "num_tests": len(tests),
         }
     except Exception as e:
@@ -609,9 +604,21 @@ def main():
     # Shuffle and limit to max_tests
     random.shuffle(s3_paths)
     s3_paths = s3_paths[: args.max_tests]
+    
+    # Initialize synthetic.json as a JSONL file (empty initially)
+    synthetic_json_path = os.path.join(args.output_dir, "synthetic.jsonl")
+    open(synthetic_json_path, "w").close()  # Create empty file
+    
+    # Counter for test statistics
+    test_counter = 0
+    test_types = {"present": 0, "absent": 0, "table": 0, "order": 0}
+    results = []
+    
+    # Initialize a threading lock for file access
+    import threading
+    file_lock = threading.Lock()
 
     # Process PDFs in parallel
-    results = []
     with ThreadPoolExecutor(max_workers=args.parallel) as executor:
         # Submit all tasks
         futures = {executor.submit(process_pdf, (s3_path, i), args, client): s3_path for i, s3_path in enumerate(s3_paths)}
@@ -621,8 +628,24 @@ def main():
             s3_path = futures[future]
             try:
                 result = future.result()
-                if result:
+                if result and result.get("tests"):
                     results.append(result)
+                    
+                    # Append tests to synthetic.json as they're created (JSONL format)
+                    with file_lock:
+                        # Append each test as a separate JSON line
+                        with open(synthetic_json_path, "a") as f:
+                            for test in result["tests"]:
+                                f.write(json.dumps(test) + "\n")
+                        
+                        # Update counters
+                        test_counter += len(result["tests"])
+                        for test in result["tests"]:
+                            test_type = test.get("type", "")
+                            if test_type in test_types:
+                                test_types[test_type] += 1
+                                
+                        print(f"Added {len(result['tests'])} tests from {result['pdf_id']}, total: {test_counter}")
             except Exception as e:
                 print(f"Error processing {s3_path}: {e}")
 
@@ -632,29 +655,15 @@ def main():
     playwright_success = sum(1 for r in results if r and r.get("playwright_pdf_path"))
     if not args.skip_playwright:
         print(f"Playwright PDF rendering: {playwright_success}/{len(results)} successful")
-
+    
+    print(f"Saved {test_counter} tests to {synthetic_json_path}")
+    
     # Print summary of generated tests
-    total_tests = sum(r.get("num_tests", 0) for r in results if r)
-    print(f"Generated a total of {total_tests} tests across {len(results)} templates")
+    print(f"Generated a total of {test_counter} tests across {len(results)} templates")
 
-    # Optional: Collect and display test type statistics
-    if total_tests > 0:
-        # Count the tests by type from a sample of result files
-        test_types = {"present": 0, "absent": 0, "table": 0, "order": 0}
-        for r in results[: min(10, len(results))]:
-            if r and r.get("tests_path"):
-                try:
-                    with open(r.get("tests_path"), "r") as f:
-                        for line in f:
-                            test = json.loads(line)
-                            test_type = test.get("type", "")
-                            if test_type in test_types:
-                                test_types[test_type] += 1
-                except Exception as e:
-                    print(f"Error reading test file {r.get('tests_path')}: {e}")
-
-        # Print test type distribution for the sample
-        print("Test type distribution (from sample):")
+    # Print test type distribution
+    if test_counter > 0:
+        print("Test type distribution:")
         for test_type, count in test_types.items():
             print(f"  - {test_type}: {count} tests")
 
