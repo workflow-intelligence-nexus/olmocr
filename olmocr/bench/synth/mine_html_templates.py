@@ -54,7 +54,7 @@ def generate_html_from_image(client, image_base64):
                             "2. What are the main sections and content types (headings, paragraphs, lists, tables, images, etc.)?\n"
                             "3. Does it have headers, footers, page numbers, or other special elements?\n"
                             "4. Is there any complex formatting that would be challenging to reproduce in HTML?\n\n"
-                            "Please be very precise about the number of columns and how they're arranged."
+                            "Please be very precise about the number of columns and how they're arranged.",
                         },
                     ],
                 }
@@ -88,7 +88,7 @@ def generate_html_from_image(client, image_base64):
                             "5. Focus on creating valid, accessible HTML that preserves the appearance and formatting of the original page as closely as possible.\n"
                             f"6. The webpage will be viewed with a fixed viewport size of {png_width // 2} pixels wide by {png_height // 2} pixels tall.\n\n"
                             "7. For multi-column layouts, use explicit CSS. The most important aspect is preserving the column structure of the original document - this is critical.\n\n"
-                            "Enclose your HTML in a ```html code block."
+                            "Enclose your HTML in a ```html code block.",
                         },
                     ],
                 }
@@ -178,7 +178,7 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
     Returns:
         bool: True if rendering was successful with exactly one page, False otherwise
     """
-    scale_factors = [1.0, 0.9, 0.8, 0.7]  # Try these scale factors in order
+    scale_factors = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]  # Try these scale factors in order
 
     for scale in scale_factors:
         try:
