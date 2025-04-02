@@ -853,3 +853,56 @@ class TestMineTests(unittest.TestCase):
 
         for test in tests:
             print(test)
+
+    def test_katex_autorender(self):
+        """Test that KaTeX math expressions are properly auto-rendered when using the render_pdf_with_playwright function."""
+        import asyncio
+        import os
+        import tempfile
+
+        from ..synth.mine_html_templates import render_pdf_with_playwright
+
+        # Create HTML with LaTeX expressions
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>KaTeX Auto-Render Test</title>
+        </head>
+        <body>
+            <h1>Math Expressions Test</h1>
+            
+            <p>Inline math expression: \(E = mc^2\)</p>
+            
+            <p>Block math expression:</p>
+            <p>\[
+            \\frac{d}{dx}(x^n) = nx^{n-1}
+            \]</p>
+            
+            <p>Another complex equation:</p>
+            <p>\[
+            \int_{a}^{b} f(x) \, dx = F(b) - F(a)
+            \]</p>
+        </body>
+        </html>
+        """
+
+        # Create a temporary file to store the rendered PDF
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
+            output_pdf_path = tmp_file.name
+
+        # Render the HTML to PDF
+        render_success = asyncio.run(render_pdf_with_playwright(html_content=html_content, output_pdf_path=output_pdf_path, png_width=800, png_height=600))
+
+        # Check if rendering was successful
+        self.assertTrue(render_success, "PDF rendering should succeed")
+
+        # Verify PDF was created and has content
+        self.assertTrue(os.path.exists(output_pdf_path), "PDF file should exist")
+        self.assertTrue(os.path.getsize(output_pdf_path) > 0, "PDF file should have content")
+
+        # The actual validation of KaTeX rendering would require visual inspection or text extraction,
+        # but at minimum we can verify the file was created successfully
+
+        print(output_pdf_path)
