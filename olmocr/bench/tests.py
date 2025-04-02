@@ -134,6 +134,331 @@ def normalize_text(md_content: str) -> str:
     return md_content
 
 
+def parse_markdown_tables(md_content: str) -> List[TableData]:
+    """
+    Extract and parse all markdown tables from the provided content.
+    Uses a direct approach to find and parse tables, which is more robust for tables
+    at the end of files or with irregular formatting.
+
+    Args:
+        md_content: The markdown content containing tables
+
+    Returns:
+        A list of TableData objects, each containing the table data and header information
+    """
+    # Split the content into lines and process line by line
+    lines = md_content.strip().split("\n")
+
+    parsed_tables = []
+    current_table_lines = []
+    in_table = False
+
+    # Identify potential tables by looking for lines with pipe characters
+    for i, line in enumerate(lines):
+        # Check if this line has pipe characters (a table row indicator)
+        if "|" in line:
+            # If we weren't in a table before, start a new one
+            if not in_table:
+                in_table = True
+                current_table_lines = [line]
+            else:
+                # Continue adding to the current table
+                current_table_lines.append(line)
+        else:
+            # No pipes in this line, so if we were in a table, we've reached its end
+            if in_table:
+                # Process the completed table if it has at least 2 rows
+                if len(current_table_lines) >= 2:
+                    table_data = _process_table_lines(current_table_lines)
+                    if table_data and len(table_data) > 0:
+                        # Convert to numpy array for easier manipulation
+                        max_cols = max(len(row) for row in table_data)
+                        padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
+                        table_array = np.array(padded_data)
+
+                        # In markdown tables, the first row is typically a header row
+                        header_rows = {0} if len(table_array) > 0 else set()
+
+                        # Set up col_headers with first row headers for each column
+                        col_headers = {}
+                        if len(table_array) > 0:
+                            for col_idx in range(table_array.shape[1]):
+                                if col_idx < len(table_array[0]):
+                                    col_headers[col_idx] = [(0, table_array[0, col_idx])]
+
+                        # Set up row_headers with first column headers for each row
+                        row_headers = {}
+                        if table_array.shape[1] > 0:
+                            for row_idx in range(1, table_array.shape[0]):  # Skip header row
+                                row_headers[row_idx] = [(0, table_array[row_idx, 0])]  # First column as heading
+
+                        # Create TableData object
+                        parsed_tables.append(
+                            TableData(
+                                data=table_array,
+                                header_rows=header_rows,
+                                header_cols={0} if table_array.shape[1] > 0 else set(),  # First column as header
+                                col_headers=col_headers,
+                                row_headers=row_headers,
+                            )
+                        )
+                in_table = False
+
+    # Process the last table if we're still tracking one at the end of the file
+    if in_table and len(current_table_lines) >= 2:
+        table_data = _process_table_lines(current_table_lines)
+        if table_data and len(table_data) > 0:
+            # Convert to numpy array
+            max_cols = max(len(row) for row in table_data)
+            padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
+            table_array = np.array(padded_data)
+
+            # In markdown tables, the first row is typically a header row
+            header_rows = {0} if len(table_array) > 0 else set()
+
+            # Set up col_headers with first row headers for each column
+            col_headers = {}
+            if len(table_array) > 0:
+                for col_idx in range(table_array.shape[1]):
+                    if col_idx < len(table_array[0]):
+                        col_headers[col_idx] = [(0, table_array[0, col_idx])]
+
+            # Set up row_headers with first column headers for each row
+            row_headers = {}
+            if table_array.shape[1] > 0:
+                for row_idx in range(1, table_array.shape[0]):  # Skip header row
+                    row_headers[row_idx] = [(0, table_array[row_idx, 0])]  # First column as heading
+
+            # Create TableData object
+            parsed_tables.append(
+                TableData(
+                    data=table_array,
+                    header_rows=header_rows,
+                    header_cols={0} if table_array.shape[1] > 0 else set(),  # First column as header
+                    col_headers=col_headers,
+                    row_headers=row_headers,
+                )
+            )
+
+    return parsed_tables
+
+
+def _process_table_lines(table_lines: List[str]) -> List[List[str]]:
+    """
+    Process a list of lines that potentially form a markdown table.
+
+    Args:
+        table_lines: List of strings, each representing a line in a potential markdown table
+
+    Returns:
+        A list of rows, each a list of cell values
+    """
+    table_data = []
+    separator_row_index = None
+
+    # First, identify the separator row (the row with dashes)
+    for i, line in enumerate(table_lines):
+        # Check if this looks like a separator row (contains mostly dashes)
+        content_without_pipes = line.replace("|", "").strip()
+        if content_without_pipes and all(c in "- :" for c in content_without_pipes):
+            separator_row_index = i
+            break
+
+    # Process each line, filtering out the separator row
+    for i, line in enumerate(table_lines):
+        # Skip the separator row
+        if i == separator_row_index:
+            continue
+
+        # Skip lines that are entirely formatting
+        if line.strip() and all(c in "- :|" for c in line):
+            continue
+
+        # Process the cells in this row
+        cells = [cell.strip() for cell in line.split("|")]
+
+        # Remove empty cells at the beginning and end (caused by leading/trailing pipes)
+        if cells and cells[0] == "":
+            cells = cells[1:]
+        if cells and cells[-1] == "":
+            cells = cells[:-1]
+
+        if cells:  # Only add non-empty rows
+            table_data.append(cells)
+
+    return table_data
+
+
+def parse_html_tables(html_content: str) -> List[TableData]:
+    """
+    Extract and parse all HTML tables from the provided content.
+    Identifies header rows and columns, and maps them properly handling rowspan/colspan.
+
+    Args:
+        html_content: The HTML content containing tables
+
+    Returns:
+        A list of TableData objects, each containing the table data and header information
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    tables = soup.find_all("table")
+
+    parsed_tables = []
+
+    for table in tables:
+        rows = table.find_all(["tr"])
+        table_data = []
+        header_rows = set()
+        header_cols = set()
+        col_headers = {}  # Maps column index to all header cells above it
+        row_headers = {}  # Maps row index to all header cells to its left
+
+        # Find rows inside thead tags - these are definitely header rows
+        thead = table.find("thead")
+        if thead:
+            thead_rows = thead.find_all("tr")
+            for tr in thead_rows:
+                header_rows.add(rows.index(tr))
+
+        # Initialize a grid to track filled cells due to rowspan/colspan
+        cell_grid = {}
+        col_span_info = {}  # Tracks which columns contain headers
+        row_span_info = {}  # Tracks which rows contain headers
+
+        # First pass: process each row to build the raw table data and identify headers
+        for row_idx, row in enumerate(rows):
+            cells = row.find_all(["th", "td"])
+            row_data = []
+            col_idx = 0
+
+            # If there are th elements in this row, it's likely a header row
+            if row.find("th"):
+                header_rows.add(row_idx)
+
+            for cell in cells:
+                # Skip positions already filled by rowspans from above
+                while (row_idx, col_idx) in cell_grid:
+                    row_data.append(cell_grid[(row_idx, col_idx)])
+                    col_idx += 1
+
+                # Replace <br> and <br/> tags with newlines before getting text
+                for br in cell.find_all("br"):
+                    br.replace_with("\n")
+                cell_text = cell.get_text().strip()
+
+                # Handle rowspan/colspan
+                rowspan = int(cell.get("rowspan", 1))
+                colspan = int(cell.get("colspan", 1))
+
+                # Add the cell to the row data
+                row_data.append(cell_text)
+
+                # Fill the grid for this cell and its rowspan/colspan
+                for i in range(rowspan):
+                    for j in range(colspan):
+                        if i == 0 and j == 0:
+                            continue  # Skip the main cell position
+                        # For rowspan cells, preserve the text in all spanned rows
+                        if j == 0 and i > 0:  # Only for cells directly below
+                            cell_grid[(row_idx + i, col_idx + j)] = cell_text
+                        else:
+                            cell_grid[(row_idx + i, col_idx + j)] = ""  # Mark other spans as empty
+
+                # If this is a header cell (th), mark it and its span
+                if cell.name == "th":
+                    # Mark columns as header columns
+                    for j in range(colspan):
+                        header_cols.add(col_idx + j)
+
+                    # For rowspan, mark spanned rows as part of header
+                    for i in range(1, rowspan):
+                        if row_idx + i < len(rows):
+                            header_rows.add(row_idx + i)
+
+                    # Record this header for all spanned columns
+                    for j in range(colspan):
+                        curr_col = col_idx + j
+                        if curr_col not in col_headers:
+                            col_headers[curr_col] = []
+                        col_headers[curr_col].append((row_idx, cell_text))
+
+                        # Store which columns are covered by this header
+                        if cell_text and colspan > 1:
+                            if cell_text not in col_span_info:
+                                col_span_info[cell_text] = set()
+                            col_span_info[cell_text].add(curr_col)
+
+                    # Store which rows are covered by this header for rowspan
+                    if cell_text and rowspan > 1:
+                        if cell_text not in row_span_info:
+                            row_span_info[cell_text] = set()
+                        for i in range(rowspan):
+                            row_span_info[cell_text].add(row_idx + i)
+
+                # Also handle row headers from data cells that have rowspan
+                if cell.name == "td" and rowspan > 1 and col_idx in header_cols:
+                    for i in range(1, rowspan):
+                        if row_idx + i < len(rows):
+                            if row_idx + i not in row_headers:
+                                row_headers[row_idx + i] = []
+                            row_headers[row_idx + i].append((col_idx, cell_text))
+
+                col_idx += colspan
+
+            # Pad the row if needed to handle different row lengths
+            table_data.append(row_data)
+
+        # Second pass: expand headers to cells that should inherit them
+        # First handle column headers
+        for header_text, columns in col_span_info.items():
+            for col in columns:
+                # Add this header to all columns it spans over
+                for row_idx in range(len(table_data)):
+                    if row_idx not in header_rows:  # Only apply to data rows
+                        for j in range(col, len(table_data[row_idx]) if row_idx < len(table_data) else 0):
+                            # Add header info to data cells in these columns
+                            if j not in col_headers:
+                                col_headers[j] = []
+                            if not any(h[1] == header_text for h in col_headers[j]):
+                                header_row = min([r for r, t in col_headers.get(col, [(0, "")])])
+                                col_headers[j].append((header_row, header_text))
+
+        # Handle row headers
+        for header_text, rows in row_span_info.items():
+            for row in rows:
+                if row < len(table_data):
+                    # Find first header column
+                    header_col = min(header_cols) if header_cols else 0
+                    if row not in row_headers:
+                        row_headers[row] = []
+                    if not any(h[1] == header_text for h in row_headers.get(row, [])):
+                        row_headers[row].append((header_col, header_text))
+
+        # Process regular row headers - each cell in a header column becomes a header for its row
+        for col_idx in header_cols:
+            for row_idx, row in enumerate(table_data):
+                if col_idx < len(row) and row[col_idx].strip():
+                    if row_idx not in row_headers:
+                        row_headers[row_idx] = []
+                    if not any(h[1] == row[col_idx] for h in row_headers.get(row_idx, [])):
+                        row_headers[row_idx].append((col_idx, row[col_idx]))
+
+        # Calculate max columns for padding
+        max_cols = max(len(row) for row in table_data) if table_data else 0
+
+        # Ensure all rows have the same number of columns
+        if table_data:
+            padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
+            table_array = np.array(padded_data)
+
+            # Create TableData object with the table and header information
+            parsed_tables.append(
+                TableData(data=table_array, header_rows=header_rows, header_cols=header_cols, col_headers=col_headers, row_headers=row_headers)
+            )
+
+    return parsed_tables
+
+
 @dataclass(kw_only=True)
 class BasePDFTest:
     """
@@ -311,330 +636,6 @@ class TableTest(BasePDFTest):
         self.top_heading = normalize_text(self.top_heading)
         self.left_heading = normalize_text(self.left_heading)
 
-    def parse_markdown_tables(self, md_content: str) -> List[TableData]:
-        """
-        Extract and parse all markdown tables from the provided content.
-        Uses a direct approach to find and parse tables, which is more robust for tables
-        at the end of files or with irregular formatting.
-
-        Args:
-            md_content: The markdown content containing tables
-
-        Returns:
-            A list of TableData objects, each containing the table data and header information
-        """
-        import numpy as np
-
-        # Split the content into lines and process line by line
-        lines = md_content.strip().split("\n")
-
-        parsed_tables = []
-        current_table_lines = []
-        in_table = False
-
-        # Identify potential tables by looking for lines with pipe characters
-        for i, line in enumerate(lines):
-            # Check if this line has pipe characters (a table row indicator)
-            if "|" in line:
-                # If we weren't in a table before, start a new one
-                if not in_table:
-                    in_table = True
-                    current_table_lines = [line]
-                else:
-                    # Continue adding to the current table
-                    current_table_lines.append(line)
-            else:
-                # No pipes in this line, so if we were in a table, we've reached its end
-                if in_table:
-                    # Process the completed table if it has at least 2 rows
-                    if len(current_table_lines) >= 2:
-                        table_data = self._process_table_lines(current_table_lines)
-                        if table_data and len(table_data) > 0:
-                            # Convert to numpy array for easier manipulation
-                            max_cols = max(len(row) for row in table_data)
-                            padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
-                            table_array = np.array(padded_data)
-
-                            # In markdown tables, the first row is typically a header row
-                            header_rows = {0} if len(table_array) > 0 else set()
-
-                            # Set up col_headers with first row headers for each column
-                            col_headers = {}
-                            if len(table_array) > 0:
-                                for col_idx in range(table_array.shape[1]):
-                                    if col_idx < len(table_array[0]):
-                                        col_headers[col_idx] = [(0, table_array[0, col_idx])]
-
-                            # Set up row_headers with first column headers for each row
-                            row_headers = {}
-                            if table_array.shape[1] > 0:
-                                for row_idx in range(1, table_array.shape[0]):  # Skip header row
-                                    row_headers[row_idx] = [(0, table_array[row_idx, 0])]  # First column as heading
-
-                            # Create TableData object
-                            parsed_tables.append(
-                                TableData(
-                                    data=table_array,
-                                    header_rows=header_rows,
-                                    header_cols={0} if table_array.shape[1] > 0 else set(),  # First column as header
-                                    col_headers=col_headers,
-                                    row_headers=row_headers,
-                                )
-                            )
-                    in_table = False
-
-        # Process the last table if we're still tracking one at the end of the file
-        if in_table and len(current_table_lines) >= 2:
-            table_data = self._process_table_lines(current_table_lines)
-            if table_data and len(table_data) > 0:
-                # Convert to numpy array
-                max_cols = max(len(row) for row in table_data)
-                padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
-                table_array = np.array(padded_data)
-
-                # In markdown tables, the first row is typically a header row
-                header_rows = {0} if len(table_array) > 0 else set()
-
-                # Set up col_headers with first row headers for each column
-                col_headers = {}
-                if len(table_array) > 0:
-                    for col_idx in range(table_array.shape[1]):
-                        if col_idx < len(table_array[0]):
-                            col_headers[col_idx] = [(0, table_array[0, col_idx])]
-
-                # Set up row_headers with first column headers for each row
-                row_headers = {}
-                if table_array.shape[1] > 0:
-                    for row_idx in range(1, table_array.shape[0]):  # Skip header row
-                        row_headers[row_idx] = [(0, table_array[row_idx, 0])]  # First column as heading
-
-                # Create TableData object
-                parsed_tables.append(
-                    TableData(
-                        data=table_array,
-                        header_rows=header_rows,
-                        header_cols={0} if table_array.shape[1] > 0 else set(),  # First column as header
-                        col_headers=col_headers,
-                        row_headers=row_headers,
-                    )
-                )
-
-        return parsed_tables
-
-    def _process_table_lines(self, table_lines: List[str]) -> List[List[str]]:
-        """
-        Process a list of lines that potentially form a markdown table.
-
-        Args:
-            table_lines: List of strings, each representing a line in a potential markdown table
-
-        Returns:
-            A list of rows, each a list of cell values
-        """
-        table_data = []
-        separator_row_index = None
-
-        # First, identify the separator row (the row with dashes)
-        for i, line in enumerate(table_lines):
-            # Check if this looks like a separator row (contains mostly dashes)
-            content_without_pipes = line.replace("|", "").strip()
-            if content_without_pipes and all(c in "- :" for c in content_without_pipes):
-                separator_row_index = i
-                break
-
-        # Process each line, filtering out the separator row
-        for i, line in enumerate(table_lines):
-            # Skip the separator row
-            if i == separator_row_index:
-                continue
-
-            # Skip lines that are entirely formatting
-            if line.strip() and all(c in "- :|" for c in line):
-                continue
-
-            # Process the cells in this row
-            cells = [cell.strip() for cell in line.split("|")]
-
-            # Remove empty cells at the beginning and end (caused by leading/trailing pipes)
-            if cells and cells[0] == "":
-                cells = cells[1:]
-            if cells and cells[-1] == "":
-                cells = cells[:-1]
-
-            if cells:  # Only add non-empty rows
-                table_data.append(cells)
-
-        return table_data
-
-    def parse_html_tables(self, html_content: str) -> List[TableData]:
-        """
-        Extract and parse all HTML tables from the provided content.
-        Identifies header rows and columns, and maps them properly handling rowspan/colspan.
-
-        Args:
-            html_content: The HTML content containing tables
-
-        Returns:
-            A list of TableData objects, each containing the table data and header information
-        """
-        soup = BeautifulSoup(html_content, "html.parser")
-        tables = soup.find_all("table")
-
-        parsed_tables = []
-
-        for table in tables:
-            rows = table.find_all(["tr"])
-            table_data = []
-            header_rows = set()
-            header_cols = set()
-            col_headers = {}  # Maps column index to all header cells above it
-            row_headers = {}  # Maps row index to all header cells to its left
-
-            # Find rows inside thead tags - these are definitely header rows
-            thead = table.find("thead")
-            if thead:
-                thead_rows = thead.find_all("tr")
-                for tr in thead_rows:
-                    header_rows.add(rows.index(tr))
-
-            # Initialize a grid to track filled cells due to rowspan/colspan
-            cell_grid = {}
-            col_span_info = {}  # Tracks which columns contain headers
-            row_span_info = {}  # Tracks which rows contain headers
-
-            # First pass: process each row to build the raw table data and identify headers
-            for row_idx, row in enumerate(rows):
-                cells = row.find_all(["th", "td"])
-                row_data = []
-                col_idx = 0
-
-                # If there are th elements in this row, it's likely a header row
-                if row.find("th"):
-                    header_rows.add(row_idx)
-
-                for cell in cells:
-                    # Skip positions already filled by rowspans from above
-                    while (row_idx, col_idx) in cell_grid:
-                        row_data.append(cell_grid[(row_idx, col_idx)])
-                        col_idx += 1
-
-                    # Replace <br> and <br/> tags with newlines before getting text
-                    for br in cell.find_all("br"):
-                        br.replace_with("\n")
-                    cell_text = cell.get_text().strip()
-
-                    # Handle rowspan/colspan
-                    rowspan = int(cell.get("rowspan", 1))
-                    colspan = int(cell.get("colspan", 1))
-
-                    # Add the cell to the row data
-                    row_data.append(cell_text)
-
-                    # Fill the grid for this cell and its rowspan/colspan
-                    for i in range(rowspan):
-                        for j in range(colspan):
-                            if i == 0 and j == 0:
-                                continue  # Skip the main cell position
-                            # For rowspan cells, preserve the text in all spanned rows
-                            if j == 0 and i > 0:  # Only for cells directly below
-                                cell_grid[(row_idx + i, col_idx + j)] = cell_text
-                            else:
-                                cell_grid[(row_idx + i, col_idx + j)] = ""  # Mark other spans as empty
-
-                    # If this is a header cell (th), mark it and its span
-                    if cell.name == "th":
-                        # Mark columns as header columns
-                        for j in range(colspan):
-                            header_cols.add(col_idx + j)
-
-                        # For rowspan, mark spanned rows as part of header
-                        for i in range(1, rowspan):
-                            if row_idx + i < len(rows):
-                                header_rows.add(row_idx + i)
-
-                        # Record this header for all spanned columns
-                        for j in range(colspan):
-                            curr_col = col_idx + j
-                            if curr_col not in col_headers:
-                                col_headers[curr_col] = []
-                            col_headers[curr_col].append((row_idx, cell_text))
-
-                            # Store which columns are covered by this header
-                            if cell_text and colspan > 1:
-                                if cell_text not in col_span_info:
-                                    col_span_info[cell_text] = set()
-                                col_span_info[cell_text].add(curr_col)
-
-                        # Store which rows are covered by this header for rowspan
-                        if cell_text and rowspan > 1:
-                            if cell_text not in row_span_info:
-                                row_span_info[cell_text] = set()
-                            for i in range(rowspan):
-                                row_span_info[cell_text].add(row_idx + i)
-
-                    # Also handle row headers from data cells that have rowspan
-                    if cell.name == "td" and rowspan > 1 and col_idx in header_cols:
-                        for i in range(1, rowspan):
-                            if row_idx + i < len(rows):
-                                if row_idx + i not in row_headers:
-                                    row_headers[row_idx + i] = []
-                                row_headers[row_idx + i].append((col_idx, cell_text))
-
-                    col_idx += colspan
-
-                # Pad the row if needed to handle different row lengths
-                table_data.append(row_data)
-
-            # Second pass: expand headers to cells that should inherit them
-            # First handle column headers
-            for header_text, columns in col_span_info.items():
-                for col in columns:
-                    # Add this header to all columns it spans over
-                    for row_idx in range(len(table_data)):
-                        if row_idx not in header_rows:  # Only apply to data rows
-                            for j in range(col, len(table_data[row_idx]) if row_idx < len(table_data) else 0):
-                                # Add header info to data cells in these columns
-                                if j not in col_headers:
-                                    col_headers[j] = []
-                                if not any(h[1] == header_text for h in col_headers[j]):
-                                    header_row = min([r for r, t in col_headers.get(col, [(0, "")])])
-                                    col_headers[j].append((header_row, header_text))
-
-            # Handle row headers
-            for header_text, rows in row_span_info.items():
-                for row in rows:
-                    if row < len(table_data):
-                        # Find first header column
-                        header_col = min(header_cols) if header_cols else 0
-                        if row not in row_headers:
-                            row_headers[row] = []
-                        if not any(h[1] == header_text for h in row_headers.get(row, [])):
-                            row_headers[row].append((header_col, header_text))
-
-            # Process regular row headers - each cell in a header column becomes a header for its row
-            for col_idx in header_cols:
-                for row_idx, row in enumerate(table_data):
-                    if col_idx < len(row) and row[col_idx].strip():
-                        if row_idx not in row_headers:
-                            row_headers[row_idx] = []
-                        if not any(h[1] == row[col_idx] for h in row_headers.get(row_idx, [])):
-                            row_headers[row_idx].append((col_idx, row[col_idx]))
-
-            # Calculate max columns for padding
-            max_cols = max(len(row) for row in table_data) if table_data else 0
-
-            # Ensure all rows have the same number of columns
-            if table_data:
-                padded_data = [row + [""] * (max_cols - len(row)) for row in table_data]
-                table_array = np.array(padded_data)
-
-                # Create TableData object with the table and header information
-                parsed_tables.append(
-                    TableData(data=table_array, header_rows=header_rows, header_cols=header_cols, col_headers=col_headers, row_headers=row_headers)
-                )
-
-        return parsed_tables
-
     def run(self, content: str) -> Tuple[bool, str]:
         """
         Run the table test on provided content.
@@ -657,10 +658,10 @@ class TableTest(BasePDFTest):
         threshold = 1.0 - (self.max_diffs / (len(self.cell) if len(self.cell) > 0 else 1))
 
         # Parse tables based on content_type
-        md_tables = self.parse_markdown_tables(content)
+        md_tables = parse_markdown_tables(content)
         tables_to_check.extend(md_tables)
 
-        html_tables = self.parse_html_tables(content)
+        html_tables = parse_html_tables(content)
         tables_to_check.extend(html_tables)
 
         # If no tables found, return failure

@@ -3,8 +3,8 @@ import asyncio
 import concurrent.futures
 import json
 import os
-import re
 import random
+import re
 import subprocess
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +18,9 @@ from syntok.segmenter import process
 from tqdm import tqdm
 
 from olmocr.bench.tests import (
+    TableTest,
     TestType,
+    parse_html_tables,
 )
 from olmocr.data.renderpdf import (
     get_png_dimensions_from_base64,
@@ -32,33 +34,35 @@ def download_s3_pdf(s3_path, local_path):
     result = subprocess.run(["aws", "s3", "cp", s3_path, local_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return result.returncode == 0
 
+
 def extract_code_block(initial_response):
     # Use regex to find the last instance of a code block
     # First try to find HTML specific code blocks
     html_blocks = re.findall(r"```html\n(.*?)```", initial_response, re.DOTALL)
-    
+
     # If HTML blocks found, return the last one
     if html_blocks:
         return html_blocks[-1].strip()
-    
+
     # Otherwise, try to find any code blocks
     code_blocks = re.findall(r"```\n(.*?)```", initial_response, re.DOTALL)
-    
+
     # If code blocks found, return the last one
     if code_blocks:
         return code_blocks[-1].strip()
-    
+
     # If no code blocks found with newlines after backticks, try without newlines
     html_blocks_no_newline = re.findall(r"```html(.*?)```", initial_response, re.DOTALL)
     if html_blocks_no_newline:
         return html_blocks_no_newline[-1].strip()
-    
+
     code_blocks_no_newline = re.findall(r"```(.*?)```", initial_response, re.DOTALL)
     if code_blocks_no_newline:
         return code_blocks_no_newline[-1].strip()
-    
+
     # Return empty string if no code blocks found
     return None
+
 
 def generate_html_from_image(client, image_base64):
     """Call Claude API to generate HTML from an image using a multi-step prompting strategy."""
@@ -232,7 +236,7 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
     return False
 
 
-def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> List[Dict]:
+def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verbose_table_testing: bool = False) -> List[Dict]:
     """
     Generate tests from HTML content parsed from the PDF.
 
@@ -240,6 +244,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
         html_content: The HTML content of the page
         pdf_id: The unique identifier for the PDF
         page_num: The page number
+        verbose_table_testing: Whether to print table test verification details
 
     Returns:
         A list of test dictionaries that can be saved as JSONL
@@ -252,7 +257,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
     # Convert div.page-footer to footer in one line
     for div in soup.find_all("div", class_="page-header"):
         div.name = "header"
-    
+
     for div in soup.find_all("div", class_="page-footer"):
         div.name = "footer"
 
@@ -274,7 +279,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
 
         # Get all target elements
         target_tags = mini_soup.find_all(["span", "div", "p", "h3", "h4", "h5", "h6"])
-        
+
         # Filter to only include leaf nodes (elements that don't contain other target elements)
         for tag in target_tags:
             # Check if this element has no children from our target tags
@@ -285,7 +290,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                 if text:
                     text_elements.append(text)
 
-        # If no elements found, use the parent's text as a fallback, but only if 
+        # If no elements found, use the parent's text as a fallback, but only if
         if not text_elements:
             parent_text = mini_soup.get_text().strip()
             if parent_text:
@@ -331,32 +336,41 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                 }
             )
 
-    # Step 2: Generate tests from tables
-    tables = soup.find_all("table")
-    for table_idx, table in enumerate(tables):
-        # Get all cells in the table
-        cells = table.find_all(["td", "th"])
+    # Step 2: Generate tests from tables using parse_html_tables
+    table_data_list = parse_html_tables(html_content)
 
-        # Skip empty tables or tables with very few cells
-        if len(cells) < 4:
+    for table_idx, table_data in enumerate(table_data_list):
+        # Get the table data as a numpy array
+        table_array = table_data.data
+
+        # Skip tables that are too small
+        if table_array.shape[0] < 2 or table_array.shape[1] < 2:
             continue
 
-        # Generate tests for some randomly selected cells
-        sampled_cells = random.sample(cells, min(6, len(cells)))
+        # Get a limited number of cells to create tests for
+        # Select random rows and columns, excluding header rows/columns
+        non_header_rows = [i for i in range(table_array.shape[0]) if i not in table_data.header_rows]
+        non_header_cols = [j for j in range(table_array.shape[1]) if j not in table_data.header_cols]
 
-        for cell in sampled_cells:
-            cell_text = cell.get_text().strip()
+        # If we don't have enough non-header cells, use all cells
+        if len(non_header_rows) < 2 or len(non_header_cols) < 2:
+            cell_positions = [(i, j) for i in range(table_array.shape[0]) for j in range(table_array.shape[1])]
+        else:
+            cell_positions = [
+                (i, j)
+                for i in random.sample(non_header_rows, min(3, len(non_header_rows)))
+                for j in random.sample(non_header_cols, min(2, len(non_header_cols)))
+            ]
+
+        random.shuffle(cell_positions)
+
+        # Create tests for each selected cell
+        for row_idx, col_idx in cell_positions:
+            cell_text = str(table_array[row_idx, col_idx]).strip()
+
+            # Skip cells with minimal text
             if not cell_text or len(cell_text) < 3:
                 continue
-
-            # Find position of this cell in the table
-            row = cell.find_parent("tr")
-            rows = table.find_all("tr")
-            row_idx = rows.index(row)
-
-            # Find cells in this row
-            row_cells = row.find_all(["td", "th"])
-            col_idx = row_cells.index(cell)
 
             # Create a TableTest with relevant relationships
             test_data = {
@@ -370,52 +384,85 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
 
             # Check cell up
             if row_idx > 0:
-                prev_row = rows[row_idx - 1]
-                prev_row_cells = prev_row.find_all(["td", "th"])
-                if col_idx < len(prev_row_cells):
-                    up_text = prev_row_cells[col_idx].get_text().strip()
-                    if up_text:
-                        test_data["up"] = up_text
+                up_text = str(table_array[row_idx - 1, col_idx]).strip()
+                if up_text:
+                    test_data["up"] = up_text
 
             # Check cell down
-            if row_idx < len(rows) - 1:
-                next_row = rows[row_idx + 1]
-                next_row_cells = next_row.find_all(["td", "th"])
-                if col_idx < len(next_row_cells):
-                    down_text = next_row_cells[col_idx].get_text().strip()
-                    if down_text:
-                        test_data["down"] = down_text
+            if row_idx < table_array.shape[0] - 1:
+                down_text = str(table_array[row_idx + 1, col_idx]).strip()
+                if down_text:
+                    test_data["down"] = down_text
 
             # Check cell left
             if col_idx > 0:
-                left_text = row_cells[col_idx - 1].get_text().strip()
+                left_text = str(table_array[row_idx, col_idx - 1]).strip()
                 if left_text:
                     test_data["left"] = left_text
 
             # Check cell right
-            if col_idx < len(row_cells) - 1:
-                right_text = row_cells[col_idx + 1].get_text().strip()
+            if col_idx < table_array.shape[1] - 1:
+                right_text = str(table_array[row_idx, col_idx + 1]).strip()
                 if right_text:
                     test_data["right"] = right_text
 
-            # Check top heading (first row in the table or a header row)
-            if row_idx > 0:
-                header_row = rows[0]
-                header_cells = header_row.find_all(["td", "th"])
-                if col_idx < len(header_cells):
-                    top_heading = header_cells[col_idx].get_text().strip()
+            # Check for top heading using header information
+            if col_idx in table_data.col_headers:
+                # Get the headers for this column
+                col_headers = table_data.col_headers[col_idx]
+                if col_headers:
+                    # Use the first header as the top heading
+                    _, top_heading = col_headers[0]
                     if top_heading:
                         test_data["top_heading"] = top_heading
 
-            # Check left heading (first column in the table)
-            if col_idx > 0:
-                left_heading = row_cells[0].get_text().strip()
-                if left_heading:
-                    test_data["left_heading"] = left_heading
+            # Check for left heading using header information
+            if row_idx in table_data.row_headers:
+                # Get the headers for this row
+                row_headers = table_data.row_headers[row_idx]
+                if row_headers:
+                    # Use the first header as the left heading
+                    _, left_heading = row_headers[0]
+                    if left_heading:
+                        test_data["left_heading"] = left_heading
 
             # Only add the test if we have at least one relation
             if len(test_data) > 6:  # 6 is the number of required fields
-                tests.append(test_data)
+                # Verify that the test passes with the current table HTML
+                # Create the actual test object
+                test_obj = TableTest(
+                    pdf=test_data["pdf"],
+                    page=test_data["page"],
+                    id=test_data["id"],
+                    type=test_data["type"],
+                    cell=test_data["cell"],
+                    max_diffs=test_data["max_diffs"],
+                    up=test_data.get("up", ""),
+                    down=test_data.get("down", ""),
+                    left=test_data.get("left", ""),
+                    right=test_data.get("right", ""),
+                    top_heading=test_data.get("top_heading", ""),
+                    left_heading=test_data.get("left_heading", ""),
+                )
+
+                # Extract just the relevant table HTML
+                tables = soup.find_all("table")
+                if table_idx < len(tables):
+                    table_html = str(tables[table_idx])
+
+                    # Run the test against the original HTML
+                    passed, explanation = test_obj.run(table_html)
+                else:
+                    # Shouldn't happen, but handle it gracefully
+                    passed = False
+                    explanation = f"Table index {table_idx} out of range, only {len(tables)} tables found"
+
+                # Only add tests that pass
+                if passed:
+                    tests.append(test_data)
+
+            if len(tests) > 25:
+                break
 
     # Step 3: Generate TextPresenceTests for main body content
     # Make a copy of the soup for the main content
@@ -444,7 +491,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
     all_indexes = list(range(len(sentences)))
     random.shuffle(all_indexes)
     random_pairs = [(all_indexes[i * 2], all_indexes[i * 2 + 1]) for i in range(len(all_indexes) // 2)]
-    random_pairs = [(min(i, j), max(i, j)) for (i,j) in random_pairs]
+    random_pairs = [(min(i, j), max(i, j)) for (i, j) in random_pairs]
 
     num_order_tests = 0
     for i, j in random_pairs:
@@ -458,7 +505,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
             first_sentence = first_sentence.split("\n")[0].strip()
         if "\n" in second_sentence:
             second_sentence = second_sentence.split("\n")[0].strip()
-        
+
         tests.append(
             {
                 "pdf": pdf_filename,
@@ -474,7 +521,6 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
 
         if num_order_tests > 5:
             break
-
 
     # Final test filtering out stage
 
@@ -496,6 +542,9 @@ def process_pdf(pdf_info, args, client):
     pdf_id = f"pdf_{index:05d}"
     temp_pdf_dir = os.path.join(args.temp_dir, pdf_id)
     os.makedirs(temp_pdf_dir, exist_ok=True)
+
+    # Determine if we should log table test verification
+    verbose_table_testing = args.verbose
 
     # Download PDF to local temp directory
     local_pdf_path = os.path.join(temp_pdf_dir, "document.pdf")
@@ -568,15 +617,20 @@ def process_pdf(pdf_info, args, client):
         # If playwright rendering failed and was required, return None to skip this test
         if not args.skip_playwright and not render_success:
             return None
-            
+
         # Generate tests from the HTML content
         # Use the playwright rendered PDF path for tests
-        tests = generate_tests_from_html(html_content, pdf_id, page_num)
-        
+        tests = generate_tests_from_html(html_content, pdf_id, page_num, verbose_table_testing)
+
         # Update the PDF path in all tests to use the playwright rendered PDF
         for test in tests:
             test["pdf"] = playwright_pdf_filename
-                
+
+        # Log table test stats if verbose
+        if verbose_table_testing:
+            table_tests = [t for t in tests if t["type"] == TestType.TABLE.value]
+            print(f"Generated {len(table_tests)} table tests for {pdf_id}, page {page_num} (passed verification)")
+
         return {
             "pdf_id": pdf_id,
             "s3_path": s3_path,
@@ -605,6 +659,7 @@ def main():
     parser.add_argument("--parallel", type=int, default=1, help="Number of parallel threads to use")
     parser.add_argument("--api_key", help="Claude API key (or set ANTHROPIC_API_KEY environment variable)")
     parser.add_argument("--skip_playwright", action="store_true", help="Skip Playwright PDF rendering")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output including table test verification")
     args = parser.parse_args()
 
     # Ensure output and temp directories exist
@@ -641,18 +696,19 @@ def main():
     # Shuffle and limit to max_tests
     random.shuffle(s3_paths)
     s3_paths = s3_paths[: args.max_tests]
-    
+
     # Initialize synthetic.json as a JSONL file (empty initially)
     synthetic_json_path = os.path.join(args.output_dir, "synthetic.jsonl")
     open(synthetic_json_path, "w").close()  # Create empty file
-    
+
     # Counter for test statistics
     test_counter = 0
     test_types = {"present": 0, "absent": 0, "table": 0, "order": 0}
     results = []
-    
+
     # Initialize a threading lock for file access
     import threading
+
     file_lock = threading.Lock()
 
     # Process PDFs in parallel
@@ -667,21 +723,21 @@ def main():
                 result = future.result()
                 if result and result.get("tests"):
                     results.append(result)
-                    
+
                     # Append tests to synthetic.json as they're created (JSONL format)
                     with file_lock:
                         # Append each test as a separate JSON line
                         with open(synthetic_json_path, "a") as f:
                             for test in result["tests"]:
                                 f.write(json.dumps(test) + "\n")
-                        
+
                         # Update counters
                         test_counter += len(result["tests"])
                         for test in result["tests"]:
                             test_type = test.get("type", "")
                             if test_type in test_types:
                                 test_types[test_type] += 1
-                                
+
                         print(f"Added {len(result['tests'])} tests from {result['pdf_id']}, total: {test_counter}")
             except Exception as e:
                 print(f"Error processing {s3_path}: {e}")
@@ -692,9 +748,9 @@ def main():
     playwright_success = sum(1 for r in results if r and r.get("playwright_pdf_path"))
     if not args.skip_playwright:
         print(f"Playwright PDF rendering: {playwright_success}/{len(results)} successful")
-    
+
     print(f"Saved {test_counter} tests to {synthetic_json_path}")
-    
+
     # Print summary of generated tests
     print(f"Generated a total of {test_counter} tests across {len(results)} templates")
 

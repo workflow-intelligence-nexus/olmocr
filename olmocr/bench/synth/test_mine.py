@@ -2,6 +2,7 @@ import unittest
 
 from .mine_html_templates import generate_tests_from_html
 
+
 class TestMineTests(unittest.TestCase):
     def test_absent_nested(self):
         html_content = """
@@ -41,7 +42,7 @@ class TestMineTests(unittest.TestCase):
 """
         tests = generate_tests_from_html(html_content, "0", 1)
 
-        self.assertEqual(len([test for test in tests if test["type"]=="absent"]), 2)
+        self.assertEqual(len([test for test in tests if test["type"] == "absent"]), 2)
 
     def test_text_basic(self):
         html_content = """
@@ -263,7 +264,7 @@ class TestMineTests(unittest.TestCase):
 
         tests = generate_tests_from_html(html_content, "0", 1)
 
-        self.assertEqual(len([test for test in tests if test["type"]=="absent"]), 1)
+        self.assertEqual(len([test for test in tests if test["type"] == "absent"]), 1)
 
     def test_div_footer(self):
         html_content = """
@@ -367,7 +368,7 @@ class TestMineTests(unittest.TestCase):
 
         tests = generate_tests_from_html(html_content, "0", 1)
 
-        self.assertEqual(len([test for test in tests if test["type"]=="absent"]), 4)
+        self.assertEqual(len([test for test in tests if test["type"] == "absent"]), 4)
 
     def test_table(self):
         html_content = """
@@ -753,7 +754,6 @@ class TestMineTests(unittest.TestCase):
     </footer>
 </body>
 </html>"""
-
 
         tests = generate_tests_from_html(html_content, "0", 1)
 
