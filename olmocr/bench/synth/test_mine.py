@@ -225,7 +225,537 @@ class TestMineTests(unittest.TestCase):
 
         tests = generate_tests_from_html(html_content, "0", 1)
 
+        self.assertFalse(any(test for test in tests if test["type"] == "absent" and "Comparative data" in test["text"]))
+
+    def test_page_num(self):
+        html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Paper - Page 47</title>
+</head>
+<body>
+    <main>
+        <div class="image" aria-label="Bar Plot for supportprotest comparing data from 2020 and 2023, showing different levels of support from 'Don't know/No answer' to 'Strongly disagree'"></div>
+        
+        <p class="figure-caption">Figure 4.3: The COVID-19 pandemic resulted in meaningful increase in the support for other groups' protests among Panamanians.</p>
+        
+        <section>
+            <h2>4.2.2 Demographically-Informed Opinion Assignment</h2>
+            
+            <p>Our model does not endow opinions randomly; instead, we leverage data to assign activists in a more realistic fashion. We use Latinobarómetro survey data from 2020 and 2023, both of which contain the three measurements of support for protest. Then, we explored which demographic groups were more likely to be activists; these are young adults and individuals at either extreme of the financial spectrum. We use this insight to influence the assignment of opinions: our logistic equations make it so that individuals with these characteristics are more likely to be labeled as activists as the probabilistic endowment happens. The code ensures that the proportion of activists overall remains exactly as desired and that there are activists who do not belong to these identified groups</p>
+        </section>
+        
+        <section>
+            <h2>4.2.3 Identity Factored into Social Influence</h2>
+            
+            <p>The similarity formula for Panama is built as follows, taking in nine demographic factors stored as node attributes. These are gender, age, nationality, financial status, highest level of education, level of employment, geographical region, party affiliation, and ethnicity (respectively encoded as gend, age, nation, fin, edu, emp, region, paff, and ethni). Each one of these factors has an associated weight; in this model, all factors were weighted as 0.10, except for level of education and financial status which received 0.15. Our code establishes logical rules to compare the two individuals on each dimension and return a factor by which to multiply the weight. These factors can be absolute or relative, based on the demographic dimension in question. For example, the logical conditions for gender returns 1 if same or 0 if different, while age returns a float value between 0 and 1 according to how close in age the individuals are. Once the pairwise similarity</p>
+        </section>
+    </main>
+    
+    <footer>
+        <p>47</p>
+    </footer>
+</body>
+</html>"""
+
+        tests = generate_tests_from_html(html_content, "0", 1)
+
+        self.assertEqual(len([test for test in tests if test["type"]=="absent"]), 1)
+
+    def test_div_footer(self):
+        html_content = """
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Being Thai: A Narrow Identity in a Wide World</title>
+    <style>
+        body {
+            font-family: Times New Roman, serif;
+            line-height: 1.5;
+            max-width: 710px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .color-bars {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .left-bar, .right-bar {
+            height: 20px;
+            width: 200px;
+            border: 1px solid #000;
+        }
+        .left-bar {
+            background: linear-gradient(to right, #000, #fff);
+        }
+        .right-bar {
+            background: linear-gradient(to right, yellow, magenta, cyan, green, blue, red, black, yellow, pink, lightblue);
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 1.5em;
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+        .footnote {
+            font-size: 0.8em;
+            vertical-align: super;
+        }
+        ol {
+            margin-left: 20px;
+        }
+        .page-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            font-size: 0.8em;
+            color: #666;
+        }
+        .registration-mark {
+            font-size: 1.2em;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="color-bars">
+        <div class="left-bar"></div>
+        <span class="registration-mark">⊕</span>
+        <div class="right-bar"></div>
+    </div>
+
+    <div class="page-header">
+        <div>Being Thai: A Narrow Identity in a Wide World</div>
+        <div>333</div>
+    </div>
+
+    <p>hard to create a political and cultural narrative that appeals to old ideas about being Thai at this moment of perceived vulnerability.</p>
+
+    <h1>The Concept of "Thainess"</h1>
+
+    <p>Thainess is a political notion that originally evolved to support an authoritarian government and was then re-shaped for periods of more democratic rule.<span class="footnote">13</span> Thailand has long oscillated between dictatorship and democracy and, in either case, a sense of the "Thai style" (<em>baeb Thai</em>) is commonly invoked. Under these conditions a military coup may be thought to "advance Thai-style democracy".<span class="footnote">14</span> This is obviously fraught with difficulties and requires government agencies, most notably the Ministry of Culture, to work hard on shaping national identity.<span class="footnote">15</span> Thailand's geographical and cultural diversity means that there are inevitable deviations. Some of these have been astutely handled, especially in the northeastern provinces where the Lao-speaking minority has been integrated as <em>chao isan</em>. Nowadays it is only at the margins that their "Isan-ness" remains a contested sub-category of Thainess.<span class="footnote">16</span> In earlier generations there were more explicit challenges to the suggestion of Isan as Thai.<span class="footnote">17</span> Similar defiance has emerged in both the northern provinces<span class="footnote">18</span> and in the Malay Muslim majority areas of the far south.<span class="footnote">19</span> At various times there have been suggestions, as reported by the anthropologist Nick Tapp, that "Thainess" was disintegrating.<span class="footnote">20</span> It is in response to these persistent challenges that Prayuth's military government has sought to create its own revised version of the national ideal.</p>
+
+    <p>For the military government the codification of Thailand's core values has created new opportunities to stamp its preferred identity on society. In a key speech soon after he took power in 2014, Prayuth identified disunity as a problem in Thai society that would, in his words, "urgently require inclusive cooperation from people of all levels, gender and age".<span class="footnote">21</span> His approach was to "define clear core values of Thai people so that we can build a strong nation". These values draw on cultural ideas that have existed for many decades and have enjoyed the favour of previous military rulers. The full list of these twelve values is:</p>
+
+    <ol>
+        <li>Upholding the three main pillars of the country: the nation, the religion and the monarchy;</li>
+        <li>Showing honesty, sacrifice and patience, with a positive attitude for the interest of the public;</li>
+        <li>Practicing filial piety towards parents, guardians and teachers;</li>
+        <li>Seeking both direct and indirect knowledge and education;</li>
+    </ol>
+
+    <div class="registration-mark" style="position: absolute; left: 10px; bottom: 50%;">⊕</div>
+    <div class="registration-mark" style="position: absolute; right: 10px; bottom: 50%;">⊕</div>
+
+    <div class="page-footer">
+        <div>15-03450 10a Thailand.indd 333</div>
+        <div>15/2/16 8:24 am</div>
+    </div>
+</body>
+</html>"""
+
+        tests = generate_tests_from_html(html_content, "0", 1)
+
+        self.assertEqual(len([test for test in tests if test["type"]=="absent"]), 4)
+
+    def test_table(self):
+        html_content = """
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distribuição da população na estrutura socioocupacional - Brasil 2000</title>
+    <style>
+        body {
+            font-family: Times New Roman, serif;
+            line-height: 1.4;
+            max-width: 686px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 2px 4px;
+            text-align: center;
+        }
+        th {
+            font-weight: bold;
+        }
+        .left-align {
+            text-align: left;
+        }
+        .source {
+            font-size: 0.8rem;
+            font-style: italic;
+            margin-top: 10px;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div></div>
+        <div>Alexandre Gori Maia e Waldir José de Quadros ■ 417</div>
+    </header>
+
+    <h3>Apêndice A - Distribuição da população na estrutura socioocupacional - Brasil 2000</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th rowspan="2" class="left-align">Grupo Ocupacional</th>
+                <th rowspan="2" class="left-align">Classe Ocupacional</th>
+                <th colspan="2">Superior</th>
+                <th colspan="2">Médio</th>
+                <th colspan="2">Baixo</th>
+                <th colspan="2">Interior</th>
+                <th colspan="2">Ínfimo</th>
+                <th colspan="2">Total</th>
+            </tr>
+            <tr>
+                <th>N (1.000s)</th>
+                <th>%</th>
+                <th>N (1.000s)</th>
+                <th>%</th>
+                <th>N (1.000s)</th>
+                <th>%</th>
+                <th>N (1.000s)</th>
+                <th>%</th>
+                <th>N (1.000s)</th>
+                <th>%</th>
+                <th>N (1.000s)</th>
+                <th>%</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td rowspan="3" class="left-align">Empregadores</td>
+                <td class="left-align">A-1 Empregadores (> 10)</td>
+                <td>608</td>
+                <td>67,3</td>
+                <td>185</td>
+                <td>20,4</td>
+                <td>86</td>
+                <td>9,6</td>
+                <td>16</td>
+                <td>1,8</td>
+                <td>8</td>
+                <td>0,9</td>
+                <td>903</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">A-2 Empregadores (<= 10)</td>
+                <td>1.555</td>
+                <td>36,9</td>
+                <td>1.107</td>
+                <td>26,3</td>
+                <td>1.036</td>
+                <td>24,7</td>
+                <td>341</td>
+                <td>8,1</td>
+                <td>171</td>
+                <td>4,1</td>
+                <td>4.213</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">Total</td>
+                <td>2.162</td>
+                <td>42,3</td>
+                <td>1.292</td>
+                <td>25,3</td>
+                <td>1.126</td>
+                <td>22,0</td>
+                <td>357</td>
+                <td>7,0</td>
+                <td>179</td>
+                <td>3,5</td>
+                <td>5.116</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td rowspan="3" class="left-align">Profissionais</td>
+                <td class="left-align">C Profissionais Autônomos</td>
+                <td>1.643</td>
+                <td>21,7</td>
+                <td>1.513</td>
+                <td>20,0</td>
+                <td>2.073</td>
+                <td>27,4</td>
+                <td>1.225</td>
+                <td>16,2</td>
+                <td>1.108</td>
+                <td>14,7</td>
+                <td>7.562</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">D Profissionais Assalariados</td>
+                <td>4.438</td>
+                <td>13,3</td>
+                <td>6.030</td>
+                <td>18,0</td>
+                <td>11.550</td>
+                <td>34,5</td>
+                <td>7.027</td>
+                <td>21,0</td>
+                <td>4.389</td>
+                <td>13,1</td>
+                <td>33.434</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">Total</td>
+                <td>6.081</td>
+                <td>14,8</td>
+                <td>7.543</td>
+                <td>18,4</td>
+                <td>13.623</td>
+                <td>33,2</td>
+                <td>8.252</td>
+                <td>20,1</td>
+                <td>5.497</td>
+                <td>13,4</td>
+                <td>40.995</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td rowspan="4" class="left-align">Massa Não-Agrícola</td>
+                <td class="left-align">F Trabalhadores Autônomos</td>
+                <td>657</td>
+                <td>3,5</td>
+                <td>1.754</td>
+                <td>9,2</td>
+                <td>5.561</td>
+                <td>29,2</td>
+                <td>5.271</td>
+                <td>27,7</td>
+                <td>5.788</td>
+                <td>30,4</td>
+                <td>19.030</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">G Trabalhadores Assalariados</td>
+                <td>282</td>
+                <td>0,7</td>
+                <td>1.657</td>
+                <td>4,3</td>
+                <td>10.363</td>
+                <td>27,1</td>
+                <td>13.002</td>
+                <td>34,0</td>
+                <td>12.968</td>
+                <td>33,9</td>
+                <td>38.272</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">I Trabalhadores Domésticos</td>
+                <td>10</td>
+                <td>0,1</td>
+                <td>104</td>
+                <td>1,6</td>
+                <td>977</td>
+                <td>14,7</td>
+                <td>1.810</td>
+                <td>27,3</td>
+                <td>3.733</td>
+                <td>56,3</td>
+                <td>6.633</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">Total</td>
+                <td>948</td>
+                <td>1,5</td>
+                <td>3.515</td>
+                <td>5,5</td>
+                <td>16.901</td>
+                <td>26,4</td>
+                <td>20.083</td>
+                <td>31,4</td>
+                <td>22.489</td>
+                <td>35,2</td>
+                <td>63.936</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td rowspan="4" class="left-align">Massa Agrícola</td>
+                <td class="left-align">H-1 Proprietários Conta Própria</td>
+                <td>188</td>
+                <td>2,0</td>
+                <td>364</td>
+                <td>3,8</td>
+                <td>1.387</td>
+                <td>14,4</td>
+                <td>1.889</td>
+                <td>19,7</td>
+                <td>5.779</td>
+                <td>60,2</td>
+                <td>9.608</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">H-2 Trabalhadores Autônomos</td>
+                <td>5</td>
+                <td>0,5</td>
+                <td>14</td>
+                <td>1,5</td>
+                <td>72</td>
+                <td>7,6</td>
+                <td>152</td>
+                <td>16,1</td>
+                <td>703</td>
+                <td>74,3</td>
+                <td>946</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">H-3 Trabalhadores Assalariados</td>
+                <td>17</td>
+                <td>0,2</td>
+                <td>58</td>
+                <td>0,6</td>
+                <td>794</td>
+                <td>8,4</td>
+                <td>2.260</td>
+                <td>23,9</td>
+                <td>6.322</td>
+                <td>66,9</td>
+                <td>9.451</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">Total</td>
+                <td>210</td>
+                <td>1,0</td>
+                <td>436</td>
+                <td>2,2</td>
+                <td>2.253</td>
+                <td>11,3</td>
+                <td>4.301</td>
+                <td>21,5</td>
+                <td>12.805</td>
+                <td>64,0</td>
+                <td>20.005</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td rowspan="5" class="left-align">Não-remunerados</td>
+                <td class="left-align">Não-remunerados Não-Agrícolas</td>
+                <td>13</td>
+                <td>6,8</td>
+                <td>16</td>
+                <td>8,1</td>
+                <td>28</td>
+                <td>14,0</td>
+                <td>22</td>
+                <td>10,9</td>
+                <td>119</td>
+                <td>60,2</td>
+                <td>198</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">Não-remunerados Agrícolas</td>
+                <td>5</td>
+                <td>0,1</td>
+                <td>13</td>
+                <td>0,3</td>
+                <td>59</td>
+                <td>1,6</td>
+                <td>352</td>
+                <td>9,4</td>
+                <td>3.302</td>
+                <td>88,5</td>
+                <td>3.731</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">Sem Ocupação Com Renda</td>
+                <td>1.567</td>
+                <td>6,0</td>
+                <td>2.330</td>
+                <td>8,9</td>
+                <td>5.395</td>
+                <td>20,7</td>
+                <td>6.821</td>
+                <td>26,2</td>
+                <td>9.964</td>
+                <td>38,2</td>
+                <td>26.078</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">Sem Ocupação Sem Renda</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>8.094</td>
+                <td>100</td>
+                <td>8.094</td>
+                <td>100</td>
+            </tr>
+            <tr>
+                <td class="left-align">Ignorados</td>
+                <td>177</td>
+                <td>10,3</td>
+                <td>202</td>
+                <td>11,8</td>
+                <td>364</td>
+                <td>21,1</td>
+                <td>337</td>
+                <td>19,6</td>
+                <td>640</td>
+                <td>37,2</td>
+                <td>1.720</td>
+                <td>100</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p class="source">Fonte: Censo Demográfico 2000, microdados. IBGE. Elaboração dos autores.</p>
+
+    <footer>
+        RESR, Piracicaba, SP, vol. 47, nº 02, p. 389-418, abr/jun 2009 – Impressa em julho 2009
+    </footer>
+</body>
+</html>"""
+
+
+        tests = generate_tests_from_html(html_content, "0", 1)
+
         for test in tests:
             print(test)
-
-        self.assertFalse(any(test for test in tests if test["type"] == "absent" and "Comparative data" in test["text"]))

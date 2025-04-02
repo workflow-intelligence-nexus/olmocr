@@ -3,6 +3,7 @@ import asyncio
 import concurrent.futures
 import json
 import os
+import re
 import random
 import subprocess
 import uuid
@@ -31,6 +32,33 @@ def download_s3_pdf(s3_path, local_path):
     result = subprocess.run(["aws", "s3", "cp", s3_path, local_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return result.returncode == 0
 
+def extract_code_block(initial_response):
+    # Use regex to find the last instance of a code block
+    # First try to find HTML specific code blocks
+    html_blocks = re.findall(r"```html\n(.*?)```", initial_response, re.DOTALL)
+    
+    # If HTML blocks found, return the last one
+    if html_blocks:
+        return html_blocks[-1].strip()
+    
+    # Otherwise, try to find any code blocks
+    code_blocks = re.findall(r"```\n(.*?)```", initial_response, re.DOTALL)
+    
+    # If code blocks found, return the last one
+    if code_blocks:
+        return code_blocks[-1].strip()
+    
+    # If no code blocks found with newlines after backticks, try without newlines
+    html_blocks_no_newline = re.findall(r"```html(.*?)```", initial_response, re.DOTALL)
+    if html_blocks_no_newline:
+        return html_blocks_no_newline[-1].strip()
+    
+    code_blocks_no_newline = re.findall(r"```(.*?)```", initial_response, re.DOTALL)
+    if code_blocks_no_newline:
+        return code_blocks_no_newline[-1].strip()
+    
+    # Return empty string if no code blocks found
+    return None
 
 def generate_html_from_image(client, image_base64):
     """Call Claude API to generate HTML from an image using a multi-step prompting strategy."""
@@ -84,10 +112,11 @@ def generate_html_from_image(client, image_base64):
                             "1. Use appropriate HTML tags for elements like headings, paragraphs, lists, tables, etc.\n"
                             "2. Use the <header> and <footer> tags to represent content at the top/bottom which would not normally be part of the main content, such as page numbers, etc.\n"
                             "3. Use a placeholder <div> tag with class 'image' which will render as a grey box with black outline to make sure images have their original size, shape, and position on the page.\n"
-                            "4. CRITICAL: If the document has a multi-column layout, you MUST preserve the exact same number of columns in your HTML. Use CSS flexbox or grid to create the columns.\n"
-                            "5. Focus on creating valid, accessible HTML that preserves the appearance and formatting of the original page as closely as possible.\n"
-                            f"6. The webpage will be viewed with a fixed viewport size of {png_width // 2} pixels wide by {png_height // 2} pixels tall.\n\n"
-                            "7. For multi-column layouts, use explicit CSS. The most important aspect is preserving the column structure of the original document - this is critical.\n\n"
+                            "4. Render any math equations and Latex inline using either \\[ \\] or \\( \\) delimeters.\n"
+                            "5. CRITICAL: If the document has a multi-column layout, you MUST preserve the exact same number of columns in your HTML. Use CSS flexbox or grid to create the columns.\n"
+                            "6. Focus on creating valid, accessible HTML that preserves the appearance and formatting of the original page as closely as possible.\n"
+                            f"7. The webpage will be viewed with a fixed viewport size of {png_width // 2} pixels wide by {png_height // 2} pixels tall.\n\n"
+                            "8. For multi-column layouts, use explicit CSS. The most important aspect is preserving the column structure of the original document - this is critical.\n\n"
                             "Enclose your HTML in a ```html code block.",
                         },
                     ],
@@ -101,23 +130,7 @@ def generate_html_from_image(client, image_base64):
             if content.type == "text":
                 initial_html += content.text
 
-        # Extract code block
-        if "```html" in initial_html:
-            start = initial_html.find("```html") + 7
-            end = initial_html.rfind("```")
-            if end > start:
-                initial_html = initial_html[start:end].strip()
-            else:
-                initial_html = initial_html[start:].strip()
-        elif "```" in initial_html:
-            start = initial_html.find("```") + 3
-            end = initial_html.rfind("```")
-            if end > start:
-                initial_html = initial_html[start:end].strip()
-            else:
-                initial_html = initial_html[start:].strip()
-
-        return initial_html
+        return extract_code_block(initial_html)
     except Exception as e:
         print(f"Error calling Claude API: {e}")
         return None
@@ -235,6 +248,14 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
     pdf_filename = f"{pdf_id}_page{page_num}.pdf"
     soup = BeautifulSoup(html_content, "html.parser")
 
+    # Rewrite any page-header and page-footer divs to be normalized to headers
+    # Convert div.page-footer to footer in one line
+    for div in soup.find_all("div", class_="page-header"):
+        div.name = "header"
+    
+    for div in soup.find_all("div", class_="page-footer"):
+        div.name = "footer"
+
     # Step 1: Process headers, footers, and page numbers for TextAbsenceTests
     headers = soup.find_all("header")
     footers = soup.find_all("footer")
@@ -275,7 +296,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
             if "\n" in text:
                 text = text.split("\n")[0]
 
-            if len(text) > 3:  # Only create tests for meaningful text
+            if len(text) > 3 or len([c for c in text if c.isdigit()]):  # Only create tests for meaningful text
                 tests.append(
                     {
                         "pdf": pdf_filename,
@@ -283,7 +304,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                         "id": f"{pdf_id}_{element_type}_{uuid.uuid4().hex[:8]}",
                         "type": TestType.ABSENT.value,
                         "text": text,
-                        "max_diffs": 0,
+                        "max_diffs": round(len(text) * 0.05),
                     }
                 )
 
@@ -321,7 +342,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
             continue
 
         # Generate tests for some randomly selected cells
-        sampled_cells = random.sample(cells, min(3, len(cells)))
+        sampled_cells = random.sample(cells, min(6, len(cells)))
 
         for cell in sampled_cells:
             cell_text = cell.get_text().strip()
@@ -344,7 +365,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                 "id": f"{pdf_id}_table{table_idx}_{uuid.uuid4().hex[:8]}",
                 "type": TestType.TABLE.value,
                 "cell": cell_text,
-                "max_diffs": 5,
+                "max_diffs": 0,
             }
 
             # Check cell up
@@ -421,15 +442,11 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
 
     # Add a few random ordering tests
     all_indexes = list(range(len(sentences)))
-    
-    # Ex. pick N pairs of indexes from all_indexes
-    random_pairs = set()
-    for _ in range(10):
-        idx1, idx2 = random.sample(all_indexes, 2)
-        if idx1 > idx2:
-            idx1, idx2 = idx2, idx1
-        random_pairs.add((idx1, idx2))
+    random.shuffle(all_indexes)
+    random_pairs = [(all_indexes[i * 2], all_indexes[i * 2 + 1]) for i in range(len(all_indexes) // 2)]
+    random_pairs = [(min(i, j), max(i, j)) for (i,j) in random_pairs]
 
+    num_order_tests = 0
     for i, j in random_pairs:
         first_sentence = sentences[i]
         second_sentence = sentences[j]
@@ -437,6 +454,11 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
         if len(first_sentence) < 10 or len(second_sentence) < 10:
             continue
 
+        if "\n" in first_sentence:
+            first_sentence = first_sentence.split("\n")[0].strip()
+        if "\n" in second_sentence:
+            second_sentence = second_sentence.split("\n")[0].strip()
+        
         tests.append(
             {
                 "pdf": pdf_filename,
@@ -448,6 +470,20 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                 "max_diffs": round(max(len(first_sentence), len(second_sentence)) * 0.05),
             }
         )
+        num_order_tests += 1
+
+        if num_order_tests > 5:
+            break
+
+
+    # Final test filtering out stage
+
+    # Now double check that the absent tests don't find any matches in the full_text
+    # If they do, filter them out
+    tests = [t for t in tests if t["type"] != "absent" or t["text"] not in full_text]
+
+    # Remove any tests where the text has no alpha numeric characters
+    tests = [t for t in tests if "text" not in t or len([c for c in t["text"] if c.isalnum()])]
 
     return tests
 
