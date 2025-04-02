@@ -242,30 +242,39 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
 
     # Function to create absence tests from text elements
     def create_absence_tests_from_elements(parent_element, element_type):
+        mini_soup = BeautifulSoup(str(parent_element), "html.parser")
+
+        # Remove headers, footers, and tables from the main_soup
+        for element in mini_soup.find_all(["h1", "h2"]):
+            element.extract()
+
         # Find all text-containing leaf elements within the parent
         text_elements = []
 
         # Get all target elements
-        target_tags = parent_element.find_all(["span", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6"])
+        target_tags = mini_soup.find_all(["span", "div", "p", "h3", "h4", "h5", "h6"])
         
         # Filter to only include leaf nodes (elements that don't contain other target elements)
         for tag in target_tags:
             # Check if this element has no children from our target tags
-            is_leaf = not tag.find(["span", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6"])
-            
+            is_leaf = not tag.find(["span", "div", "p", "h3", "h4", "h5", "h6"])
+
             if is_leaf:
                 text = tag.get_text().strip()
                 if text:
                     text_elements.append(text)
 
-        # If no elements found, use the parent's text as a fallback
+        # If no elements found, use the parent's text as a fallback, but only if 
         if not text_elements:
-            parent_text = parent_element.get_text().strip()
+            parent_text = mini_soup.get_text().strip()
             if parent_text:
                 text_elements.append(parent_text)
 
         # Create tests for each text element
         for text in text_elements:
+            if "\n" in text:
+                text = text.split("\n")[0]
+
             if len(text) > 3:  # Only create tests for meaningful text
                 tests.append(
                     {
@@ -394,9 +403,6 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
     # Remove headers, footers, and tables from the main_soup
     for element in main_soup.find_all(["header", "footer", "table", "head"]):
         element.extract()
-
-    # Get all paragraphs and headings in the main content
-    paragraphs = main_soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6"])
 
     full_text = main_soup.get_text().strip()
 
