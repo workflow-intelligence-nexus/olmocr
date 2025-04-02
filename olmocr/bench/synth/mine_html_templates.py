@@ -206,6 +206,31 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
                 # Set the HTML content
                 await page.set_content(html_content)
 
+                # Add in katex and setup auto rendering
+                katex_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "katex")
+                katex_css_path = os.path.join(katex_dir, "katex.min.css")
+                katex_js_path = os.path.join(katex_dir, "katex.min.js")
+                katex_autorender_js_path = os.path.join(katex_dir, "auto-render.min.js")
+
+                await page.add_style_tag(path=katex_css_path)
+                await page.add_script_tag(path=katex_js_path)
+                await page.add_script_tag(path=katex_autorender_js_path)
+
+                await page.evaluate("""
+                    document.addEventListener("DOMContentLoaded", function() {
+                        renderMathInElement(document.body, {
+                        // customised options
+                        // • auto-render specific keys, e.g.:
+                        delimiters: [
+                            {left: '\\(', right: '\\)', display: true},
+                            {left: '\\[', right: '\\]', display: true}
+                        ],
+                        // • rendering keys, e.g.:
+                        throwOnError : false
+                        });
+                    });
+                                    """)
+
                 # Save as PDF with formatting options
                 await page.pdf(
                     path=output_pdf_path,
@@ -260,6 +285,28 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
 
     for div in soup.find_all("div", class_="page-footer"):
         div.name = "footer"
+        
+    # Remove elements in the body that appear before the header or after the footer
+    body = soup.find('body')
+    if body:
+        header = soup.find('header')
+        footer = soup.find('footer')
+        
+        if header:
+            # Remove elements before the header
+            current = body.contents[0]
+            while current and current != header:
+                next_elem = current.next_sibling
+                current.extract()
+                current = next_elem
+                
+        if footer:
+            # Remove elements after the footer
+            current = footer.next_sibling
+            while current:
+                next_elem = current.next_sibling
+                current.extract()
+                current = next_elem
 
     # Step 1: Process headers, footers, and page numbers for TextAbsenceTests
     headers = soup.find_all("header")
@@ -385,25 +432,25 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
             # Check cell up
             if row_idx > 0:
                 up_text = str(table_array[row_idx - 1, col_idx]).strip()
-                if up_text:
+                if up_text and "\n" not in up_text:
                     test_data["up"] = up_text
 
             # Check cell down
             if row_idx < table_array.shape[0] - 1:
                 down_text = str(table_array[row_idx + 1, col_idx]).strip()
-                if down_text:
+                if down_text and "\n" not in down_text:
                     test_data["down"] = down_text
 
             # Check cell left
             if col_idx > 0:
                 left_text = str(table_array[row_idx, col_idx - 1]).strip()
-                if left_text:
+                if left_text and "\n" not in left_text:
                     test_data["left"] = left_text
 
             # Check cell right
             if col_idx < table_array.shape[1] - 1:
                 right_text = str(table_array[row_idx, col_idx + 1]).strip()
-                if right_text:
+                if right_text and "\n" not in right_text:
                     test_data["right"] = right_text
 
             # Check for top heading using header information
@@ -413,7 +460,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
                 if col_headers:
                     # Use the first header as the top heading
                     _, top_heading = col_headers[0]
-                    if top_heading:
+                    if top_heading and "\n" not in top_heading:
                         test_data["top_heading"] = top_heading
 
             # Check for left heading using header information
@@ -423,7 +470,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
                 if row_headers:
                     # Use the first header as the left heading
                     _, left_heading = row_headers[0]
-                    if left_heading:
+                    if left_heading and "\n" not in left_heading:
                         test_data["left_heading"] = left_heading
 
             # Only add the test if we have at least one relation
@@ -529,7 +576,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
     tests = [t for t in tests if t["type"] != "absent" or t["text"] not in full_text]
 
     # Remove any tests where the text has no alpha numeric characters
-    tests = [t for t in tests if "text" not in t or len([c for c in t["text"] if c.isalnum()])]
+    tests = [t for t in tests if "text" not in t or len([c for c in t["text"] if c.isalnum()])]    
 
     return tests
 
