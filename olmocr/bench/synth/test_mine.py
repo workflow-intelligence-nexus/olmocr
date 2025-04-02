@@ -851,8 +851,31 @@ class TestMineTests(unittest.TestCase):
 
         tests = generate_tests_from_html(html_content, "0", 1)
 
+        superscript_map = {
+            "0": "⁰",
+            "1": "¹",
+            "2": "²",
+            "3": "³",
+            "4": "⁴",
+            "5": "⁵",
+            "6": "⁶",
+            "7": "⁷",
+            "8": "⁸",
+            "9": "⁹",
+            "+": "⁺",
+            "-": "⁻",
+            "=": "⁼",
+            "(": "⁽",
+            ")": "⁾",
+            "n": "ⁿ",
+            "i": "ⁱ",
+        }
+
         for test in tests:
-            print(test)
+            for sup in superscript_map.values():
+                self.assertTrue(sup not in test.get("text", ""))
+                self.assertTrue(sup not in test.get("before", ""))
+                self.assertTrue(sup not in test.get("after", ""))
 
     def test_katex_autorender(self):
         """Test that KaTeX math expressions are properly auto-rendered when using the render_pdf_with_playwright function."""
@@ -906,3 +929,97 @@ class TestMineTests(unittest.TestCase):
         # but at minimum we can verify the file was created successfully
 
         print(output_pdf_path)
+
+    def test_line_numbers(self):
+        html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House Amendment Bill No. CS/CS/SB 7030</title>
+</head>
+<body>
+    <header class="document-header">
+        <div class="bill-title">HOUSE AMENDMENT</div>
+        <div>Bill No. CS/CS/SB 7030, 1st Eng. (2019)</div>
+    </header>
+
+    <div class="amendment-label">Amendment No.</div>
+
+    <div class="chamber-action">
+        <div class="chamber-columns">
+            <div class="senate-column">Senate</div>
+            <div class="house-column">House</div>
+        </div>
+        <div style="text-align: center;">.</div>
+    </div>
+
+    <div class="horizontal-line"></div>
+
+    <div class="horizontal-line"></div>
+
+    <div class="amendment-content">
+        <div>
+            <span class="line-number">1</span>
+            <div class="line-content">Representative Jenne offered the following:</div>
+        </div>
+        <div>
+            <span class="line-number">2</span>
+            <div class="line-content"></div>
+        </div>
+        <div>
+            <span class="line-number">3</span>
+            <div class="line-content"><strong>Amendment</strong></div>
+        </div>
+        <div>
+            <span class="line-number">4</span>
+            <div class="line-content">Remove lines 274-280 and insert:</div>
+        </div>
+        <div>
+            <span class="line-number">5</span>
+            <div class="line-content">c.3. Pass <span class="underline">an initial</span> a psychological evaluation, and</div>
+        </div>
+        <div>
+            <span class="line-number">6</span>
+            <div class="line-content"><span class="underline">subsequent yearly psychological evaluations before each school</span></div>
+        </div>
+        <div>
+            <span class="line-number">7</span>
+            <div class="line-content"><span class="underline">year, administered by a psychologist licensed under chapter 490</span></div>
+        </div>
+        <div>
+            <span class="line-number">8</span>
+            <div class="line-content">and designated by the Department of Law Enforcement and submit</div>
+        </div>
+        <div>
+            <span class="line-number">9</span>
+            <div class="line-content">the results of <span class="underline">such evaluations</span> <span class="strikethrough">the evaluation</span> to the sheriff's</div>
+        </div>
+        <div>
+            <span class="line-number">10</span>
+            <div class="line-content">office. The Department of Law Enforcement is authorized to</div>
+        </div>
+        <div>
+            <span class="line-number">11</span>
+            <div class="line-content">provide the sheriff's office with mental health and substance</div>
+        </div>
+        <div>
+            <span class="line-number">12</span>
+            <div class="line-content">abuse data for compliance with this paragraph.</div>
+        </div>
+    </div>
+
+    <footer class="document-footer">
+        <div>588513</div>
+        <div>Approved For Filing: 4/23/2019 6:09:18 PM</div>
+        <div>Page 1 of 1</div>
+    </footer>
+</body>
+</html>"""
+
+        tests = generate_tests_from_html(html_content, "0", 1)
+
+        for test in tests:
+            if test["type"] == "order":
+                self.assertTrue(len([c for c in test["before"] if not c.isdigit()]) > 0)

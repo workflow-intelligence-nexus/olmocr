@@ -352,6 +352,10 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
     pdf_filename = f"{pdf_id}_page{page_num}.pdf"
     soup = BeautifulSoup(html_content, "html.parser")
 
+    # Remove any divs or spans with class "line-number"
+    for element in soup.find_all(["div", "span"], class_="line-number"):
+        element.extract()
+
     # Rewrite any page-header and page-footer divs to be normalized to headers
     # Convert div.page-footer to footer in one line
     for div in soup.find_all("div", class_="page-header"):
