@@ -206,6 +206,32 @@ async def render_pdf_with_playwright(html_content, output_pdf_path, png_width, p
                 # Set the HTML content
                 await page.set_content(html_content)
 
+                # Add in katex and setup auto rendering
+                katex_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "katex")
+                katex_css_path = os.path.join(katex_dir, "katex.min.css")
+                katex_js_path = os.path.join(katex_dir, "katex.min.js")
+                katex_autorender_js_path = os.path.join(katex_dir, "auto-render.min.js")
+
+                await page.add_style_tag(path=katex_css_path)
+                await page.add_script_tag(path=katex_js_path)
+                await page.add_script_tag(path=katex_autorender_js_path)
+
+                # Run the KaTeX auto-renderer immediately rather than waiting for DOMContentLoaded
+                await page.evaluate(
+                    """
+                    renderMathInElement(document.body, {
+                        // customised options
+                        // • auto-render specific keys, e.g.:
+                        delimiters: [
+                            {left: '\\\\(', right: '\\\\)', display: false},
+                            {left: '\\\\[', right: '\\\\]', display: true}
+                        ],
+                        // • rendering keys, e.g.:
+                        throwOnError: false
+                    });
+                """
+                )
+
                 # Save as PDF with formatting options
                 await page.pdf(
                     path=output_pdf_path,
@@ -249,6 +275,79 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
     Returns:
         A list of test dictionaries that can be saved as JSONL
     """
+
+    # Helper function to convert superscripts and subscripts to Unicode
+    def convert_superscripts_subscripts(element):
+        # Map for superscript characters
+        superscript_map = {
+            "0": "⁰",
+            "1": "¹",
+            "2": "²",
+            "3": "³",
+            "4": "⁴",
+            "5": "⁵",
+            "6": "⁶",
+            "7": "⁷",
+            "8": "⁸",
+            "9": "⁹",
+            "+": "⁺",
+            "-": "⁻",
+            "=": "⁼",
+            "(": "⁽",
+            ")": "⁾",
+            "n": "ⁿ",
+            "i": "ⁱ",
+        }
+
+        # Map for subscript characters
+        subscript_map = {
+            "0": "₀",
+            "1": "₁",
+            "2": "₂",
+            "3": "₃",
+            "4": "₄",
+            "5": "₅",
+            "6": "₆",
+            "7": "₇",
+            "8": "₈",
+            "9": "₉",
+            "+": "₊",
+            "-": "₋",
+            "=": "₌",
+            "(": "₍",
+            ")": "₎",
+            "a": "ₐ",
+            "e": "ₑ",
+            "o": "ₒ",
+            "x": "ₓ",
+            "h": "ₕ",
+            "k": "ₖ",
+            "l": "ₗ",
+            "m": "ₘ",
+            "n": "ₙ",
+            "p": "ₚ",
+            "s": "ₛ",
+            "t": "ₜ",
+        }
+
+        # Process all superscript tags
+        for sup in element.find_all("sup"):
+            sup_text = sup.get_text()
+            unicode_text = ""
+            for char in sup_text:
+                unicode_text += superscript_map.get(char, char)
+            sup.replace_with(unicode_text)
+
+        # Process all subscript tags
+        for sub in element.find_all("sub"):
+            sub_text = sub.get_text()
+            unicode_text = ""
+            for char in sub_text:
+                unicode_text += subscript_map.get(char, char)
+            sub.replace_with(unicode_text)
+
+        return element
+
     tests = []
     pdf_filename = f"{pdf_id}_page{page_num}.pdf"
     soup = BeautifulSoup(html_content, "html.parser")
@@ -261,6 +360,28 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
     for div in soup.find_all("div", class_="page-footer"):
         div.name = "footer"
 
+    # Remove elements in the body that appear before the header or after the footer
+    body = soup.find("body")
+    if body:
+        header = soup.find("header")
+        footer = soup.find("footer")
+
+        if header:
+            # Remove elements before the header
+            current = body.contents[0]
+            while current and current != header:
+                next_elem = current.next_sibling
+                current.extract()
+                current = next_elem
+
+        if footer:
+            # Remove elements after the footer
+            current = footer.next_sibling
+            while current:
+                next_elem = current.next_sibling
+                current.extract()
+                current = next_elem
+
     # Step 1: Process headers, footers, and page numbers for TextAbsenceTests
     headers = soup.find_all("header")
     footers = soup.find_all("footer")
@@ -269,6 +390,9 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
     # Function to create absence tests from text elements
     def create_absence_tests_from_elements(parent_element, element_type):
         mini_soup = BeautifulSoup(str(parent_element), "html.parser")
+
+        # Convert superscripts and subscripts in the mini soup
+        convert_superscripts_subscripts(mini_soup)
 
         # Remove headers, footers, and tables from the main_soup
         for element in mini_soup.find_all(["h1", "h2"]):
@@ -323,7 +447,11 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
 
     # Create TextAbsenceTests for page numbers
     for page_number in page_numbers:
-        page_number_text = page_number.get_text().strip()
+        # Convert any superscripts/subscripts in the page number
+        page_number_soup = BeautifulSoup(str(page_number), "html.parser")
+        convert_superscripts_subscripts(page_number_soup)
+        page_number_text = page_number_soup.get_text().strip()
+
         if page_number_text:
             tests.append(
                 {
@@ -337,7 +465,14 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
             )
 
     # Step 2: Generate tests from tables using parse_html_tables
-    table_data_list = parse_html_tables(html_content)
+    # Convert superscripts and subscripts to Unicode equivalents in tables
+    table_soup = BeautifulSoup(html_content, "html.parser")
+
+    # Convert superscripts and subscripts in the table HTML
+    convert_superscripts_subscripts(table_soup)
+    html_content_with_unicode = str(table_soup)
+
+    table_data_list = parse_html_tables(html_content_with_unicode)
 
     for table_idx, table_data in enumerate(table_data_list):
         # Get the table data as a numpy array
@@ -385,45 +520,48 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
             # Check cell up
             if row_idx > 0:
                 up_text = str(table_array[row_idx - 1, col_idx]).strip()
-                if up_text:
+                if up_text and "\n" not in up_text:
                     test_data["up"] = up_text
 
             # Check cell down
             if row_idx < table_array.shape[0] - 1:
                 down_text = str(table_array[row_idx + 1, col_idx]).strip()
-                if down_text:
+                if down_text and "\n" not in down_text:
                     test_data["down"] = down_text
 
             # Check cell left
             if col_idx > 0:
                 left_text = str(table_array[row_idx, col_idx - 1]).strip()
-                if left_text:
+                if left_text and "\n" not in left_text:
                     test_data["left"] = left_text
 
             # Check cell right
             if col_idx < table_array.shape[1] - 1:
                 right_text = str(table_array[row_idx, col_idx + 1]).strip()
-                if right_text:
+                if right_text and "\n" not in right_text:
                     test_data["right"] = right_text
 
-            # Check for top heading using header information
-            if col_idx in table_data.col_headers:
+            # Check if current cell is a heading cell
+            is_header_cell = row_idx in table_data.header_rows or col_idx in table_data.header_cols
+
+            # Check for top heading using header information (skip if current cell is a heading)
+            if not is_header_cell and col_idx in table_data.col_headers:
                 # Get the headers for this column
                 col_headers = table_data.col_headers[col_idx]
                 if col_headers:
                     # Use the first header as the top heading
                     _, top_heading = col_headers[0]
-                    if top_heading:
+                    if top_heading and "\n" not in top_heading:
                         test_data["top_heading"] = top_heading
 
-            # Check for left heading using header information
-            if row_idx in table_data.row_headers:
+            # Check for left heading using header information (skip if current cell is a heading)
+            if not is_header_cell and row_idx in table_data.row_headers:
                 # Get the headers for this row
                 row_headers = table_data.row_headers[row_idx]
                 if row_headers:
                     # Use the first header as the left heading
                     _, left_heading = row_headers[0]
-                    if left_heading:
+                    if left_heading and "\n" not in left_heading:
                         test_data["left_heading"] = left_heading
 
             # Only add the test if we have at least one relation
@@ -455,7 +593,6 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
                 else:
                     # Shouldn't happen, but handle it gracefully
                     passed = False
-                    explanation = f"Table index {table_idx} out of range, only {len(tables)} tables found"
 
                 # Only add tests that pass
                 if passed:
@@ -471,6 +608,9 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
     # Remove headers, footers, and tables from the main_soup
     for element in main_soup.find_all(["header", "footer", "table", "head"]):
         element.extract()
+
+    # Convert superscripts and subscripts in the main soup
+    convert_superscripts_subscripts(main_soup)
 
     full_text = main_soup.get_text().strip()
 
@@ -528,10 +668,70 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int, verb
     # If they do, filter them out
     tests = [t for t in tests if t["type"] != "absent" or t["text"] not in full_text]
 
-    # Remove any tests where the text has no alpha numeric characters
-    tests = [t for t in tests if "text" not in t or len([c for c in t["text"] if c.isalnum()])]
+    # Remove any tests where text-based fields have no alphanumeric characters, contain LaTeX, or contain Unicode super/subscripts
+    text_fields = ["text", "cell", "before", "after", "up", "down", "left", "right", "top_heading", "left_heading"]
 
-    return tests
+    def contains_alphanumeric(value):
+        return any(c.isalnum() for c in value) if isinstance(value, str) else False
+
+    def contains_latex(value):
+        if not isinstance(value, str):
+            return False
+        # Check for LaTeX delimiters
+        latex_patterns = [r"\(", r"\)", r"\[", r"\]"]
+        return any(pattern in value for pattern in latex_patterns)
+
+    def contains_unicode_super_or_subscripts(value):
+        if not isinstance(value, str):
+            return False
+
+        # Unicode ranges for superscripts and subscripts
+        superscript_chars = "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ"
+        subscript_chars = "₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₒₓₕₖₗₘₙₚₛₜ"
+
+        return any(c in superscript_chars or c in subscript_chars for c in value)
+
+    filtered_tests = []
+    for test in tests:
+        # Check all text fields in the test for alphanumeric content, LaTeX, and Unicode super/subscripts
+        all_valid = True
+        for field in text_fields:
+            if field in test:
+                # Skip test if field has no alphanumeric characters
+                if not contains_alphanumeric(test[field]):
+                    all_valid = False
+                    break
+                # Skip test if field contains LaTeX delimiters
+                if contains_latex(test[field]):
+                    all_valid = False
+                    break
+                # Skip test if field contains Unicode super or subscripts
+                if contains_unicode_super_or_subscripts(test[field]):
+                    all_valid = False
+                    break
+        if all_valid:
+            filtered_tests.append(test)
+
+    tests = filtered_tests
+
+    # Remove duplicate tests (identical on everything but the id field)
+    unique_tests = []
+    test_signatures = set()
+
+    for test in tests:
+        # Create a signature for the test by using all fields except 'id'
+        test_dict = test.copy()
+        test_dict.pop("id")
+
+        # Convert dict to a sorted tuple of items for hashability
+        test_signature = tuple(sorted((k, str(v)) for k, v in test_dict.items()))
+
+        # Only add the test if we haven't seen an identical one
+        if test_signature not in test_signatures:
+            test_signatures.add(test_signature)
+            unique_tests.append(test)
+
+    return unique_tests
 
 
 def process_pdf(pdf_info, args, client):

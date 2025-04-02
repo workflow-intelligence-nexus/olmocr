@@ -322,7 +322,7 @@ class TestTableTest(unittest.TestCase):
 
     def test_parse_markdown_tables(self):
         """Test markdown table parsing"""
-        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Cell A2")
+        _test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Cell A2")
         tables = parse_markdown_tables(self.markdown_table)
         self.assertEqual(len(tables), 1)
         self.assertEqual(tables[0].data.shape, (3, 3))  # 3 rows, 3 columns
@@ -332,7 +332,7 @@ class TestTableTest(unittest.TestCase):
 
     def test_parse_html_tables(self):
         """Test HTML table parsing"""
-        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Cell A2")
+        _test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="Cell A2")
         tables = parse_html_tables(self.html_table)
         self.assertEqual(len(tables), 1)
         self.assertEqual(tables[0].data.shape, (3, 3))  # 3 rows, 3 columns
