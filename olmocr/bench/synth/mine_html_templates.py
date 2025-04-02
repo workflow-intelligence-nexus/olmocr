@@ -257,7 +257,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                 text = tag.get_text().strip()
                 if text:
                     text_elements.append(text)
-                    
+
         # If no elements found, use the parent's text as a fallback
         if not text_elements:
             parent_text = parent_element.get_text().strip()
@@ -274,7 +274,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                         "id": f"{pdf_id}_{element_type}_{uuid.uuid4().hex[:8]}",
                         "type": TestType.ABSENT.value,
                         "text": text,
-                        "max_diffs": 5,
+                        "max_diffs": 0,
                     }
                 )
 
@@ -297,7 +297,7 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
                     "id": f"{pdf_id}_page_number_{uuid.uuid4().hex[:8]}",
                     "type": TestType.ABSENT.value,
                     "text": page_number_text,
-                    "max_diffs": 5,
+                    "max_diffs": 0,
                 }
             )
 
@@ -392,68 +392,56 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
     main_soup = BeautifulSoup(str(soup), "html.parser")
 
     # Remove headers, footers, and tables from the main_soup
-    for element in main_soup.find_all(["header", "footer", "table"]):
+    for element in main_soup.find_all(["header", "footer", "table", "head"]):
         element.extract()
 
     # Get all paragraphs and headings in the main content
     paragraphs = main_soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6"])
 
-    # Sample a few paragraphs to use for presence tests
-    if paragraphs:
-        sampled_paragraphs = random.sample(paragraphs, min(5, len(paragraphs)))
+    full_text = main_soup.get_text().strip()
 
-        for paragraph in sampled_paragraphs:
-            text = paragraph.get_text().strip()
-            # Only create tests for paragraphs with sufficient content
-            if text and len(text) > 20:
-                tests.append(
-                    {
-                        "pdf": pdf_filename,
-                        "page": page_num,
-                        "id": f"{pdf_id}_text_{uuid.uuid4().hex[:8]}",
-                        "type": TestType.PRESENT.value,
-                        "text": text[:200],  # Limit to 200 chars to keep tests manageable
-                        "max_diffs": 10,
-                    }
-                )
+    sentences = []
+    for paragraph in process(full_text):
+        for sentence in paragraph:
+            # Convert token sequence to string and clean it
+            sentence_str = ""
+            for token in sentence:
+                sentence_str += token.spacing + token.value
 
-    # Generate some TextOrderTests for content that should appear in a specific order
-    if len(paragraphs) >= 2:
-        # Extract all text from the main content
-        all_text = " ".join([p.get_text().strip() for p in paragraphs])
+            sentence_str = sentence_str.strip()
 
-        # Use syntok to segment the text into sentences
-        sentences = []
-        for paragraph in process(all_text):
-            for sentence in paragraph:
-                # Convert token sequence to string and clean it
-                sentence_text = " ".join([token.value for token in sentence]).strip()
-                if sentence_text and len(sentence_text) > 10 and len(sentence_text) < 100:
-                    sentences.append(sentence_text)
+            if sentence_str:
+                sentences.append(sentence_str)
 
-        # Create TextOrderTests from pairs of sentences that are at least 3 sentences apart
-        # to ensure they're from different parts of the document
-        if len(sentences) >= 5:
-            num_tests = min(3, len(sentences) // 5)
-            for _ in range(num_tests):
-                # Get two random indices with sufficient distance between them
-                i = random.randint(0, len(sentences) - 4)
-                j = random.randint(i + 3, min(i + 10, len(sentences) - 1))
+    # Add a few random ordering tests
+    all_indexes = list(range(len(sentences)))
+    
+    # Ex. pick N pairs of indexes from all_indexes
+    random_pairs = set()
+    for _ in range(10):
+        idx1, idx2 = random.sample(all_indexes, 2)
+        if idx1 > idx2:
+            idx1, idx2 = idx2, idx1
+        random_pairs.add((idx1, idx2))
 
-                first_sentence = sentences[i]
-                second_sentence = sentences[j]
+    for i, j in random_pairs:
+        first_sentence = sentences[i]
+        second_sentence = sentences[j]
 
-                tests.append(
-                    {
-                        "pdf": pdf_filename,
-                        "page": page_num,
-                        "id": f"{pdf_id}_order_{uuid.uuid4().hex[:8]}",
-                        "type": TestType.ORDER.value,
-                        "before": first_sentence,
-                        "after": second_sentence,
-                        "max_diffs": 10,
-                    }
-                )
+        if len(first_sentence) < 10 or len(second_sentence) < 10:
+            continue
+
+        tests.append(
+            {
+                "pdf": pdf_filename,
+                "page": page_num,
+                "id": f"{pdf_id}_order_{uuid.uuid4().hex[:8]}",
+                "type": TestType.ORDER.value,
+                "before": first_sentence,
+                "after": second_sentence,
+                "max_diffs": round(max(len(first_sentence), len(second_sentence)) * 0.05),
+            }
+        )
 
     return tests
 
