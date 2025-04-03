@@ -658,6 +658,7 @@ class TableTest(BasePDFTest):
 
         # Threshold for fuzzy matching derived from max_diffs
         threshold = 1.0 - (self.max_diffs / (len(self.cell) if len(self.cell) > 0 else 1))
+        threshold = max(0.5, threshold)
 
         # Parse tables based on content_type
         md_tables = parse_markdown_tables(content)
@@ -700,7 +701,7 @@ class TableTest(BasePDFTest):
                 if self.up and row_idx > 0:
                     up_cell = normalize_text(table_array[row_idx - 1, col_idx])
                     up_similarity = fuzz.ratio(self.up, up_cell) / 100.0
-                    if up_similarity < threshold:
+                    if up_similarity < max(0.5, 1.0 - (self.max_diffs / (len(self.up) if len(self.up) > 0 else 1))):
                         all_relationships_satisfied = False
                         current_failed_reasons.append(f"Cell above '{up_cell}' doesn't match expected '{self.up}' (similarity: {up_similarity:.2f})")
 
@@ -708,7 +709,7 @@ class TableTest(BasePDFTest):
                 if self.down and row_idx < table_array.shape[0] - 1:
                     down_cell = normalize_text(table_array[row_idx + 1, col_idx])
                     down_similarity = fuzz.ratio(self.down, down_cell) / 100.0
-                    if down_similarity < threshold:
+                    if down_similarity < max(0.5, 1.0 - (self.max_diffs / (len(self.down) if len(self.down) > 0 else 1))):
                         all_relationships_satisfied = False
                         current_failed_reasons.append(f"Cell below '{down_cell}' doesn't match expected '{self.down}' (similarity: {down_similarity:.2f})")
 
@@ -716,7 +717,7 @@ class TableTest(BasePDFTest):
                 if self.left and col_idx > 0:
                     left_cell = normalize_text(table_array[row_idx, col_idx - 1])
                     left_similarity = fuzz.ratio(self.left, left_cell) / 100.0
-                    if left_similarity < threshold:
+                    if left_similarity < max(0.5, 1.0 - (self.max_diffs / (len(self.left) if len(self.left) > 0 else 1))):
                         all_relationships_satisfied = False
                         current_failed_reasons.append(
                             f"Cell to the left '{left_cell}' doesn't match expected '{self.left}' (similarity: {left_similarity:.2f})"
@@ -726,7 +727,7 @@ class TableTest(BasePDFTest):
                 if self.right and col_idx < table_array.shape[1] - 1:
                     right_cell = normalize_text(table_array[row_idx, col_idx + 1])
                     right_similarity = fuzz.ratio(self.right, right_cell) / 100.0
-                    if right_similarity < threshold:
+                    if right_similarity < max(0.5, 1.0 - (self.max_diffs / (len(self.right) if len(self.right) > 0 else 1))):
                         all_relationships_satisfied = False
                         current_failed_reasons.append(
                             f"Cell to the right '{right_cell}' doesn't match expected '{self.right}' (similarity: {right_similarity:.2f})"
@@ -747,7 +748,7 @@ class TableTest(BasePDFTest):
                             if similarity > best_similarity:
                                 best_similarity = similarity
                                 best_match = header_text
-                                if best_similarity >= threshold:
+                                if best_similarity >= max(0.5, 1.0 - (self.max_diffs / (len(self.top_heading) if len(self.top_heading) > 0 else 1))):
                                     top_heading_found = True
                                     break
 
@@ -760,7 +761,7 @@ class TableTest(BasePDFTest):
                                 if similarity > best_similarity:
                                     best_similarity = similarity
                                     best_match = header_text
-                                    if best_similarity >= threshold:
+                                    if best_similarity >= max(0.5, 1.0 - (self.max_diffs / (len(self.top_heading) if len(self.top_heading) > 0 else 1))):
                                         top_heading_found = True
                                         break
 
@@ -777,7 +778,7 @@ class TableTest(BasePDFTest):
                     if not best_match:
                         all_relationships_satisfied = False
                         current_failed_reasons.append(f"No top heading found for cell at ({row_idx}, {col_idx})")
-                    elif best_similarity < threshold:
+                    elif best_similarity < max(0.5, 1.0 - (self.max_diffs / (len(self.top_heading) if len(self.top_heading) > 0 else 1))):
                         all_relationships_satisfied = False
                         current_failed_reasons.append(
                             f"Top heading '{best_match}' doesn't match expected '{self.top_heading}' (similarity: {best_similarity:.2f})"
@@ -798,7 +799,7 @@ class TableTest(BasePDFTest):
                             if similarity > best_similarity:
                                 best_similarity = similarity
                                 best_match = header_text
-                                if best_similarity >= threshold:
+                                if best_similarity >= max(0.5, 1.0 - (self.max_diffs / (len(self.left_heading) if len(self.left_heading) > 0 else 1))):
                                     left_heading_found = True
                                     break
 
@@ -811,7 +812,7 @@ class TableTest(BasePDFTest):
                                 if similarity > best_similarity:
                                     best_similarity = similarity
                                     best_match = header_text
-                                    if best_similarity >= threshold:
+                                    if best_similarity >= max(0.5, 1.0 - (self.max_diffs / (len(self.left_heading) if len(self.left_heading) > 0 else 1))):
                                         left_heading_found = True
                                         break
 
@@ -828,7 +829,7 @@ class TableTest(BasePDFTest):
                     if not best_match:
                         all_relationships_satisfied = False
                         current_failed_reasons.append(f"No left heading found for cell at ({row_idx}, {col_idx})")
-                    elif best_similarity < threshold:
+                    elif best_similarity < max(0.5, 1.0 - (self.max_diffs / (len(self.left_heading) if len(self.left_heading) > 0 else 1))):
                         all_relationships_satisfied = False
                         current_failed_reasons.append(
                             f"Left heading '{best_match}' doesn't match expected '{self.left_heading}' (similarity: {best_similarity:.2f})"

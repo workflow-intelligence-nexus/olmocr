@@ -18,7 +18,7 @@ DATASET_FILE = None
 CURRENT_PDF = None
 PDF_TESTS = {}
 ALL_PDFS = []
-
+FORCE = False  # New global flag
 
 def find_next_unchecked_pdf() -> Optional[str]:
     """Find the next PDF with at least one unchecked test."""
@@ -30,7 +30,6 @@ def find_next_unchecked_pdf() -> Optional[str]:
             if test.get("checked") is None:
                 return pdf_name
     return None
-
 
 def calculate_stats() -> dict:
     """Calculate statistics for all tests in the dataset."""
@@ -59,7 +58,6 @@ def calculate_stats() -> dict:
 
     return {"total": total_tests, "null": null_status, "verified": verified_status, "rejected": rejected_status, "completion": completion}
 
-
 def save_dataset(jsonl_file: str) -> None:
     """Save the tests to a JSONL file, using temp file for atomic write."""
     global PDF_TESTS
@@ -77,26 +75,27 @@ def save_dataset(jsonl_file: str) -> None:
     # Atomic replace
     shutil.move(temp_file.name, jsonl_file)
 
-
 @app.route("/pdf/<path:pdf_name>")
 def serve_pdf(pdf_name):
     """Serve the PDF file directly."""
     pdf_path = os.path.join(DATASET_DIR, "pdfs", pdf_name)
     return send_file(pdf_path, mimetype="application/pdf")
 
-
 @app.route("/")
 def index():
     """Main page displaying the current PDF and its tests."""
-    global CURRENT_PDF, PDF_TESTS, DATASET_DIR
+    global CURRENT_PDF, PDF_TESTS, DATASET_DIR, ALL_PDFS, FORCE
 
     # If no current PDF is set, find the next one with unchecked tests
     if CURRENT_PDF is None:
         CURRENT_PDF = find_next_unchecked_pdf()
 
-    # If still no PDF, all tests have been checked
+    # If still no PDF, either show the "All done" page or force display the first PDF
     if CURRENT_PDF is None:
-        return render_template("all_done.html")
+        if FORCE and ALL_PDFS:
+            CURRENT_PDF = ALL_PDFS[0]
+        else:
+            return render_template("all_done.html")
 
     # Get the tests for the current PDF
     current_tests = PDF_TESTS.get(CURRENT_PDF, [])
@@ -116,7 +115,6 @@ def index():
         total_pdfs=len(ALL_PDFS),
         stats=stats,
     )
-
 
 @app.route("/update_test", methods=["POST"])
 def update_test():
@@ -140,7 +138,6 @@ def update_test():
 
     return jsonify({"status": "success"})
 
-
 @app.route("/reject_all", methods=["POST"])
 def reject_all():
     """API endpoint to reject all tests for a PDF."""
@@ -161,23 +158,28 @@ def reject_all():
 
     return jsonify({"status": "error", "message": "PDF not found"})
 
-
 @app.route("/next_pdf", methods=["POST"])
 def next_pdf():
     """Move to the next PDF in the list."""
-    global CURRENT_PDF, ALL_PDFS
+    global CURRENT_PDF, ALL_PDFS, FORCE
 
     if CURRENT_PDF in ALL_PDFS:
         current_index = ALL_PDFS.index(CURRENT_PDF)
         if current_index < len(ALL_PDFS) - 1:
             CURRENT_PDF = ALL_PDFS[current_index + 1]
         else:
-            CURRENT_PDF = find_next_unchecked_pdf()
+            # If in force mode, cycle back to the beginning instead of checking for an unchecked PDF
+            if FORCE and ALL_PDFS:
+                CURRENT_PDF = ALL_PDFS[0]
+            else:
+                CURRENT_PDF = find_next_unchecked_pdf()
     else:
-        CURRENT_PDF = find_next_unchecked_pdf()
+        if FORCE and ALL_PDFS:
+            CURRENT_PDF = ALL_PDFS[0]
+        else:
+            CURRENT_PDF = find_next_unchecked_pdf()
 
     return redirect(url_for("index"))
-
 
 @app.route("/prev_pdf", methods=["POST"])
 def prev_pdf():
@@ -191,7 +193,6 @@ def prev_pdf():
 
     return redirect(url_for("index"))
 
-
 @app.route("/goto_pdf/<int:index>", methods=["POST"])
 def goto_pdf(index):
     """Go to a specific PDF by index."""
@@ -201,7 +202,6 @@ def goto_pdf(index):
         CURRENT_PDF = ALL_PDFS[index]
 
     return redirect(url_for("index"))
-
 
 def load_dataset(dataset_file: str) -> Tuple[Dict[str, List[Dict]], List[str]]:
     """Load tests from the dataset file and organize them by PDF."""
@@ -228,24 +228,24 @@ def load_dataset(dataset_file: str) -> Tuple[Dict[str, List[Dict]], List[str]]:
 
     return pdf_tests, all_pdfs
 
-
 def create_templates_directory():
     """Create templates directory for Flask if it doesn't exist."""
     templates_dir = os.path.join(os.path.dirname(__file__), "templates")
     os.makedirs(templates_dir, exist_ok=True)
 
-
 def main():
     """Main entry point with command-line arguments."""
-    global DATASET_DIR, DATASET_FILE, PDF_TESTS, ALL_PDFS, CURRENT_PDF
+    global DATASET_DIR, DATASET_FILE, PDF_TESTS, ALL_PDFS, CURRENT_PDF, FORCE
 
     parser = argparse.ArgumentParser(description="Interactive Test Review App")
     parser.add_argument("dataset_file", help="Path to the dataset jsonl file")
     parser.add_argument("--port", type=int, default=5000, help="Port for the Flask app")
     parser.add_argument("--host", default="127.0.0.1", help="Host for the Flask app")
     parser.add_argument("--debug", action="store_true", help="Run Flask in debug mode")
-
+    parser.add_argument("--force", action="store_true", help="Force show each file one by one and never do the 'All done' page")
+    
     args = parser.parse_args()
+    FORCE = args.force  # Set the global FORCE flag
 
     # Validate dataset directory
     if not os.path.exists(args.dataset_file):
@@ -279,7 +279,6 @@ def main():
     app.run(host=args.host, port=args.port, debug=args.debug)
 
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

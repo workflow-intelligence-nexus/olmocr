@@ -600,6 +600,24 @@ Some text before the table.
         result, explanation = test.run(table)
         self.assertTrue(result, explanation)
 
+    def test_diffs(self):
+        table = """| CATEGORY     | POINTS EARNED |
+|------------------------------|------------------|
+| Sustainable Sites            | 9                |
+| Water Efficiency             | 3                |
+| Energy & Atmosphere          | 12               |
+| Materials & Resources        | 6                |
+| Indoor Environmental Quality | 11               |
+| Innovation & Design Process  | 5                |
+| TOTAL                        | 46               |"""
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="9", left="Sustl Sie", max_diffs=2)
+        result, explanation = test.run(table)
+        self.assertFalse(result, explanation)
+
+        test = TableTest(pdf="test.pdf", page=1, id="test_id", type=TestType.TABLE.value, cell="9", left="Sustainable Site", max_diffs=2)
+        result, explanation = test.run(table)
+        self.assertTrue(result, explanation)
+
     def test_markdown_marker2(self):
         table = """| Concentration
 level | [CO]      | [SO2] | [NOx]    |
