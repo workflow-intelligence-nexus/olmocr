@@ -9,12 +9,12 @@ import re
 import sqlite3
 import string
 import tempfile
-import tinyhost
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import boto3
+import tinyhost
 from tqdm import tqdm
 
 from olmocr.data.renderpdf import render_pdf_to_base64webp
@@ -45,7 +45,7 @@ def parse_args():
 def generate_prolific_code(length=8):
     """Generate a random code for Prolific."""
     characters = string.ascii_uppercase + string.digits
-    return ''.join(random.choice(characters) for _ in range(length))
+    return "".join(random.choice(characters) for _ in range(length))
 
 
 def obfuscate_code(code):
@@ -201,7 +201,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
     """Create an HTML file with rendered PDF pages."""
     # Obfuscate the provided Prolific code
     obfuscated_code = obfuscate_code(prolific_code)
-    
+
     # Get current date and time for the report
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -646,7 +646,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
         except Exception as e:
             # Add CSS class for the first annotation interface to be active by default
             active_class = " active" if i == 0 else ""
-            
+
             html_content += f"""
             <div class="page-container" data-index="{i}">
                 <div class="page-info">
@@ -670,7 +670,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             </div>
             """
 
-    html_content += """
+    html_content += (
+        """
             </div>
             
             <div class="completion-message" id="completion-message">
@@ -678,7 +679,9 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 Your Prolific completion code is: <strong id="prolific-code">Loading...</strong>
             </div>
             <!-- Store the obfuscated code in a hidden element -->
-            <div id="obfuscated-code" style="display:none;">""" + obfuscated_code + """</div>
+            <div id="obfuscated-code" style="display:none;">"""
+        + obfuscated_code
+        + """</div>
             
             <div class="annotation-progress" id="progress-bar">
                 <div class="progress-text">
@@ -880,6 +883,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
     </body>
     </html>
     """
+    )
 
     with open(output_path, "w") as f:
         f.write(html_content)
@@ -898,7 +902,7 @@ def generate_sample_set(args, i, s3_client, pdf_s3_client, result_files):
 
     # Generate a unique Prolific code for this sample set
     prolific_code = generate_prolific_code()
-    
+
     # Create HTML output with the Prolific code
     create_html_output(random_pages, pdf_s3_client, output_filename, args.workspace, args.db_path, prolific_code)
 
@@ -961,16 +965,16 @@ def main():
         link = tinyhost.tinyhost([str(output_filename)])
         links.append(link[0])
         print(link)
-    
+
     # Create CSV file with tinyhost links and Prolific codes
     csv_path = args.prolific_csv
     print(f"Writing Prolific codes to {csv_path}")
-    with open(csv_path, 'w', newline='') as csvfile:
+    with open(csv_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['tinyhost_link', 'code'])
+        writer.writerow(["tinyhost_link", "code"])
         for link, code in zip(links, prolific_codes):
             writer.writerow([link, code])
-    
+
     print(f"Prolific codes written to {csv_path}")
 
 
