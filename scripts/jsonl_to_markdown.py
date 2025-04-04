@@ -2,6 +2,7 @@ import json
 import os
 import sys
 
+
 # This is a simple script to convert JSONL files to Markdown format.
 # It reads each line of the JSONL file, extracts the 'text' field,
 # and saves it as a Markdown file with the line number as the filename.
@@ -17,7 +18,7 @@ def jsonl_to_markdown(input_file, output_dir):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    with open(input_file, 'r', encoding='utf-8') as file:
+    with open(input_file, "r", encoding="utf-8") as file:
         for i, line in enumerate(file):
             try:
                 # Parse the JSON line
@@ -26,7 +27,7 @@ def jsonl_to_markdown(input_file, output_dir):
 
                 # Save to a Markdown file
                 output_file = os.path.join(output_dir, f"line_{i + 1}.md")
-                with open(output_file, 'w', encoding='utf-8') as md_file:
+                with open(output_file, "w", encoding="utf-8") as md_file:
                     md_file.write(text_content)
 
                 print(f"Extracted and saved line {i + 1} to {output_file}")
@@ -34,6 +35,7 @@ def jsonl_to_markdown(input_file, output_dir):
                 print(f"Error decoding JSON on line {i + 1}: {e}")
             except Exception as e:
                 print(f"Unexpected error on line {i + 1}: {e}")
+
 
 # Example usage
 # input_jsonl_file = "/path/to/test.jsonl"  # Replace with the actual path to your JSONL file
@@ -45,11 +47,11 @@ def jsonl_to_markdown(input_file, output_dir):
 # The script will create the output directory if it does not exist.
 if __name__ == "__main__":
 
-  if len(sys.argv) != 3:
-    print("Usage: python jsonl_to_markdown.py <input_file> <output_dir>")
-    sys.exit(1)
+    if len(sys.argv) != 3:
+        print("Usage: python jsonl_to_markdown.py <input_file> <output_dir>")
+        sys.exit(1)
 
-  input_file = sys.argv[1]
-  output_dir = sys.argv[2]
+    input_file = sys.argv[1]
+    output_dir = sys.argv[2]
 
-  jsonl_to_markdown(input_file, output_dir)
+    jsonl_to_markdown(input_file, output_dir)
