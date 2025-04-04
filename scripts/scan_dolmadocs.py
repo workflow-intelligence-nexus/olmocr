@@ -628,7 +628,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 <div class="page-image-wrapper">
                     <img class="page-image" src="data:image/webp;base64,{base64_image}" alt="PDF Page {page_num}" loading="lazy" />
                 </div>
-                <div class="annotation-interface{active_class}" data-id="page-{i}">
+                <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}">
                     <span class="btn-group">
                         <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
                         <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
@@ -658,7 +658,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     </p>
                 </div>
                 <div class="error">Error: {str(e)}</div>
-                <div class="annotation-interface{active_class}" data-id="page-{i}">
+                <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}">
                     <span class="btn-group">
                         <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
                         <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
@@ -787,11 +787,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 const activeButton = interfaceDiv.querySelector('button.feedback-option.active');
                 const feedbackOption = activeButton ? activeButton.getAttribute('data-value') : null;
                 const piiDescription = interfaceDiv.querySelector('textarea').value;
+                const pdfPath = interfaceDiv.getAttribute('data-pdf-path');
 
                 const datastore = await fetchDatastore() || {};
                 datastore[id] = {
                     feedbackOption: feedbackOption,
-                    piiDescription: piiDescription
+                    piiDescription: piiDescription,
+                    pdfPath: pdfPath
                 };
 
                 await putDatastore(datastore);
