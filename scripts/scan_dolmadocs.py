@@ -299,6 +299,11 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 border-radius: 0.5rem;
                 overflow: hidden;
                 box-shadow: var(--card-shadow);
+                transition: all 0.3s ease;
+            }}
+            
+            .page-container.editing {{
+                box-shadow: 0 0 0 3px var(--primary-color), var(--card-shadow);
             }}
             
             .page-info {{
@@ -424,6 +429,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             .status-complete {{
                 background-color: #ecfdf5;
                 color: var(--success-color);
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }}
+            
+            .status-complete:hover {{
+                background-color: #d1fae5;
+                box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
             }}
             
             .status-pending {{
@@ -526,7 +538,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 <p>
                 <strong>Instructions: </strong>Please review each document below and mark if it contains PII (Personally identifiable information). If you cannot read it (ex. the document is not in English, or is otherwise unreadable), mark it as such. 
                 If the document contains disturbing or graphic content, please mark that. Finally, if there is PII, type in a brief description and press Enter. Once you mark all 30 documents, the completetion code will 
-                be presented.
+                be presented. <strong>You can click on "Complete" status indicators to edit previous annotations.</strong>
                 </p>
 
                 <div style="display: flex; font-family: Arial, sans-serif; font-size: 14px; max-width: 1000px; margin: 0 auto;">
@@ -720,6 +732,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 document.querySelectorAll('.annotation-status').forEach(function(status) {
                     status.className = 'annotation-status status-pending';
                     status.textContent = 'Pending';
+                    // Remove any click handlers
+                    status.onclick = null;
                 });
                 
                 // Set current item status
@@ -734,9 +748,37 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     const status = document.getElementById(`status-${i}`);
                     if (status) {
                         status.className = 'annotation-status status-complete';
-                        status.textContent = 'Complete';
+                        status.textContent = 'Edit ✎';
+                        // Add click handler to edit this annotation
+                        status.onclick = function() { editAnnotation(i); };
                     }
                 }
+            }
+            
+            // Function to enable editing a previously completed annotation
+            function editAnnotation(index) {
+                // Hide current annotation interface
+                document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.remove('active');
+                
+                // Remove editing class from all containers
+                document.querySelectorAll('.page-container').forEach(container => {
+                    container.classList.remove('editing');
+                });
+                
+                // Show the selected annotation interface
+                document.querySelector(`.annotation-interface[data-id="page-${index}"]`).classList.add('active');
+                
+                // Add editing class to the container being edited
+                const activeContainer = document.querySelector(`.page-container[data-index="${index}"]`);
+                if (activeContainer) {
+                    activeContainer.classList.add('editing');
+                    activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                // Update current index
+                currentIndex = index;
+                updateProgressBar();
+                updateStatusIndicators();
             }
             
             // Navigate to the next document
@@ -744,18 +786,25 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 // Hide current annotation interface
                 document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.remove('active');
                 
+                // Remove editing class from all containers
+                document.querySelectorAll('.page-container').forEach(container => {
+                    container.classList.remove('editing');
+                });
+                
                 // Move to next document if not at the end
                 if (currentIndex < totalPages - 1) {
                     currentIndex++;
                     document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.add('active');
-                    updateProgressBar();
-                    updateStatusIndicators();
                     
-                    // Scroll to the new active annotation
+                    // Add editing class to current container
                     const activeContainer = document.querySelector(`.page-container[data-index="${currentIndex}"]`);
                     if (activeContainer) {
+                        activeContainer.classList.add('editing');
                         activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
+                    
+                    updateProgressBar();
+                    updateStatusIndicators();
                 }
                 else {
                     // This was the last document, mark as complete
@@ -838,6 +887,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             
             document.addEventListener("DOMContentLoaded", async function() {
                 const datastore = await fetchDatastore() || {};
+                
+                // Add editing class to the first container by default
+                const firstContainer = document.querySelector(`.page-container[data-index="0"]`);
+                if (firstContainer) {
+                    firstContainer.classList.add('editing');
+                }
+                
                 updateProgressBar();
                 updateStatusIndicators();
                 
@@ -883,9 +939,15 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     currentIndex = lastAnnotatedIndex + 1;
                     document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.add('active');
                     
-                    // Scroll to the active annotation
+                    // Add editing class and scroll to the active annotation
                     const activeContainer = document.querySelector(`.page-container[data-index="${currentIndex}"]`);
                     if (activeContainer) {
+                        // Remove editing class from all containers first
+                        document.querySelectorAll('.page-container').forEach(container => {
+                            container.classList.remove('editing');
+                        });
+                        // Add editing class to current container
+                        activeContainer.classList.add('editing');
                         activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                     
