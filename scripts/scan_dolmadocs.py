@@ -79,8 +79,8 @@ def list_result_files(s3_client, workspace_path):
         if "Contents" in page:
             all_files.extend([f"s3://{bucket}/{obj['Key']}" for obj in page["Contents"] if obj["Key"].endswith(".jsonl") or obj["Key"].endswith(".json")])
 
-        # if len(all_files) > 1000:
-        #     break
+        if len(all_files) > 1000:
+            break
 
     return all_files
 
@@ -489,11 +489,10 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
                     <div class="feedback" data-id="page-{i}">
                         <span class="btn-group">
-                            <button type="button" class="toggle-button personal-info" data-value="yes" onclick="togglePersonalInfo(this)">Yes PII</button>
-                            <button type="button" class="toggle-button personal-info" data-value="no" onclick="togglePersonalInfo(this)">No PII</button>
-                        </span>
-                        <span class="btn-group">
-                            <button type="button" class="toggle-button cannot-read" onclick="toggleCannotRead(this)">I cannot read this</button>
+                            <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
+                            <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
+                            <button type="button" class="toggle-button feedback-option" data-value="cannot-read" onclick="toggleFeedbackOption(this)">I cannot read this</button>
+                            <button type="button" class="toggle-button feedback-option" data-value="disturbing" onclick="toggleFeedbackOption(this)">Disturbing content</button>
                         </span>
                         <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)"></textarea>
                     </div>
@@ -516,11 +515,10 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
                     <div class="feedback" data-id="page-{i}">
                         <span class="btn-group">
-                            <button type="button" class="toggle-button personal-info" data-value="yes" onclick="togglePersonalInfo(this)">Yes PII</button>
-                            <button type="button" class="toggle-button personal-info" data-value="no" onclick="togglePersonalInfo(this)">No PII</button>
-                        </span>
-                        <span class="toggle-group">
-                            <button type="button" class="toggle-button cannot-read" onclick="toggleCannotRead(this)">I cannot read this</button>
+                            <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
+                            <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
+                            <button type="button" class="toggle-button feedback-option" data-value="cannot-read" onclick="toggleFeedbackOption(this)">I cannot read this</button>
+                            <button type="button" class="toggle-button feedback-option" data-value="disturbing" onclick="toggleFeedbackOption(this)">Disturbing content</button>
                         </span>
                         <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)"></textarea>
                     </div>
@@ -541,38 +539,28 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             async function saveFeedback(source) {
                 const feedbackDiv = source.classList.contains('feedback') ? source : source.closest('.feedback');
                 const id = feedbackDiv.getAttribute('data-id');
-                // Get the personal info state from the active toggle button
-                const personalButton = feedbackDiv.querySelector('button.personal-info.active');
-                const personalInfo = personalButton ? personalButton.getAttribute('data-value') : null;
-                // Get the state of the "I cannot read this" toggle
-                const cannotReadButton = feedbackDiv.querySelector('button.cannot-read');
-                const cannotRead = cannotReadButton ? cannotReadButton.classList.contains('active') : false;
+                // Get the selected feedback option value
+                const activeButton = feedbackDiv.querySelector('button.feedback-option.active');
+                const feedbackOption = activeButton ? activeButton.getAttribute('data-value') : null;
                 const piiDescription = feedbackDiv.querySelector('textarea').value;
 
                 const datastore = await fetchDatastore() || {};
                 datastore[id] = {
-                    personalInfo: personalInfo,
-                    cannotRead: cannotRead,
+                    feedbackOption: feedbackOption,
                     piiDescription: piiDescription
                 };
 
                 await putDatastore(datastore);
             }
 
-            function togglePersonalInfo(btn) {
+            function toggleFeedbackOption(btn) {
                 const feedbackDiv = btn.closest('.feedback');
-                // Remove active class from all personal info buttons in this group
-                feedbackDiv.querySelectorAll('button.personal-info').forEach(function(b) {
+                // Remove active class from all feedback option buttons in this group
+                feedbackDiv.querySelectorAll('button.feedback-option').forEach(function(b) {
                     b.classList.remove('active');
                 });
                 // Toggle on the clicked button
                 btn.classList.add('active');
-                saveFeedback(feedbackDiv);
-            }
-
-            function toggleCannotRead(btn) {
-                btn.classList.toggle('active');
-                const feedbackDiv = btn.closest('.feedback');
                 saveFeedback(feedbackDiv);
             }
 
@@ -583,21 +571,14 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     const id = feedbackDiv.getAttribute('data-id');
                     if (datastore[id]) {
                         const data = datastore[id];
-                        // Set active state for personal info toggle buttons
-                        feedbackDiv.querySelectorAll('button.personal-info').forEach(function(btn) {
-                            if (btn.getAttribute('data-value') === data.personalInfo) {
+                        // Set active state for feedback option buttons
+                        feedbackDiv.querySelectorAll('button.feedback-option').forEach(function(btn) {
+                            if (btn.getAttribute('data-value') === data.feedbackOption) {
                                 btn.classList.add('active');
                             } else {
                                 btn.classList.remove('active');
                             }
                         });
-                        // Set active state for "I cannot read this"
-                        const cannotReadButton = feedbackDiv.querySelector('button.cannot-read');
-                        if (data.cannotRead) {
-                            cannotReadButton.classList.add('active');
-                        } else {
-                            cannotReadButton.classList.remove('active');
-                        }
                         // Set the textarea value
                         feedbackDiv.querySelector('textarea').value = data.piiDescription;
                     }
