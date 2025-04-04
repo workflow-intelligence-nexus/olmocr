@@ -132,7 +132,7 @@ def detect_headers_footers(pdf_path: str, page_num: int, api_key: str) -> Option
             parts=[
                 image_part,
                 types.Part.from_text(
-                    text="""Please tell me which text in this image is part of any headers/footers and would therefore be skipped it someone were reading it outloud to another person. Include page numbers and document-level headers and footers, but not inner subsections."""
+                    text="""Please extract and display the complete text from the document without omission. Include all sections and ensure nothing is summarized or abbreviated. I want the entire text of the document at any cost. Do not hallucinate"""
                 ),
             ],
         ),
