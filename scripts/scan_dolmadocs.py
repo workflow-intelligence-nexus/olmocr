@@ -466,43 +466,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 background-color: #fee2e2;
                 border-radius: 0.25rem;
             }}
-            
-            .annotation-progress {{
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background-color: white;
-                padding: 1rem;
-                border-radius: 0.5rem;
-                box-shadow: var(--card-shadow);
-                z-index: 100;
-                display: flex;
-                align-items: center;
-                gap: 1rem;
-                min-width: 300px;
-            }}
-            
-            .progress-bar {{
-                flex-grow: 1;
-                height: 8px;
-                background-color: var(--border-color);
-                border-radius: 4px;
-                overflow: hidden;
-            }}
-            
-            .progress-fill {{
-                height: 100%;
-                background-color: var(--primary-color);
-                width: 0%;
-                transition: width 0.3s ease;
-            }}
-            
-            .progress-text {{
-                font-size: 0.875rem;
-                color: var(--text-light);
-                white-space: nowrap;
-            }}
+        
             
             .completion-message {{
                 display: none;
@@ -700,14 +664,6 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
         + obfuscated_code
         + """</div>
             
-            <div class="annotation-progress" id="progress-bar">
-                <div class="progress-text">
-                    Annotation Progress: <span id="current-page">1</span>/<span id="total-pages"></span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
-            </div>
         </div>
         <script>
             // Using externally injected async functions: fetchDatastore() and putDatastore()
@@ -715,18 +671,11 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             // Track annotation progress
             let currentIndex = 0;
             const totalPages = document.querySelectorAll('.page-container').length;
-            document.getElementById('total-pages').textContent = totalPages;
-            
+     
             // Update progress bar
             function updateProgressBar() {
-                const progressPercent = ((currentIndex) / totalPages) * 100;
-                document.getElementById('progress-fill').style.width = progressPercent + '%';
-                document.getElementById('current-page').textContent = currentIndex;
-                
-                console.log(totalPages, currentIndex);
                 // Check if all annotations are complete
                 if (currentIndex >= totalPages) {
-                    document.getElementById('progress-bar').style.display = 'none';
                     document.getElementById('completion-message').style.display = 'block';
                 }
             }
@@ -818,7 +767,6 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     updateStatusIndicators();
                     
                     // Show completion message and scroll to it
-                    document.getElementById('progress-bar').style.display = 'none';
                     document.getElementById('completion-message').style.display = 'block';
                     document.getElementById('completion-message').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
