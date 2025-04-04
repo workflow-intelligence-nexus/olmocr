@@ -13,7 +13,6 @@ Usage:
   python mine_headers_footers.py --input_dir path/to/pdfs --output_dir path/to/output --api_key your_anthropic_api_key
 """
 
-
 import argparse
 import asyncio
 import concurrent.futures
@@ -161,15 +160,17 @@ def generate_tests_from_html(html_content: str, pdf_id: str, page_num: int) -> L
         max_diffs = round(max(len(first_sentence), len(second_sentence)) * 0.05)
         if max_diffs > len(first_sentence) // 2 or max_diffs > len(second_sentence) // 2:
             continue
-        tests.append({
-            "pdf": pdf_filename,
-            "page": page_num,
-            "id": f"{pdf_id}_order_{uuid.uuid4().hex[:8]}",
-            "type": "order",
-            "before": first_sentence,
-            "after": second_sentence,
-            "max_diffs": max_diffs,
-        })
+        tests.append(
+            {
+                "pdf": pdf_filename,
+                "page": page_num,
+                "id": f"{pdf_id}_order_{uuid.uuid4().hex[:8]}",
+                "type": "order",
+                "before": first_sentence,
+                "after": second_sentence,
+                "max_diffs": max_diffs,
+            }
+        )
         num_order_tests += 1
         if num_order_tests >= 5:
             break
@@ -243,7 +244,7 @@ def process_pdf(pdf_info, args, client):
     """
     local_pdf_path, index = pdf_info
     original_pdf_name = os.path.basename(local_pdf_path)
-    pdf_id = original_pdf_name  
+    pdf_id = original_pdf_name
     temp_pdf_dir = os.path.join(args.temp_dir, f"{os.path.splitext(original_pdf_name)[0]}")
     os.makedirs(temp_pdf_dir, exist_ok=True)
 
@@ -329,9 +330,7 @@ def process_pdf(pdf_info, args, client):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Convert PDFs in a folder to HTML templates and render with Playwright (order tests only)"
-    )
+    parser = argparse.ArgumentParser(description="Convert PDFs in a folder to HTML templates and render with Playwright (order tests only)")
     parser.add_argument("--input_dir", required=True, help="Folder containing PDF files")
     parser.add_argument("--output_dir", required=True, help="Directory to store HTML and tests")
     parser.add_argument("--temp_dir", default="/tmp/mine_tables", help="Directory for temporary files")
@@ -355,7 +354,7 @@ def main():
     pdf_paths = []
     for root, dirs, files in os.walk(args.input_dir):
         for file in files:
-            if file.lower().endswith('.pdf'):
+            if file.lower().endswith(".pdf"):
                 pdf_paths.append(os.path.join(root, file))
     print(f"Found {len(pdf_paths)} PDF files in {args.input_dir}")
 
@@ -370,6 +369,7 @@ def main():
     results = []
 
     import threading
+
     file_lock = threading.Lock()
 
     with ThreadPoolExecutor(max_workers=args.parallel) as executor:
