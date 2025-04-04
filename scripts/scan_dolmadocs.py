@@ -702,12 +702,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             
             // Update progress bar
             function updateProgressBar() {
-                const progressPercent = ((currentIndex + 1) / totalPages) * 100;
+                const progressPercent = ((currentIndex) / totalPages) * 100;
                 document.getElementById('progress-fill').style.width = progressPercent + '%';
-                document.getElementById('current-page').textContent = currentIndex + 1;
+                document.getElementById('current-page').textContent = currentIndex;
                 
+                console.log(totalPages, currentIndex);
                 // Check if all annotations are complete
-                if (currentIndex >= totalPages - 1) {
+                if (currentIndex >= totalPages) {
                     document.getElementById('progress-bar').style.display = 'none';
                     document.getElementById('completion-message').style.display = 'block';
                 }
@@ -755,6 +756,17 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     if (activeContainer) {
                         activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
+                }
+                else {
+                    // This was the last document, mark as complete
+                    currentIndex = totalPages;
+                    updateProgressBar();
+                    updateStatusIndicators();
+                    
+                    // Show completion message and scroll to it
+                    document.getElementById('progress-bar').style.display = 'none';
+                    document.getElementById('completion-message').style.display = 'block';
+                    document.getElementById('completion-message').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }
             
