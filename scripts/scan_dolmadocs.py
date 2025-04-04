@@ -1,15 +1,18 @@
 import argparse
+import base64
+import csv
 import datetime
 import json
 import os
 import random
 import re
 import sqlite3
+import string
 import tempfile
 import tinyhost
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 import boto3
 from tqdm import tqdm
@@ -31,7 +34,35 @@ def parse_args():
         default="~/s2pdf_url_data/d65142df-6588-4b68-a12c-d468b3761189.csv.db",
         help="Path to the SQLite database containing PDF hash to URL mapping",
     )
+    parser.add_argument(
+        "--prolific_csv",
+        default="prolific_codes.csv",
+        help="Path to save the CSV file with Prolific codes",
+    )
     return parser.parse_args()
+
+
+def generate_prolific_code(length=8):
+    """Generate a random code for Prolific."""
+    characters = string.ascii_uppercase + string.digits
+    return ''.join(random.choice(characters) for _ in range(length))
+
+
+def obfuscate_code(code):
+    """Gently obfuscate the Prolific code so it's not immediately visible in source."""
+    # Convert to base64 and reverse
+    encoded = base64.b64encode(code.encode()).decode()
+    return encoded[::-1]
+
+
+def deobfuscate_code(obfuscated_code):
+    """Deobfuscate the code - this will be done in JavaScript."""
+    # Reverse and decode from base64
+    reversed_encoded = obfuscated_code[::-1]
+    try:
+        return base64.b64decode(reversed_encoded).decode()
+    except:
+        return "ERROR_DECODING"
 
 
 def parse_pdf_hash(pretty_pdf_path: str) -> Optional[str]:
@@ -166,8 +197,11 @@ def create_presigned_url(s3_client, pdf_path, expiration=3600 * 24 * 7):
         return None
 
 
-def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path, db_path, resolution=2048):
+def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path, db_path, prolific_code, resolution=2048):
     """Create an HTML file with rendered PDF pages."""
+    # Obfuscate the provided Prolific code
+    obfuscated_code = obfuscate_code(prolific_code)
+    
     # Get current date and time for the report
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -640,8 +674,11 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             </div>
             
             <div class="completion-message" id="completion-message">
-                Thank you! All annotations are complete.
+                Thank you! All annotations are complete.<br>
+                Your Prolific completion code is: <strong id="prolific-code">Loading...</strong>
             </div>
+            <!-- Store the obfuscated code in a hidden element -->
+            <div id="obfuscated-code" style="display:none;">""" + obfuscated_code + """</div>
             
             <div class="annotation-progress" id="progress-bar">
                 <div class="progress-text">
@@ -770,10 +807,27 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 }
             }
 
+            // Function to deobfuscate the Prolific code
+            function deobfuscateCode(obfuscatedCode) {
+                // Reverse the string
+                const reversed = obfuscatedCode.split('').reverse().join('');
+                // Decode from base64
+                try {
+                    return atob(reversed);
+                } catch (e) {
+                    return "ERROR_DECODING";
+                }
+            }
+            
             document.addEventListener("DOMContentLoaded", async function() {
                 const datastore = await fetchDatastore() || {};
                 updateProgressBar();
                 updateStatusIndicators();
+                
+                // Get and deobfuscate the Prolific code
+                const obfuscatedCode = document.getElementById('obfuscated-code').textContent;
+                const prolificCode = deobfuscateCode(obfuscatedCode);
+                document.getElementById('prolific-code').textContent = prolificCode;
                 
                 document.querySelectorAll('.annotation-interface').forEach(function(interfaceDiv) {
                     const id = interfaceDiv.getAttribute('data-id');
@@ -842,10 +896,13 @@ def generate_sample_set(args, i, s3_client, pdf_s3_client, result_files):
     # Get random pages
     random_pages = get_random_pages(s3_client, result_files, args.pages_per_output)
 
-    # Create HTML output
-    create_html_output(random_pages, pdf_s3_client, output_filename, args.workspace, args.db_path)
+    # Generate a unique Prolific code for this sample set
+    prolific_code = generate_prolific_code()
+    
+    # Create HTML output with the Prolific code
+    create_html_output(random_pages, pdf_s3_client, output_filename, args.workspace, args.db_path, prolific_code)
 
-    return output_filename
+    return output_filename, prolific_code
 
 
 def main():
@@ -872,6 +929,7 @@ def main():
 
     # Use ThreadPoolExecutor to parallelize the generation of sample sets
     output_files = []
+    prolific_codes = []
 
     if args.repeats > 1:
         print(f"Using ThreadPoolExecutor with {min(args.max_workers, args.repeats)} workers")
@@ -884,23 +942,36 @@ def main():
             # Wait for all futures to complete and collect results
             for future in futures:
                 try:
-                    output_filename = future.result()
+                    output_filename, prolific_code = future.result()
                     output_files.append(output_filename)
-                    print(f"Completed generation of {output_filename}")
+                    prolific_codes.append(prolific_code)
+                    print(f"Completed generation of {output_filename} with code {prolific_code}")
                 except Exception as e:
                     print(f"Error generating sample set: {e}")
     else:
         # If only one repeat, just run it directly
-        output_filename = generate_sample_set(args, 0, s3_client, pdf_s3_client, result_files)
+        output_filename, prolific_code = generate_sample_set(args, 0, s3_client, pdf_s3_client, result_files)
         output_files.append(output_filename)
+        prolific_codes.append(prolific_code)
 
     # Now upload each resulting file into tinyhost
     print("Generated all files, uploading tinyhost links now")
     links = []
     for output_filename in output_files:
         link = tinyhost.tinyhost([str(output_filename)])
-        links.append(link)
+        links.append(link[0])
         print(link)
+    
+    # Create CSV file with tinyhost links and Prolific codes
+    csv_path = args.prolific_csv
+    print(f"Writing Prolific codes to {csv_path}")
+    with open(csv_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['tinyhost_link', 'code'])
+        for link, code in zip(links, prolific_codes):
+            writer.writerow([link, code])
+    
+    print(f"Prolific codes written to {csv_path}")
 
 
 if __name__ == "__main__":
