@@ -187,6 +187,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 --text-color: #111827;
                 --text-light: #6b7280;
                 --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                --success-color: #10b981;
             }}
             
             * {{
@@ -316,7 +317,21 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 text-decoration: underline;
             }}
             
-            /* New button group styling for connected Yes/No buttons */
+            /* Annotation elements */
+            .annotation-interface {{
+                display: none; /* Hide annotation interface by default */
+                margin-top: 1rem;
+                padding: 0.5rem;
+                border-top: 1px solid var(--border-color);
+                border-radius: 0.25rem;
+                background-color: #f8fafc;
+            }}
+            
+            .annotation-interface.active {{
+                display: block; /* Show only the active annotation interface */
+            }}
+            
+            /* Button group styling for connected buttons */
             .btn-group {{
                 display: inline-flex;
                 margin-bottom: 0.5rem;
@@ -343,14 +358,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 border-bottom-right-radius: 0.25rem;
             }}
             
-            .feedback {{
-                margin-top: 0.5rem;
-                padding: 0.5rem;
-                border-top: 1px solid var(--border-color);
-            }}
-            
-            .feedback .toggle-group {{
-                margin-bottom: 0.5rem;
+            .btn-group .toggle-button:not(:first-child):not(:last-child) {{
+                border-right: none;
             }}
             
             .toggle-button.active {{
@@ -358,8 +367,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 color: white;
             }}
             
-            .feedback textarea {{
-                display: block;
+            .annotation-interface textarea {{
+                display: none; /* Hide textarea by default */
                 width: 100%;
                 margin-top: 0.5rem;
                 padding: 0.5rem;
@@ -368,11 +377,92 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 border-radius: 0.25rem;
             }}
             
+            .annotation-status {{
+                display: inline-block;
+                margin-left: 1rem;
+                padding: 0.25rem 0.5rem;
+                border-radius: 0.25rem;
+                font-size: 0.75rem;
+                font-weight: 600;
+            }}
+            
+            .status-complete {{
+                background-color: #ecfdf5;
+                color: var(--success-color);
+            }}
+            
+            .status-pending {{
+                background-color: #fff7ed;
+                color: #ea580c;
+            }}
+            
+            .status-current {{
+                background-color: #eff6ff;
+                color: var(--primary-color);
+                animation: pulse 2s infinite;
+            }}
+            
+            @keyframes pulse {{
+                0% {{ opacity: 0.6; }}
+                50% {{ opacity: 1; }}
+                100% {{ opacity: 0.6; }}
+            }}
+            
             .error {{
                 color: #dc2626;
                 padding: 1rem;
                 background-color: #fee2e2;
                 border-radius: 0.25rem;
+            }}
+            
+            .annotation-progress {{
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: white;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                box-shadow: var(--card-shadow);
+                z-index: 100;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                min-width: 300px;
+            }}
+            
+            .progress-bar {{
+                flex-grow: 1;
+                height: 8px;
+                background-color: var(--border-color);
+                border-radius: 4px;
+                overflow: hidden;
+            }}
+            
+            .progress-fill {{
+                height: 100%;
+                background-color: var(--primary-color);
+                width: 0%;
+                transition: width 0.3s ease;
+            }}
+            
+            .progress-text {{
+                font-size: 0.875rem;
+                color: var(--text-light);
+                white-space: nowrap;
+            }}
+            
+            .completion-message {{
+                display: none;
+                margin: 2rem auto;
+                padding: 1.5rem;
+                background-color: #ecfdf5;
+                border: 1px solid #A7F3D0;
+                border-radius: 0.5rem;
+                text-align: center;
+                color: var(--success-color);
+                font-weight: 600;
+                max-width: 500px;
             }}
             
             footer {{
@@ -480,25 +570,31 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             # Render PDF to base64 webp
             base64_image = render_pdf_to_base64webp(temp_file_path, page_num, resolution)
 
-            # Add to HTML with the connected Yes/No button group.
+            # Add CSS class for the first annotation interface to be active by default
+            active_class = " active" if i == 0 else ""
+
+            # Add to HTML with the annotation interface
             html_content += f"""
-            <div class="page-container">
+            <div class="page-container" data-index="{i}">
                 <div class="page-info">
                     <h2 title="{pdf_path}"><a href="{original_url}" target="_blank">{original_url}</a></h2>
                     <p>Page {page_num}</p>
                     <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
-                    <div class="feedback" data-id="page-{i}">
-                        <span class="btn-group">
-                            <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
-                            <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
-                            <button type="button" class="toggle-button feedback-option" data-value="cannot-read" onclick="toggleFeedbackOption(this)">I cannot read this</button>
-                            <button type="button" class="toggle-button feedback-option" data-value="disturbing" onclick="toggleFeedbackOption(this)">Disturbing content</button>
-                        </span>
-                        <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)"></textarea>
-                    </div>
+                    <p>
+                        Status: <span class="annotation-status status-pending" id="status-{i}">Pending</span>
+                    </p>
                 </div>
                 <div class="page-image-wrapper">
                     <img class="page-image" src="data:image/webp;base64,{base64_image}" alt="PDF Page {page_num}" loading="lazy" />
+                </div>
+                <div class="annotation-interface{active_class}" data-id="page-{i}">
+                    <span class="btn-group">
+                        <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
+                        <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
+                        <button type="button" class="toggle-button feedback-option" data-value="cannot-read" onclick="toggleFeedbackOption(this)">I cannot read this</button>
+                        <button type="button" class="toggle-button feedback-option" data-value="disturbing" onclick="toggleFeedbackOption(this)">Disturbing content</button>
+                    </span>
+                    <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
                 </div>
             </div>
             """
@@ -507,42 +603,135 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             os.unlink(temp_file_path)
 
         except Exception as e:
+            # Add CSS class for the first annotation interface to be active by default
+            active_class = " active" if i == 0 else ""
+            
             html_content += f"""
-            <div class="page-container">
+            <div class="page-container" data-index="{i}">
                 <div class="page-info">
                     <h2 title="{pdf_path}"><a href="{original_url}" target="_blank">{original_url}</a></h2>
                     <p>Page {page_num}</p>
                     <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
-                    <div class="feedback" data-id="page-{i}">
-                        <span class="btn-group">
-                            <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
-                            <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
-                            <button type="button" class="toggle-button feedback-option" data-value="cannot-read" onclick="toggleFeedbackOption(this)">I cannot read this</button>
-                            <button type="button" class="toggle-button feedback-option" data-value="disturbing" onclick="toggleFeedbackOption(this)">Disturbing content</button>
-                        </span>
-                        <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)"></textarea>
-                    </div>
+                    <p>
+                        Status: <span class="annotation-status status-pending" id="status-{i}">Pending</span>
+                    </p>
                 </div>
                 <div class="error">Error: {str(e)}</div>
+                <div class="annotation-interface{active_class}" data-id="page-{i}">
+                    <span class="btn-group">
+                        <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
+                        <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
+                        <button type="button" class="toggle-button feedback-option" data-value="cannot-read" onclick="toggleFeedbackOption(this)">I cannot read this</button>
+                        <button type="button" class="toggle-button feedback-option" data-value="disturbing" onclick="toggleFeedbackOption(this)">Disturbing content</button>
+                    </span>
+                    <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
+                </div>
             </div>
             """
 
     html_content += """
             </div>
+            
+            <div class="completion-message" id="completion-message">
+                Thank you! All annotations are complete.
+            </div>
+            
+            <div class="annotation-progress" id="progress-bar">
+                <div class="progress-text">
+                    Annotation Progress: <span id="current-page">1</span>/<span id="total-pages"></span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+            
             <footer>
                 <p>Generated by OLMOCR Sampling Tool</p>
             </footer>
         </div>
         <script>
             // Using externally injected async functions: fetchDatastore() and putDatastore()
-
+            
+            // Track annotation progress
+            let currentIndex = 0;
+            const totalPages = document.querySelectorAll('.page-container').length;
+            document.getElementById('total-pages').textContent = totalPages;
+            
+            // Update progress bar
+            function updateProgressBar() {
+                const progressPercent = ((currentIndex + 1) / totalPages) * 100;
+                document.getElementById('progress-fill').style.width = progressPercent + '%';
+                document.getElementById('current-page').textContent = currentIndex + 1;
+                
+                // Check if all annotations are complete
+                if (currentIndex >= totalPages - 1) {
+                    document.getElementById('progress-bar').style.display = 'none';
+                    document.getElementById('completion-message').style.display = 'block';
+                }
+            }
+            
+            // Update status indicators
+            function updateStatusIndicators() {
+                // Reset all status indicators
+                document.querySelectorAll('.annotation-status').forEach(function(status) {
+                    status.className = 'annotation-status status-pending';
+                    status.textContent = 'Pending';
+                });
+                
+                // Set current item status
+                const currentStatus = document.getElementById(`status-${currentIndex}`);
+                if (currentStatus) {
+                    currentStatus.className = 'annotation-status status-current';
+                    currentStatus.textContent = 'Current';
+                }
+                
+                // Update completed statuses
+                for (let i = 0; i < currentIndex; i++) {
+                    const status = document.getElementById(`status-${i}`);
+                    if (status) {
+                        status.className = 'annotation-status status-complete';
+                        status.textContent = 'Complete';
+                    }
+                }
+            }
+            
+            // Navigate to the next document
+            function goToNextDocument() {
+                // Hide current annotation interface
+                document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.remove('active');
+                
+                // Move to next document if not at the end
+                if (currentIndex < totalPages - 1) {
+                    currentIndex++;
+                    document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.add('active');
+                    updateProgressBar();
+                    updateStatusIndicators();
+                    
+                    // Scroll to the new active annotation
+                    const activeContainer = document.querySelector(`.page-container[data-index="${currentIndex}"]`);
+                    if (activeContainer) {
+                        activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            }
+            
+            // Handle text area keydown for Enter key
+            function handleTextareaKeydown(event, textarea) {
+                // If Enter key is pressed and not with Shift key, move to next document
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    saveFeedback(textarea);
+                    goToNextDocument();
+                }
+            }
+            
             async function saveFeedback(source) {
-                const feedbackDiv = source.classList.contains('feedback') ? source : source.closest('.feedback');
-                const id = feedbackDiv.getAttribute('data-id');
+                const interfaceDiv = source.closest('.annotation-interface');
+                const id = interfaceDiv.getAttribute('data-id');
                 // Get the selected feedback option value
-                const activeButton = feedbackDiv.querySelector('button.feedback-option.active');
+                const activeButton = interfaceDiv.querySelector('button.feedback-option.active');
                 const feedbackOption = activeButton ? activeButton.getAttribute('data-value') : null;
-                const piiDescription = feedbackDiv.querySelector('textarea').value;
+                const piiDescription = interfaceDiv.querySelector('textarea').value;
 
                 const datastore = await fetchDatastore() || {};
                 datastore[id] = {
@@ -554,35 +743,81 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             }
 
             function toggleFeedbackOption(btn) {
-                const feedbackDiv = btn.closest('.feedback');
+                const interfaceDiv = btn.closest('.annotation-interface');
                 // Remove active class from all feedback option buttons in this group
-                feedbackDiv.querySelectorAll('button.feedback-option').forEach(function(b) {
+                interfaceDiv.querySelectorAll('button.feedback-option').forEach(function(b) {
                     b.classList.remove('active');
                 });
                 // Toggle on the clicked button
                 btn.classList.add('active');
-                saveFeedback(feedbackDiv);
+                saveFeedback(interfaceDiv);
+                
+                // Show or hide textarea based on selected option
+                const textarea = interfaceDiv.querySelector('textarea');
+                const feedbackOption = btn.getAttribute('data-value');
+                
+                if (feedbackOption === 'yes-pii') {
+                    // Only show textarea if "Yes PII" is selected
+                    textarea.style.display = 'block';
+                    textarea.focus();
+                } else {
+                    // If other options selected, hide textarea and go to next
+                    textarea.style.display = 'none';
+                    goToNextDocument();
+                }
             }
 
             document.addEventListener("DOMContentLoaded", async function() {
                 const datastore = await fetchDatastore() || {};
-
-                document.querySelectorAll('.feedback').forEach(function(feedbackDiv) {
-                    const id = feedbackDiv.getAttribute('data-id');
+                updateProgressBar();
+                updateStatusIndicators();
+                
+                document.querySelectorAll('.annotation-interface').forEach(function(interfaceDiv) {
+                    const id = interfaceDiv.getAttribute('data-id');
                     if (datastore[id]) {
                         const data = datastore[id];
                         // Set active state for feedback option buttons
-                        feedbackDiv.querySelectorAll('button.feedback-option').forEach(function(btn) {
+                        interfaceDiv.querySelectorAll('button.feedback-option').forEach(function(btn) {
                             if (btn.getAttribute('data-value') === data.feedbackOption) {
                                 btn.classList.add('active');
+                                
+                                // Show textarea if "Yes PII" is selected
+                                if (btn.getAttribute('data-value') === 'yes-pii') {
+                                    interfaceDiv.querySelector('textarea').style.display = 'block';
+                                }
                             } else {
                                 btn.classList.remove('active');
                             }
                         });
                         // Set the textarea value
-                        feedbackDiv.querySelector('textarea').value = data.piiDescription;
+                        interfaceDiv.querySelector('textarea').value = data.piiDescription;
                     }
                 });
+                
+                // If we have stored data, restore the current position
+                let lastAnnotatedIndex = -1;
+                for (let i = 0; i < totalPages; i++) {
+                    const pageId = `page-${i}`;
+                    if (datastore[pageId] && datastore[pageId].feedbackOption) {
+                        lastAnnotatedIndex = i;
+                    }
+                }
+                
+                // If we have annotated pages, go to the first unannotated page
+                if (lastAnnotatedIndex >= 0 && lastAnnotatedIndex < totalPages - 1) {
+                    document.querySelector(`.annotation-interface.active`).classList.remove('active');
+                    currentIndex = lastAnnotatedIndex + 1;
+                    document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.add('active');
+                    
+                    // Scroll to the active annotation
+                    const activeContainer = document.querySelector(`.page-container[data-index="${currentIndex}"]`);
+                    if (activeContainer) {
+                        activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    
+                    updateProgressBar();
+                    updateStatusIndicators();
+                }
             });
         </script>
     </body>
