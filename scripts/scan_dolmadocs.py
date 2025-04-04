@@ -11,9 +11,10 @@ import string
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
+import requests
 import tinyhost
 from tqdm import tqdm
 
@@ -38,6 +39,10 @@ def parse_args():
         "--prolific_csv",
         default="prolific_codes.csv",
         help="Path to save the CSV file with Prolific codes",
+    )
+    parser.add_argument(
+        "--read_results",
+        help="Path to a CSV file containing previously generated tinyhost links to extract annotations",
     )
     return parser.parse_args()
 
@@ -464,7 +469,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             
             .annotation-progress {{
                 position: fixed;
-                top: 20px;
+                bottom: 20px;
                 left: 50%;
                 transform: translateX(-50%);
                 background-color: white;
@@ -538,7 +543,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 <p>
                 <strong>Instructions: </strong>Please review each document below and mark if it contains PII (Personally identifiable information). If you cannot read it (ex. the document is not in English, or is otherwise unreadable), mark it as such. 
                 If the document contains disturbing or graphic content, please mark that. Finally, if there is PII, type in a brief description and press Enter. Once you mark all 30 documents, the completetion code will 
-                be presented. <strong>You can click on "Complete" status indicators to edit previous annotations.</strong>
+                be presented. You can edit previously created annotations on the same page.
                 </p>
 
                 <div style="display: flex; font-family: Arial, sans-serif; font-size: 14px; max-width: 1000px; margin: 0 auto;">
@@ -985,8 +990,168 @@ def generate_sample_set(args, i, s3_client, pdf_s3_client, result_files):
     return output_filename, prolific_code
 
 
+def extract_datastore_url(html_content: str) -> Optional[str]:
+    """Extract the presigned datastore URL from HTML content."""
+    match = re.search(r'const\s+presignedGetUrl\s*=\s*"([^"]+)"', html_content)
+    if match:
+        return match.group(1)
+    return None
+
+
+def fetch_annotations(tinyhost_link: str) -> Tuple[Dict[str, Any], str]:
+    """Fetch and parse annotations from a tinyhost link."""
+    # Request the HTML content
+    print(f"Fetching annotations from {tinyhost_link}")
+    response = requests.get(tinyhost_link)
+    response.raise_for_status()
+    html_content = response.text
+
+    # Extract the datastore URL
+    datastore_url = extract_datastore_url(html_content)
+    if not datastore_url:
+        print(f"Could not find datastore URL in {tinyhost_link}")
+        return {}, tinyhost_link
+
+    # Fetch the datastore content
+    print(f"Found datastore URL: {datastore_url}")
+    try:
+        datastore_response = requests.get(datastore_url)
+        datastore_response.raise_for_status()
+        annotations = datastore_response.json()
+        return annotations, tinyhost_link
+    except Exception as e:
+        print(f"Error fetching datastore from {datastore_url}: {e}")
+        return {}, tinyhost_link
+
+
+def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -> Dict[str, List[Dict[str, Any]]]:
+    """Process and categorize annotations by feedback type."""
+    results = {
+        "yes_pii": [],
+        "no_pii": [],
+        "cannot_read": [],
+        "disturbing": [],
+        "no_annotation": [],
+    }
+
+    # Process each annotation
+    for annotations, link in annotations_by_link:
+        for page_id, annotation in annotations.items():
+            if not annotation or "feedbackOption" not in annotation:
+                results["no_annotation"].append(
+                    {"page_id": page_id, "link": link, "pdf_path": annotation.get("pdfPath", "Unknown") if annotation else "Unknown"}
+                )
+                continue
+
+            category = annotation["feedbackOption"]
+            result_item = {
+                "page_id": page_id,
+                "link": link,
+                "pdf_path": annotation.get("pdfPath", "Unknown"),
+                "description": annotation.get("piiDescription", ""),
+            }
+
+            if category == "yes-pii":
+                results["yes_pii"].append(result_item)
+            elif category == "no-pii":
+                results["no_pii"].append(result_item)
+            elif category == "cannot-read":
+                results["cannot_read"].append(result_item)
+            elif category == "disturbing":
+                results["disturbing"].append(result_item)
+            else:
+                results["no_annotation"].append(result_item)
+
+    return results
+
+
+def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]]):
+    """Print a summary report of annotations."""
+    total_pages = sum(len(items) for items in annotation_results.values())
+
+    print("\n" + "=" * 80)
+    print(f"ANNOTATION REPORT - Total Pages: {total_pages}")
+    print("=" * 80)
+
+    # Print summary statistics
+    print("\nSummary:")
+    print(f"  Pages with PII: {len(annotation_results['yes_pii'])} ({len(annotation_results['yes_pii'])/total_pages*100:.1f}%)")
+    print(f"  Pages without PII: {len(annotation_results['no_pii'])} ({len(annotation_results['no_pii'])/total_pages*100:.1f}%)")
+    print(f"  Unreadable pages: {len(annotation_results['cannot_read'])} ({len(annotation_results['cannot_read'])/total_pages*100:.1f}%)")
+    print(f"  Pages with disturbing content: {len(annotation_results['disturbing'])} ({len(annotation_results['disturbing'])/total_pages*100:.1f}%)")
+    print(f"  Pages without annotation: {len(annotation_results['no_annotation'])} ({len(annotation_results['no_annotation'])/total_pages*100:.1f}%)")
+
+    # Print detailed report for pages with PII
+    if annotation_results["yes_pii"]:
+        print("\nDetailed Report - Pages with PII:")
+        print("-" * 80)
+        for i, item in enumerate(annotation_results["yes_pii"], 1):
+            print(f"{i}. PDF: {item['pdf_path']}")
+            print(f"   Page ID: {item['page_id']}")
+            print(f"   Link: {item['link']}#{item['page_id']}")
+            print(f"   Description: {item['description']}")
+            print("-" * 80)
+
+    print("\nReport complete.")
+
+
+def read_and_process_results(args):
+    """Read and process results from a previously generated CSV file."""
+    try:
+        # Read the CSV file
+        links = []
+        with open(args.read_results, "r") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if "tinyhost_link" in row:
+                    links.append(row["tinyhost_link"])
+
+        if not links:
+            print(f"No tinyhost links found in {args.read_results}")
+            return
+
+        print(f"Found {len(links)} tinyhost links in {args.read_results}")
+
+        # Fetch and process annotations
+        annotations_by_link = []
+        for link in tqdm(links, desc="Fetching annotations"):
+            try:
+                annotations, link_url = fetch_annotations(link)
+                annotations_by_link.append((annotations, link_url))
+            except Exception as e:
+                print(f"Error processing {link}: {e}")
+
+        # Process and categorize annotations
+        annotation_results = process_annotations(annotations_by_link)
+
+        # Print report
+        print_annotation_report(annotation_results)
+
+        # Save detailed report to file
+        output_file = Path(args.output_dir) / "annotation_report.csv"
+        print(f"\nSaving detailed report to {output_file}")
+
+        with open(output_file, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Category", "PDF Path", "Page ID", "Link", "Description"])
+
+            for category, items in annotation_results.items():
+                for item in items:
+                    writer.writerow([category, item["pdf_path"], item["page_id"], f"{item['link']}#{item['page_id']}", item.get("description", "")])
+
+        print(f"Report saved to {output_file}")
+
+    except Exception as e:
+        print(f"Error processing results: {e}")
+
+
 def main():
     args = parse_args()
+
+    # Check if we're reading results from a previous run
+    if args.read_results:
+        read_and_process_results(args)
+        return
 
     # Set up S3 clients
     s3_client = boto3.client("s3")
