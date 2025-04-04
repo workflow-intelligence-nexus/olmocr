@@ -24,13 +24,10 @@ def jsonl_to_markdown(input_file, output_dir):
                 data = json.loads(line)
                 text_content = data.get("text", "")
 
-                # Convert to Markdown format
-                markdown_content = f"# Extracted Content (Line {i + 1})\n\n{text_content}"
-
                 # Save to a Markdown file
                 output_file = os.path.join(output_dir, f"line_{i + 1}.md")
                 with open(output_file, 'w', encoding='utf-8') as md_file:
-                    md_file.write(markdown_content)
+                    md_file.write(text_content)
 
                 print(f"Extracted and saved line {i + 1} to {output_file}")
             except json.JSONDecodeError as e:
