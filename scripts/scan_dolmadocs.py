@@ -962,8 +962,8 @@ def main():
     print("Generated all files, uploading tinyhost links now")
     links = []
     for output_filename in output_files:
-        link = tinyhost.tinyhost([str(output_filename)])
-        links.append(link[0])
+        link = tinyhost.tinyhost([str(output_filename)])[0]
+        links.append(link)
         print(link)
 
     # Create CSV file with tinyhost links and Prolific codes
