@@ -3,17 +3,10 @@ from typing import Literal
 
 import httpx
 
-from olmocr.bench.prompts import build_basic_prompt, build_rolmocr_prompt
 from olmocr.data.renderpdf import render_pdf_to_base64png
-from olmocr.prompts.anchor import get_anchor_text
-from olmocr.prompts.prompts import (
-    PageResponse,
-    build_finetuning_prompt,
-    build_openai_silver_data_prompt,
-)
 
 
-async def run_rolmcr(
+async def run_rolmocr(
     pdf_path: str,
     page_num: int = 1,
     server: str = "localhost:30000",
