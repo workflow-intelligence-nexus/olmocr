@@ -39,7 +39,6 @@ def run_gemini(pdf_path: str, page_num: int = 1, model: str = "gemini-2.0-flash"
         top_p=1.0,
         top_k=32,
         max_output_tokens=4096,
-        
     )
 
     response = client.models.generate_content(
