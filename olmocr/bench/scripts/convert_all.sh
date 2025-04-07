@@ -3,8 +3,42 @@
 # Exit on error but allow the trap to execute
 set -e
 
-# Global variable to track server PID
+# Global variables
 SERVER_PID=""
+BENCH_DIR=""  # New variable to store the benchmark directory
+
+# Function to show usage information
+show_usage() {
+    echo "Usage: $0 [--dir <benchmark_directory>]"
+    echo "  --dir   Specify the benchmark data directory (default: olmOCR-bench/bench_data/)"
+    exit 1
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --dir)
+            BENCH_DIR="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_usage
+            ;;
+    esac
+done
+
+# Set default directory if not provided
+if [ -z "$BENCH_DIR" ]; then
+    BENCH_DIR="olmOCR-bench/bench_data/"
+    echo "[INFO] Using default benchmark directory: $BENCH_DIR"
+else
+    echo "[INFO] Using benchmark directory: $BENCH_DIR"
+fi
 
 # Trap function to handle Ctrl+C (SIGINT)
 cleanup() {
@@ -158,12 +192,12 @@ source activate olmocr
 
 # Run olmocr benchmarks, exactly as the pipeline.py does it
 echo "Running olmocr benchmarks..."
-python -m olmocr.bench.convert olmocr_pipeline --parallel 50 --dir olmOCR-bench/bench_data/
+python -m olmocr.bench.convert olmocr_pipeline --parallel 50 --dir "$BENCH_DIR"
 
 # Install marker-pdf and run benchmarks
 echo "Installing marker-pdf and running benchmarks..."
 pip install marker-pdf==1.6.1
-python -m olmocr.bench.convert marker --dir olmOCR-bench/bench_data/
+python -m olmocr.bench.convert marker --dir "$BENCH_DIR"
 
 # Install verovio and run benchmarks
 # echo "Installing verovio and running benchmarks..."
@@ -172,16 +206,16 @@ python -m olmocr.bench.convert marker --dir olmOCR-bench/bench_data/
 
 # Run chatgpt benchmarks
 echo "Running chatgpt benchmarks..."
-python -m olmocr.bench.convert chatgpt --dir olmOCR-bench/bench_data/
+python -m olmocr.bench.convert chatgpt --dir "$BENCH_DIR"
 #python -m olmocr.bench.convert chatgpt:name=chatgpt45:model=gpt-4.5-preview-2025-02-27
 
 # Run gemini benchmarks
 echo "Running gemini benchmarks..."
-python -m olmocr.bench.convert gemini:name=gemini_flash2:model=gemini-2.0-flash --parallel 4 --dir olmOCR-bench/bench_data/
+python -m olmocr.bench.convert gemini:name=gemini_flash2:model=gemini-2.0-flash --parallel 4 --dir "$BENCH_DIR"
 
 echo "Running mistral..."
 pip install mistralai
-python -m olmocr.bench.convert --dir olmOCR-bench/bench_data --parallel 4 mistral 
+python -m olmocr.bench.convert --dir "$BENCH_DIR" --parallel 4 mistral 
 
 # Run raw server benchmarks with generic server function
 # For each model, start server, run benchmark, then stop server
@@ -191,42 +225,44 @@ check_port || exit 1
 
 # olmocr_base_temp0_1 using sglang server
 # start_server sglang "allenai/olmOCR-7B-0225-preview" --chat-template qwen2-vl --mem-fraction-static 0.7
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_0:model=allenai/olmOCR-7B-0225-preview:temperature=0.0:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_2:model=allenai/olmOCR-7B-0225-preview:temperature=0.2:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_3:model=allenai/olmOCR-7B-0225-preview:temperature=0.3:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_4:model=allenai/olmOCR-7B-0225-preview:temperature=0.4:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_5:model=allenai/olmOCR-7B-0225-preview:temperature=0.5:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_6:model=allenai/olmOCR-7B-0225-preview:temperature=0.6:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp0_7:model=allenai/olmOCR-7B-0225-preview:temperature=0.7:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp0_0:model=allenai/olmOCR-7B-0225-preview:temperature=0.0:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp0_2:model=allenai/olmOCR-7B-0225-preview:temperature=0.2:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp0_3:model=allenai/olmOCR-7B-0225-preview:temperature=0.3:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp0_4:model=allenai/olmOCR-7B-0225-preview:temperature=0.4:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp0_5:model=allenai/olmOCR-7B-0225-preview:temperature=0.5:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp0_6:model=allenai/olmOCR-7B-0225-preview:temperature=0.6:prompt_template=fine_tune:response_template=json --repeats 1 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp0_7:model=allenai/olmOCR-7B-0225-preview:temperature=0.7:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
 
 # python -m olmocr.bench.convert server:name=olmocr_base_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
 # python -m olmocr.bench.convert server:name=olmocr_base_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
 # stop_server
 
 # start_server vllm "allenai/olmOCR-7B-0225-preview"
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp_vllm0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=olmocr_base_temp_vllm0_7:model=allenai/olmOCR-7B-0225-preview:temperature=0.7:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp_vllm0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
+# python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=olmocr_base_temp_vllm0_7:model=allenai/olmOCR-7B-0225-preview:temperature=0.7:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
 
 # python -m olmocr.bench.convert server:name=olmocr_base_vllm_temp0_1:model=allenai/olmOCR-7B-0225-preview:temperature=0.1:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
 # python -m olmocr.bench.convert server:name=olmocr_base_vllm_temp0_8:model=allenai/olmOCR-7B-0225-preview:temperature=0.8:prompt_template=fine_tune:response_template=json --repeats 5 --parallel 50
 # stop_server
 
-# Feel free to enable if you want
+# Feel free to enable if you want, but qwen2 raw is pretty low scoring
 # qwen2_vl_7b using sglang server
 # start_server sglang "Qwen/Qwen2-VL-7B-Instruct" --chat-template qwen2-vl --mem-fraction-static 0.7
 # python -m olmocr.bench.convert server:name=qwen2_vl_7b:model=Qwen/Qwen2-VL-7B-Instruct:temperature=0.1:prompt_template=full:response_template=plain --repeats 5 --parallel 50
 # stop_server
 
 # qwen2.5 works best with vllm for now, in a fresh environment
+create_conda_env "vllm" "3.11"
 source activate vllm
+pip install vllm==0.8.3
 
 start_server vllm "Qwen/Qwen2.5-VL-7B-Instruct" --max-model-len 8192
-python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=qwen25vl_prompt3:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=basic:response_template=plain --parallel 50
+python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=qwen25vl_prompt3:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=basic:response_template=plain --parallel 50
 stop_server
 
 start_server vllm "reducto/RolmOCR" --max-model-len 8192
-python -m olmocr.bench.convert --dir olmOCR-bench/bench_data rolmocr --parallel 50
+python -m olmocr.bench.convert --dir "$BENCH_DIR" rolmocr --parallel 50
 stop_server
 
 # TODO: Fix this, I was not able to get it to all install successfully
