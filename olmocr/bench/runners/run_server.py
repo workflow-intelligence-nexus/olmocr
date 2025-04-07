@@ -3,6 +3,7 @@ from typing import Literal
 
 import httpx
 
+from olmocr.bench.prompts import build_basic_prompt
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.prompts.anchor import get_anchor_text
 from olmocr.prompts.prompts import (
@@ -10,8 +11,6 @@ from olmocr.prompts.prompts import (
     build_finetuning_prompt,
     build_openai_silver_data_prompt,
 )
-
-from olmocr.bench.prompts import build_basic_prompt, build_rolmocr_prompt
 
 
 async def run_server(
