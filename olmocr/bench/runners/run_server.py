@@ -11,6 +11,8 @@ from olmocr.prompts.prompts import (
     build_openai_silver_data_prompt,
 )
 
+from olmocr.bench.prompts import build_basic_prompt, build_rolmocr_prompt
+
 
 async def run_server(
     pdf_path: str,
@@ -43,7 +45,9 @@ async def run_server(
     elif prompt_template == "finetune":
         prompt = build_finetuning_prompt(anchor_text)
     elif prompt_template == "basic":
-        prompt = "Just return the plain text representation of this document as if you were reading it naturally."
+        prompt = build_basic_prompt()
+    elif prompt_template == "rolmocr":
+        prompt = build_rolmocr_prompt()
     else:
         raise ValueError("Unknown prompt template")
 

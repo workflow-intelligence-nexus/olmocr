@@ -1,11 +1,20 @@
 import os
 
 from openai import OpenAI
-from prompts import build_find_difference_prompt
 from runners.run_chatgpt import run_chatgpt
 from runners.run_gemini import run_gemini
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
+
+
+def build_find_difference_prompt(base_text: str) -> str:
+    return (
+        f"Below is an image of a document page, along with raw textual content previously extracted using different models."
+        f"Your goal is to carefully identify the differences between the extracted texts from both models and determine which one is more accurate by comparing them with the image."
+        f"Only return the differences and specify which model extracted the text with higher accuracy.\n"
+        f"Do not hallucinate.\n"
+        f"RAW_TEXT_START\n{base_text}\nRAW_TEXT_END"
+    )
 
 
 def combined_output(pdf_path: str) -> str:
