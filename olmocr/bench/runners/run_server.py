@@ -3,6 +3,7 @@ from typing import Literal
 
 import httpx
 
+from olmocr.bench.prompts import build_basic_prompt
 from olmocr.data.renderpdf import render_pdf_to_base64png
 from olmocr.prompts.anchor import get_anchor_text
 from olmocr.prompts.prompts import (
@@ -43,7 +44,9 @@ async def run_server(
     elif prompt_template == "finetune":
         prompt = build_finetuning_prompt(anchor_text)
     elif prompt_template == "basic":
-        prompt = "Just return the plain text representation of this document as if you were reading it naturally."
+        prompt = build_basic_prompt()
+    elif prompt_template == "rolmocr":
+        prompt = build_rolmocr_prompt()
     else:
         raise ValueError("Unknown prompt template")
 

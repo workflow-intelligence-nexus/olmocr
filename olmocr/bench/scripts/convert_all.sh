@@ -181,7 +181,7 @@ python -m olmocr.bench.convert gemini:name=gemini_flash2:model=gemini-2.0-flash 
 
 echo "Running mistral..."
 pip install mistralai
-python -m olmocr.bench.convert --dir olmOCR-bench/bench_data mistral 
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data --parallel 4 mistral 
 
 # Run raw server benchmarks with generic server function
 # For each model, start server, run benchmark, then stop server
@@ -219,9 +219,15 @@ check_port || exit 1
 # stop_server
 
 # qwen2.5 works best with vllm for now, in a fresh environment
-# start_server vllm "Qwen/Qwen2.5-VL-7B-Instruct" --max-model-len 8192
-# python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=qwen25vl_prompt3:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=basic:response_template=plain --parallel 50
-# stop_server
+source activate vllm
+
+start_server vllm "Qwen/Qwen2.5-VL-7B-Instruct" --max-model-len 8192
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data server:name=qwen25vl_prompt3:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=basic:response_template=plain --parallel 50
+stop_server
+
+start_server vllm "reducto/RolmOCR" --max-model-len 8192
+python -m olmocr.bench.convert --dir olmOCR-bench/bench_data rolmocr --parallel 50
+stop_server
 
 # TODO: Fix this, I was not able to get it to all install successfully
 # Create and activate mineru environment
