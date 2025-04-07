@@ -255,7 +255,9 @@ check_port || exit 1
 # qwen2.5 works best with vllm for now, in a fresh environment
 create_conda_env "vllm" "3.11"
 source activate vllm
-pip install vllm==0.8.3
+pip install -e .[bench]
+pip install --upgrade vllm==0.8.3
+
 
 start_server vllm "Qwen/Qwen2.5-VL-7B-Instruct" --max-model-len 8192
 python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=qwen25vl_prompt3:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=basic:response_template=plain --parallel 50
