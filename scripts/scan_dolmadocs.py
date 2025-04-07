@@ -36,9 +36,14 @@ def parse_args():
         help="Path to the SQLite database containing PDF hash to URL mapping",
     )
     parser.add_argument(
+        "--prolific_code",
+        required=True,
+        help="Fixed completion code to use for all outputs",
+    )
+    parser.add_argument(
         "--prolific_csv",
         default="prolific_codes.csv",
-        help="Path to save the CSV file with Prolific codes",
+        help="Path to save the file with tinyhost links (one URL per line)",
     )
     parser.add_argument(
         "--read_results",
@@ -47,10 +52,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def generate_prolific_code(length=8):
-    """Generate a random code for Prolific."""
-    characters = string.ascii_uppercase + string.digits
-    return "".join(random.choice(characters) for _ in range(length))
+# Fixed prolific code is now passed in as a command line argument
 
 
 def obfuscate_code(code):
@@ -505,7 +507,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
         <div class="container">
             <header>
             <h2>Task Instructions</h2>
-                <p>Your task is to review several document pages and determine whether they contain any <strong>Personally Identifiable Information (PII)</strong>. Carefully inspect each page and select the appropriate response.</p>
+                <p>Your task is to review {len(random_pages)} document pages and determine whether they contain any <strong>Personally Identifiable Information (PII)</strong>. Carefully but efficiently inspect each page and select the appropriate response. You do not need to read every word - quickly scan the page and look for any obvious PII. The time expected to complete this task is 10-15 minutes.</p>
                 
                 <h2>How to Annotate</h2>
                 <p>The page you are currently annotating will be highlighted with a blue outline and a set of response buttons will be displayed directly below it.</p>
@@ -932,13 +934,13 @@ def generate_sample_set(args, i, s3_client, pdf_s3_client, result_files):
     # Get random pages
     random_pages = get_random_pages(s3_client, result_files, args.pages_per_output)
 
-    # Generate a unique Prolific code for this sample set
-    prolific_code = generate_prolific_code()
+    # Use the fixed prolific code from command line arguments
+    prolific_code = args.prolific_code
 
     # Create HTML output with the Prolific code
     create_html_output(random_pages, pdf_s3_client, output_filename, args.workspace, args.db_path, prolific_code)
 
-    return output_filename, prolific_code
+    return output_filename
 
 
 def extract_datastore_url(html_content: str) -> Optional[str]:
@@ -1052,10 +1054,9 @@ def read_and_process_results(args):
         # Read the CSV file
         links = []
         with open(args.read_results, "r") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if "tinyhost_link" in row:
-                    links.append(row["tinyhost_link"])
+            for line in f:
+                if line.strip():
+                    links.append(line.strip())
 
         if not links:
             print(f"No tinyhost links found in {args.read_results}")
@@ -1125,7 +1126,6 @@ def main():
 
     # Use ThreadPoolExecutor to parallelize the generation of sample sets
     output_files = []
-    prolific_codes = []
 
     if args.repeats > 1:
         print(f"Using ThreadPoolExecutor with {min(args.max_workers, args.repeats)} workers")
@@ -1138,17 +1138,15 @@ def main():
             # Wait for all futures to complete and collect results
             for future in futures:
                 try:
-                    output_filename, prolific_code = future.result()
+                    output_filename = future.result()
                     output_files.append(output_filename)
-                    prolific_codes.append(prolific_code)
-                    print(f"Completed generation of {output_filename} with code {prolific_code}")
+                    print(f"Completed generation of {output_filename}")
                 except Exception as e:
                     print(f"Error generating sample set: {e}")
     else:
         # If only one repeat, just run it directly
-        output_filename, prolific_code = generate_sample_set(args, 0, s3_client, pdf_s3_client, result_files)
+        output_filename = generate_sample_set(args, 0, s3_client, pdf_s3_client, result_files)
         output_files.append(output_filename)
-        prolific_codes.append(prolific_code)
 
     # Now upload each resulting file into tinyhost
     print("Generated all files, uploading tinyhost links now")
@@ -1158,16 +1156,14 @@ def main():
         links.append(link)
         print(link)
 
-    # Create CSV file with tinyhost links and Prolific codes
+    # Create CSV file with just the tinyhost links, one per line
     csv_path = args.prolific_csv
-    print(f"Writing Prolific codes to {csv_path}")
+    print(f"Writing tinyhost links to {csv_path}")
     with open(csv_path, "w", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(["tinyhost_link", "code"])
-        for link, code in zip(links, prolific_codes):
-            writer.writerow([link, code])
+        for link in links:
+            csvfile.write(f"{link}\n")
 
-    print(f"Prolific codes written to {csv_path}")
+    print(f"Tinyhost links written to {csv_path}")
 
 
 if __name__ == "__main__":
