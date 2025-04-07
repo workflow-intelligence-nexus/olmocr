@@ -244,6 +244,10 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 padding: 2rem;
             }}
             
+            ul {{
+                margin-left: 2em;
+            }}
+
             .container {{
                 max-width: 1200px;
                 margin: 0 auto;
@@ -253,18 +257,14 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 margin-bottom: 2rem;
                 border-bottom: 1px solid var(--border-color);
                 padding-bottom: 1rem;
+
+                font-size: small;
             }}
-            
-            header h1 {{
-                color: var(--primary-color);
-                font-size: 2rem;
-                margin-bottom: 0.5rem;
+
+            header h2 {{
+                margin-top: 1em;
             }}
-            
-            header p {{
-                color: var(--secondary-color);
-                font-size: 1rem;
-            }}
+        
             
             .info-bar {{
                 background-color: white;
@@ -504,50 +504,41 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
     <body>
         <div class="container">
             <header>
-                <p>
-                <strong>Instructions: </strong>Please review each document below and mark if it contains PII (Personally identifiable information). If you cannot read it (ex. the document is not in English, or is otherwise unreadable), mark it as such. 
-                If the document contains disturbing or graphic content, please mark that. Finally, if there is PII, type in a brief description and press Enter. Once you mark all 30 documents, the completetion code will 
-                be presented. You can edit previously created annotations on the same page.
-                </p>
-
-                <div style="display: flex; font-family: Arial, sans-serif; font-size: 14px; max-width: 1000px; margin: 0 auto;">
-                <div style="flex: 1; padding: 15px; background-color: #f5f7f9; border-radius: 8px; margin-right: 10px;">
-                    <h3 style="color: #2c3e50; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 8px;">PII Direct Identifiers</h3>
-                    <p style="font-style: italic; color: #555; margin-bottom: 15px;">Information that identifies a data subject without further context</p>
-                    <ul style="padding-left: 20px; line-height: 1.5; margin-top: 0;">
-                    <li>Names: Full names, first names, last names, nicknames, maiden names, birth names, aliases</li>
-                    <li>Addresses: Street addresses, postal codes, city, state, country</li>
-                    <li>Contact Information: Phone numbers, email addresses</li>
-                    <li>Government IDs: Social Security Numbers (SSNs), passport numbers, driver's license numbers, tax identification numbers</li>
-                    <li>Financial Information: Credit card numbers, bank account numbers, routing numbers</li>
-                    <li>Biometric Data: Fingerprints, retina scans, voice signatures, facial recognition data</li>
-                    <li>Date of Birth of data subject</li>
-                    <li>Place of Birth of data subject</li>
-                    <li>Gender of data subject</li>
-                    <li>Race of data subject</li>
-                    <li>Religion of data subject</li>
-                    </ul>
-                </div>
+            <h2>Task Instructions</h2>
+                <p>Your task is to review several document pages and determine whether they contain any <strong>Personally Identifiable Information (PII)</strong>. Carefully inspect each page and select the appropriate response.</p>
                 
-                <div style="flex: 1; padding: 15px; background-color: #f5f7f9; border-radius: 8px; margin-left: 10px;">
-                    <h3 style="color: #2c3e50; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 8px;">PII Indirect Identifiers</h3>
-                    <p style="font-style: italic; color: #555; margin-bottom: 15px;">Information that can be used to identify a data subject in context or in combination with other information</p>
-                    <ul style="padding-left: 20px; line-height: 1.5; margin-top: 0;">
-                    <li>IP Addresses</li>
-                    <li>Login IDs</li>
-                    <li>Geolocations</li>
-                    <li>Employment Information</li>
-                    <li>Education Information</li>
-                    <li>Medical Information</li>
-                    <li>Usernames</li>
-                    <li>Passwords</li>
-                    <li>Keys</li>
-                    <li>URLs</li>
-                    <li>Company Names</li>
-                    </ul>
-                </div>
-                </div>
-    
+                <h2>How to Annotate</h2>
+                <p>The page you are currently annotating will be highlighted with a blue outline and a set of response buttons will be displayed directly below it.</p>
+                <br/>
+                <p><strong>Yes PII</strong> - Select this if you find any information on the page that qualifies as PII. A text box will appear below - briefly describe the kind of PII you encountered (e.g., full name, social security number, etc.) then press the Enter key.</p>
+                <p><strong>No PII</strong> - Select this if the page does not contain any PII.</p>
+                <p><strong>I cannot read this</strong> - Select this if you are unable to read the page for any reason (e.g., written in a language other than English, heavily redacted text, etc.)</p>
+                <p><strong>Disturbing content</strong> - Select this if the page contains disturbing or graphic content.</p>
+                
+                <br/>
+                <p>You may edit your annotations any time before submitting. To do so, press the green Edit button directly above the page.</p>
+                <p>After completing all the document pages on this screen, you will receive a Prolific completion code.</p>
+                
+                <h2>What Counts as PII?</h2>
+                <ul>
+                    <li><strong>Names</strong>: Full names, first names, last names, nicknames, maiden names, aliases</li>
+                    <li><strong>Addresses</strong>: Street addresses, postal codes, cities, states, countries</li>
+                    <li><strong>Contact Information</strong>: Phone numbers, email addresses</li>
+                    <li><strong>Government IDs</strong>: SSNs, passport numbers, driver's license numbers, tax IDs</li>
+                    <li><strong>Financial Information</strong>: Credit card numbers, bank account numbers, routing numbers</li>
+                    <li><strong>Biometric Data</strong>: Fingerprints, retina scans, facial recognition data, voice signatures</li>
+                    <li><strong>Personal Attributes</strong>: Date of birth, place of birth, gender, race, religion</li>
+                    <li><strong>Online Identifiers</strong>: IP addresses, login IDs, usernames, passwords, API keys, URLs</li>
+                    <li><strong>Location Information</strong>: Geolocations, specific coordinates</li>
+                    <li><strong>Employment Information</strong>: Job titles, workplace names, employment history</li>
+                    <li><strong>Education Information</strong>: School names, degrees, transcripts</li>
+                    <li><strong>Medical Information</strong>: Health records, diagnoses</li>
+                    <li><strong>Company Names</strong>: If they are tied to an individual's identity (e.g., a person's personal business)</li>
+                </ul>
+                
+                <h2>What NOT to Mark as PII</h2>
+                <p><strong>Author names, researcher names, citations, or references from published research papers</strong> should NOT be marked as PII. These names are part of the normal publication process and are not considered private or sensitive information for the purposes of this task.
+                Only mark information as PII if it relates to private, sensitive, or personal details about an individual outside the context of the publication.</p>
             </header>
             
             <div class="info-bar">
@@ -887,21 +878,33 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 }
                 
                 // If we have annotated pages, go to the first unannotated page
-                if (lastAnnotatedIndex >= 0 && lastAnnotatedIndex < totalPages - 1) {
+                if (lastAnnotatedIndex >= 0) {
                     document.querySelector(`.annotation-interface.active`).classList.remove('active');
-                    currentIndex = lastAnnotatedIndex + 1;
-                    document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.add('active');
                     
-                    // Add editing class and scroll to the active annotation
-                    const activeContainer = document.querySelector(`.page-container[data-index="${currentIndex}"]`);
-                    if (activeContainer) {
-                        // Remove editing class from all containers first
-                        document.querySelectorAll('.page-container').forEach(container => {
-                            container.classList.remove('editing');
-                        });
-                        // Add editing class to current container
-                        activeContainer.classList.add('editing');
-                        activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Check if all pages are annotated
+                    if (lastAnnotatedIndex === totalPages - 1) {
+                        // All pages are annotated, set currentIndex to totalPages to trigger completion
+                        currentIndex = totalPages;
+                        
+                        // Show completion message and scroll to it
+                        document.getElementById('completion-message').style.display = 'block';
+                        document.getElementById('completion-message').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        // Go to the next unannotated page
+                        currentIndex = lastAnnotatedIndex + 1;
+                        document.querySelector(`.annotation-interface[data-id="page-${currentIndex}"]`).classList.add('active');
+                        
+                        // Add editing class and scroll to the active annotation
+                        const activeContainer = document.querySelector(`.page-container[data-index="${currentIndex}"]`);
+                        if (activeContainer) {
+                            // Remove editing class from all containers first
+                            document.querySelectorAll('.page-container').forEach(container => {
+                                container.classList.remove('editing');
+                            });
+                            // Add editing class to current container
+                            activeContainer.classList.add('editing');
+                            activeContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
                     }
                     
                     updateProgressBar();
