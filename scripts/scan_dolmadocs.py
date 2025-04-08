@@ -388,6 +388,15 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 display: block; /* Show only the active annotation interface */
             }}
             
+            .question-container {{
+                margin-bottom: 1rem;
+            }}
+            
+            .question-text {{
+                font-weight: 500;
+                margin-bottom: 0.5rem;
+            }}
+            
             /* Button group styling for connected buttons */
             .btn-group {{
                 display: inline-flex;
@@ -424,10 +433,50 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 color: white;
             }}
             
+            .checkbox-group {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+            }}
+            
+            .checkbox-group label {{
+                display: flex;
+                align-items: center;
+                padding: 0.25rem 0.5rem;
+                background-color: #f1f5f9;
+                border-radius: 0.25rem;
+                cursor: pointer;
+                font-size: 0.875rem;
+            }}
+            
+            .checkbox-group label:hover {{
+                background-color: #e2e8f0;
+            }}
+            
+            .checkbox-group input[type="checkbox"] {{
+                margin-right: 0.5rem;
+            }}
+            
+            .continue-button {{
+                padding: 0.5rem 1rem;
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 0.25rem;
+                cursor: pointer;
+                font-weight: 500;
+            }}
+            
+            .continue-button:hover {{
+                background-color: #1d4ed8;
+            }}
+            
             .annotation-interface textarea {{
                 display: none; /* Hide textarea by default */
                 width: 100%;
                 margin-top: 0.5rem;
+                margin-bottom: 1rem;
                 padding: 0.5rem;
                 font-size: 0.875rem;
                 border: 1px solid var(--border-color);
@@ -527,12 +576,22 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             <p>Your task is to review {len(random_pages)} document pages and determine whether they contain any <strong>Personally Identifiable Information (PII)</strong>. Carefully but efficiently inspect each page and select the appropriate response. You do not need to read every word - quickly scan the page and look for any obvious PII. The time expected to complete this task is 10-15 minutes.</p>
             
             <h2>How to Annotate</h2>
-            <p>The page you are currently annotating will be highlighted with a blue outline and a set of response buttons will be displayed directly below it.</p>
+            <p>The page you are currently annotating will be highlighted with a blue outline and a set of questions will be displayed directly below it.</p>
             <br/>
-            <p><strong>Yes PII</strong> - Select this if you find any information on the page that qualifies as PII. A text box will appear below - briefly describe the kind of PII you encountered (e.g., full name, social security number, etc.) then press the Enter key.</p>
-            <p><strong>No PII</strong> - Select this if the page does not contain any PII.</p>
-            <p><strong>I cannot read this</strong> - Select this if you are unable to read the page for any reason (e.g., written in a language other than English, heavily redacted text, etc.)</p>
-            <p><strong>Disturbing content</strong> - Select this if the page contains disturbing or graphic content.</p>
+            <p><strong>First question:</strong> Is this document meant for public dissemination?</p>
+            <ul>
+                <li><strong>Yes</strong> - If the document appears to be a publication, research paper, public information, etc.</li>
+                <li><strong>No</strong> - If the document appears to be private, personal, or not intended for public release</li>
+                <li><strong>I cannot read it</strong> - If you are unable to read the page (e.g., foreign language, poor quality)</li>
+                <li><strong>Report Content</strong> - If the content is inappropriate or disturbing</li>
+            </ul>
+            
+            <p><strong>Second question:</strong> Depending on your first answer, you'll be asked to identify any PII in the document:</p>
+            <ul>
+                <li>For <strong>public</strong> documents, select from: SSN, Bank Info, Credit Card Info, Usernames/Passwords, Other</li>
+                <li>For <strong>private</strong> documents, select from: Full Names, Addresses, Contact Info, Personal Attributes, SSN, Bank Info, Credit Card Info, Usernames/Passwords, Other</li>
+            </ul>
+            <p>You can select multiple PII types. If you select "Other", a text box will appear where you can describe the PII.</p>
             
             <br/>
             <p>You may edit your annotations any time before submitting. To do so, press the green Edit button directly above the page.</p>
@@ -621,13 +680,45 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     <img class="page-image" src="data:image/webp;base64,{base64_image}" alt="PDF Page {page_num}" loading="lazy" />
                 </div>
                 <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}">
-                    <span class="btn-group">
-                        <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
-                        <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
-                        <button type="button" class="toggle-button feedback-option" data-value="cannot-read" onclick="toggleFeedbackOption(this)">I cannot read this</button>
-                        <button type="button" class="toggle-button feedback-option" data-value="disturbing" onclick="toggleFeedbackOption(this)">Disturbing content</button>
-                    </span>
-                    <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
+                    <div class="question-container" id="question1-{i}">
+                        <p class="question-text">Is this document meant for public dissemination?</p>
+                        <span class="btn-group">
+                            <button type="button" class="toggle-button primary-option" data-value="yes-public" onclick="togglePrimaryOption(this, {i})">Yes</button>
+                            <button type="button" class="toggle-button primary-option" data-value="no-public" onclick="togglePrimaryOption(this, {i})">No</button>
+                            <button type="button" class="toggle-button primary-option" data-value="cannot-read" onclick="togglePrimaryOption(this, {i})">I cannot read it</button>
+                            <button type="button" class="toggle-button primary-option" data-value="report-content" onclick="togglePrimaryOption(this, {i})">Report Content</button>
+                        </span>
+                    </div>
+                    
+                    <div class="question-container" id="public-pii-options-{i}" style="display: none; margin-top: 1rem;">
+                        <p class="question-text">Select any PII found in this public document:</p>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="pii-checkbox" data-value="ssn" onchange="saveCheckboxes(this)"> SSN</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="bank-info" onchange="saveCheckboxes(this)"> Bank Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="credit-card" onchange="saveCheckboxes(this)"> Credit Card Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="usernames-passwords" onchange="saveCheckboxes(this)"> Usernames/Passwords</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
+                        </div>
+                        <textarea id="other-pii-public-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
+                        <button type="button" class="continue-button" onclick="goToNextDocument()">Continue</button>
+                    </div>
+                    
+                    <div class="question-container" id="private-pii-options-{i}" style="display: none; margin-top: 1rem;">
+                        <p class="question-text">Select any PII found in this private document:</p>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="pii-checkbox" data-value="full-names" onchange="saveCheckboxes(this)"> Full Names</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="addresses" onchange="saveCheckboxes(this)"> Addresses</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="contact-info" onchange="saveCheckboxes(this)"> Contact Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="personal-attributes" onchange="saveCheckboxes(this)"> Personal Attributes</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="ssn" onchange="saveCheckboxes(this)"> SSN</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="bank-info" onchange="saveCheckboxes(this)"> Bank Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="credit-card" onchange="saveCheckboxes(this)"> Credit Card Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="usernames-passwords" onchange="saveCheckboxes(this)"> Usernames/Passwords</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
+                        </div>
+                        <textarea id="other-pii-private-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
+                        <button type="button" class="continue-button" onclick="goToNextDocument()">Continue</button>
+                    </div>
                 </div>
             </div>
             """
@@ -651,13 +742,45 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 </div>
                 <div class="error">Error: {str(e)}</div>
                 <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}">
-                    <span class="btn-group">
-                        <button type="button" class="toggle-button feedback-option" data-value="yes-pii" onclick="toggleFeedbackOption(this)">Yes PII</button>
-                        <button type="button" class="toggle-button feedback-option" data-value="no-pii" onclick="toggleFeedbackOption(this)">No PII</button>
-                        <button type="button" class="toggle-button feedback-option" data-value="cannot-read" onclick="toggleFeedbackOption(this)">I cannot read this</button>
-                        <button type="button" class="toggle-button feedback-option" data-value="disturbing" onclick="toggleFeedbackOption(this)">Disturbing content</button>
-                    </span>
-                    <textarea placeholder="Describe any private PII in the document" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
+                    <div class="question-container" id="question1-{i}">
+                        <p class="question-text">Is this document meant for public dissemination?</p>
+                        <span class="btn-group">
+                            <button type="button" class="toggle-button primary-option" data-value="yes-public" onclick="togglePrimaryOption(this, {i})">Yes</button>
+                            <button type="button" class="toggle-button primary-option" data-value="no-public" onclick="togglePrimaryOption(this, {i})">No</button>
+                            <button type="button" class="toggle-button primary-option" data-value="cannot-read" onclick="togglePrimaryOption(this, {i})">I cannot read it</button>
+                            <button type="button" class="toggle-button primary-option" data-value="report-content" onclick="togglePrimaryOption(this, {i})">Report Content</button>
+                        </span>
+                    </div>
+                    
+                    <div class="question-container" id="public-pii-options-{i}" style="display: none; margin-top: 1rem;">
+                        <p class="question-text">Select any PII found in this public document:</p>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="pii-checkbox" data-value="ssn" onchange="saveCheckboxes(this)"> SSN</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="bank-info" onchange="saveCheckboxes(this)"> Bank Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="credit-card" onchange="saveCheckboxes(this)"> Credit Card Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="usernames-passwords" onchange="saveCheckboxes(this)"> Usernames/Passwords</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
+                        </div>
+                        <textarea id="other-pii-public-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
+                        <button type="button" class="continue-button" onclick="goToNextDocument()">Continue</button>
+                    </div>
+                    
+                    <div class="question-container" id="private-pii-options-{i}" style="display: none; margin-top: 1rem;">
+                        <p class="question-text">Select any PII found in this private document:</p>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="pii-checkbox" data-value="full-names" onchange="saveCheckboxes(this)"> Full Names</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="addresses" onchange="saveCheckboxes(this)"> Addresses</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="contact-info" onchange="saveCheckboxes(this)"> Contact Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="personal-attributes" onchange="saveCheckboxes(this)"> Personal Attributes</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="ssn" onchange="saveCheckboxes(this)"> SSN</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="bank-info" onchange="saveCheckboxes(this)"> Bank Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="credit-card" onchange="saveCheckboxes(this)"> Credit Card Info</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="usernames-passwords" onchange="saveCheckboxes(this)"> Usernames/Passwords</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
+                        </div>
+                        <textarea id="other-pii-private-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
+                        <button type="button" class="continue-button" onclick="goToNextDocument()">Continue</button>
+                    </div>
                 </div>
             </div>
             """
@@ -796,45 +919,88 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             async function saveFeedback(source) {
                 const interfaceDiv = source.closest('.annotation-interface');
                 const id = interfaceDiv.getAttribute('data-id');
-                // Get the selected feedback option value
-                const activeButton = interfaceDiv.querySelector('button.feedback-option.active');
-                const feedbackOption = activeButton ? activeButton.getAttribute('data-value') : null;
-                const piiDescription = interfaceDiv.querySelector('textarea').value;
+                
+                // Get the selected primary option
+                const activePrimaryButton = interfaceDiv.querySelector('button.primary-option.active');
+                const primaryOption = activePrimaryButton ? activePrimaryButton.getAttribute('data-value') : null;
+                
+                // Get checkbox selections for public document
+                const publicPiiOptions = [];
+                interfaceDiv.querySelectorAll('#public-pii-options-' + id.split('-')[1] + ' input[type="checkbox"]:checked').forEach(checkbox => {
+                    publicPiiOptions.push(checkbox.getAttribute('data-value'));
+                });
+                
+                // Get checkbox selections for private document
+                const privatePiiOptions = [];
+                interfaceDiv.querySelectorAll('#private-pii-options-' + id.split('-')[1] + ' input[type="checkbox"]:checked').forEach(checkbox => {
+                    privatePiiOptions.push(checkbox.getAttribute('data-value'));
+                });
+                
+                // Get any "Other" descriptions
+                const otherPublicDesc = interfaceDiv.querySelector('#other-pii-public-' + id.split('-')[1])?.value || '';
+                const otherPrivateDesc = interfaceDiv.querySelector('#other-pii-private-' + id.split('-')[1])?.value || '';
+                
                 const pdfPath = interfaceDiv.getAttribute('data-pdf-path');
 
                 const datastore = await fetchDatastore() || {};
                 datastore[id] = {
-                    feedbackOption: feedbackOption,
-                    piiDescription: piiDescription,
+                    primaryOption: primaryOption,
+                    publicPiiOptions: publicPiiOptions,
+                    privatePiiOptions: privatePiiOptions,
+                    otherPublicDesc: otherPublicDesc,
+                    otherPrivateDesc: otherPrivateDesc,
                     pdfPath: pdfPath
                 };
 
                 await putDatastore(datastore);
             }
 
-            function toggleFeedbackOption(btn) {
+            function togglePrimaryOption(btn, index) {
                 const interfaceDiv = btn.closest('.annotation-interface');
-                // Remove active class from all feedback option buttons in this group
-                interfaceDiv.querySelectorAll('button.feedback-option').forEach(function(b) {
+                // Remove active class from all primary option buttons in this group
+                interfaceDiv.querySelectorAll('button.primary-option').forEach(function(b) {
                     b.classList.remove('active');
                 });
+                
                 // Toggle on the clicked button
                 btn.classList.add('active');
-                saveFeedback(interfaceDiv);
                 
-                // Show or hide textarea based on selected option
-                const textarea = interfaceDiv.querySelector('textarea');
-                const feedbackOption = btn.getAttribute('data-value');
+                // Hide all secondary option containers
+                document.querySelector(`#public-pii-options-${index}`).style.display = 'none';
+                document.querySelector(`#private-pii-options-${index}`).style.display = 'none';
                 
-                if (feedbackOption === 'yes-pii') {
-                    // Only show textarea if "Yes PII" is selected
+                const option = btn.getAttribute('data-value');
+                
+                // Show the appropriate secondary options based on the selected primary option
+                if (option === 'yes-public') {
+                    document.querySelector(`#public-pii-options-${index}`).style.display = 'block';
+                } else if (option === 'no-public') {
+                    document.querySelector(`#private-pii-options-${index}`).style.display = 'block';
+                } else {
+                    // For "cannot-read" or "report-content", just save and move to next
+                    saveFeedback(interfaceDiv);
+                    goToNextDocument();
+                }
+            }
+            
+            function toggleOtherTextarea(checkbox) {
+                const container = checkbox.closest('.question-container');
+                const textareaId = container.querySelector('textarea').id;
+                const textarea = document.getElementById(textareaId);
+                
+                if (checkbox.checked) {
                     textarea.style.display = 'block';
                     textarea.focus();
                 } else {
-                    // If other options selected, hide textarea and go to next
                     textarea.style.display = 'none';
-                    goToNextDocument();
                 }
+                
+                saveCheckboxes(checkbox);
+            }
+            
+            function saveCheckboxes(input) {
+                const interfaceDiv = input.closest('.annotation-interface');
+                saveFeedback(interfaceDiv);
             }
 
             // Function to deobfuscate the Prolific code
@@ -868,23 +1034,64 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 
                 document.querySelectorAll('.annotation-interface').forEach(function(interfaceDiv) {
                     const id = interfaceDiv.getAttribute('data-id');
+                    const pageIndex = id.split('-')[1];
+                    
                     if (datastore[id]) {
                         const data = datastore[id];
-                        // Set active state for feedback option buttons
-                        interfaceDiv.querySelectorAll('button.feedback-option').forEach(function(btn) {
-                            if (btn.getAttribute('data-value') === data.feedbackOption) {
+                        
+                        // Set active state for primary option buttons
+                        interfaceDiv.querySelectorAll('button.primary-option').forEach(function(btn) {
+                            if (btn.getAttribute('data-value') === data.primaryOption) {
                                 btn.classList.add('active');
                                 
-                                // Show textarea if "Yes PII" is selected
-                                if (btn.getAttribute('data-value') === 'yes-pii') {
-                                    interfaceDiv.querySelector('textarea').style.display = 'block';
+                                // Show the appropriate secondary options
+                                const option = btn.getAttribute('data-value');
+                                if (option === 'yes-public') {
+                                    document.querySelector(`#public-pii-options-${pageIndex}`).style.display = 'block';
+                                } else if (option === 'no-public') {
+                                    document.querySelector(`#private-pii-options-${pageIndex}`).style.display = 'block';
                                 }
                             } else {
                                 btn.classList.remove('active');
                             }
                         });
-                        // Set the textarea value
-                        interfaceDiv.querySelector('textarea').value = data.piiDescription;
+                        
+                        // Restore public PII checkboxes
+                        if (data.publicPiiOptions && data.publicPiiOptions.length > 0) {
+                            const publicContainer = document.querySelector(`#public-pii-options-${pageIndex}`);
+                            data.publicPiiOptions.forEach(option => {
+                                const checkbox = publicContainer.querySelector(`input[data-value="${option}"]`);
+                                if (checkbox) {
+                                    checkbox.checked = true;
+                                    if (option === 'other') {
+                                        document.getElementById(`other-pii-public-${pageIndex}`).style.display = 'block';
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // Restore private PII checkboxes
+                        if (data.privatePiiOptions && data.privatePiiOptions.length > 0) {
+                            const privateContainer = document.querySelector(`#private-pii-options-${pageIndex}`);
+                            data.privatePiiOptions.forEach(option => {
+                                const checkbox = privateContainer.querySelector(`input[data-value="${option}"]`);
+                                if (checkbox) {
+                                    checkbox.checked = true;
+                                    if (option === 'other') {
+                                        document.getElementById(`other-pii-private-${pageIndex}`).style.display = 'block';
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // Set the textarea values
+                        if (data.otherPublicDesc) {
+                            document.getElementById(`other-pii-public-${pageIndex}`).value = data.otherPublicDesc;
+                        }
+                        
+                        if (data.otherPrivateDesc) {
+                            document.getElementById(`other-pii-private-${pageIndex}`).value = data.otherPrivateDesc;
+                        }
                     }
                 });
                 
@@ -892,7 +1099,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 let lastAnnotatedIndex = -1;
                 for (let i = 0; i < totalPages; i++) {
                     const pageId = `page-${i}`;
-                    if (datastore[pageId] && datastore[pageId].feedbackOption) {
+                    if (datastore[pageId] && datastore[pageId].primaryOption) {
                         lastAnnotatedIndex = i;
                     }
                 }
@@ -998,40 +1205,98 @@ def fetch_annotations(tinyhost_link: str) -> Tuple[Dict[str, Any], str]:
 def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -> Dict[str, List[Dict[str, Any]]]:
     """Process and categorize annotations by feedback type."""
     results = {
-        "yes_pii": [],
-        "no_pii": [],
+        "public_document": [],
+        "private_document": [],
         "cannot_read": [],
-        "disturbing": [],
+        "report_content": [],
         "no_annotation": [],
     }
 
     # Process each annotation
     for annotations, link in annotations_by_link:
         for page_id, annotation in annotations.items():
-            if not annotation or "feedbackOption" not in annotation:
+            if not annotation or "primaryOption" not in annotation:
                 results["no_annotation"].append(
                     {"page_id": page_id, "link": link, "pdf_path": annotation.get("pdfPath", "Unknown") if annotation else "Unknown"}
                 )
                 continue
 
-            category = annotation["feedbackOption"]
-            result_item = {
-                "page_id": page_id,
-                "link": link,
-                "pdf_path": annotation.get("pdfPath", "Unknown"),
-                "description": annotation.get("piiDescription", ""),
-            }
-
-            if category == "yes-pii":
-                results["yes_pii"].append(result_item)
-            elif category == "no-pii":
-                results["no_pii"].append(result_item)
-            elif category == "cannot-read":
-                results["cannot_read"].append(result_item)
-            elif category == "disturbing":
-                results["disturbing"].append(result_item)
+            primary_option = annotation["primaryOption"]
+            pdf_path = annotation.get("pdfPath", "Unknown")
+            
+            # Build a result item based on the new annotation structure
+            if primary_option == "yes-public":
+                # Public document with potential PII
+                public_pii_options = annotation.get("publicPiiOptions", [])
+                other_desc = annotation.get("otherPublicDesc", "")
+                
+                if not public_pii_options:
+                    # No PII selected in a public document
+                    results["public_document"].append({
+                        "page_id": page_id,
+                        "link": link,
+                        "pdf_path": pdf_path,
+                        "pii_types": [],
+                        "has_pii": False,
+                        "description": ""
+                    })
+                else:
+                    # PII found in a public document
+                    results["public_document"].append({
+                        "page_id": page_id,
+                        "link": link,
+                        "pdf_path": pdf_path,
+                        "pii_types": public_pii_options,
+                        "has_pii": True,
+                        "description": other_desc if "other" in public_pii_options else ""
+                    })
+                    
+            elif primary_option == "no-public":
+                # Private document with potential PII
+                private_pii_options = annotation.get("privatePiiOptions", [])
+                other_desc = annotation.get("otherPrivateDesc", "")
+                
+                if not private_pii_options:
+                    # No PII selected in a private document
+                    results["private_document"].append({
+                        "page_id": page_id,
+                        "link": link,
+                        "pdf_path": pdf_path,
+                        "pii_types": [],
+                        "has_pii": False,
+                        "description": ""
+                    })
+                else:
+                    # PII found in a private document
+                    results["private_document"].append({
+                        "page_id": page_id,
+                        "link": link,
+                        "pdf_path": pdf_path,
+                        "pii_types": private_pii_options,
+                        "has_pii": True,
+                        "description": other_desc if "other" in private_pii_options else ""
+                    })
+                    
+            elif primary_option == "cannot-read":
+                results["cannot_read"].append({
+                    "page_id": page_id,
+                    "link": link,
+                    "pdf_path": pdf_path
+                })
+                
+            elif primary_option == "report-content":
+                results["report_content"].append({
+                    "page_id": page_id,
+                    "link": link,
+                    "pdf_path": pdf_path
+                })
+                
             else:
-                results["no_annotation"].append(result_item)
+                results["no_annotation"].append({
+                    "page_id": page_id,
+                    "link": link,
+                    "pdf_path": pdf_path
+                })
 
     return results
 
@@ -1044,23 +1309,74 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
     print(f"ANNOTATION REPORT - Total Pages: {total_pages}")
     print("=" * 80)
 
+    # Count pages with PII in public documents
+    public_with_pii = [page for page in annotation_results['public_document'] if page.get('has_pii', False)]
+    public_without_pii = [page for page in annotation_results['public_document'] if not page.get('has_pii', False)]
+    
+    # Count pages with PII in private documents
+    private_with_pii = [page for page in annotation_results['private_document'] if page.get('has_pii', False)]
+    private_without_pii = [page for page in annotation_results['private_document'] if not page.get('has_pii', False)]
+
     # Print summary statistics
     print("\nSummary:")
-    print(f"  Pages with PII: {len(annotation_results['yes_pii'])} ({len(annotation_results['yes_pii'])/total_pages*100:.1f}%)")
-    print(f"  Pages without PII: {len(annotation_results['no_pii'])} ({len(annotation_results['no_pii'])/total_pages*100:.1f}%)")
+    print(f"  Public documents (total): {len(annotation_results['public_document'])} ({len(annotation_results['public_document'])/total_pages*100:.1f}% of all pages)")
+    print(f"    - With PII: {len(public_with_pii)} ({len(public_with_pii)/max(1, len(annotation_results['public_document']))*100:.1f}% of public docs)")
+    print(f"    - Without PII: {len(public_without_pii)} ({len(public_without_pii)/max(1, len(annotation_results['public_document']))*100:.1f}% of public docs)")
+    
+    print(f"  Private documents (total): {len(annotation_results['private_document'])} ({len(annotation_results['private_document'])/total_pages*100:.1f}% of all pages)")
+    print(f"    - With PII: {len(private_with_pii)} ({len(private_with_pii)/max(1, len(annotation_results['private_document']))*100:.1f}% of private docs)")
+    print(f"    - Without PII: {len(private_without_pii)} ({len(private_without_pii)/max(1, len(annotation_results['private_document']))*100:.1f}% of private docs)")
+    
     print(f"  Unreadable pages: {len(annotation_results['cannot_read'])} ({len(annotation_results['cannot_read'])/total_pages*100:.1f}%)")
-    print(f"  Pages with disturbing content: {len(annotation_results['disturbing'])} ({len(annotation_results['disturbing'])/total_pages*100:.1f}%)")
+    print(f"  Pages with reported content: {len(annotation_results['report_content'])} ({len(annotation_results['report_content'])/total_pages*100:.1f}%)")
     print(f"  Pages without annotation: {len(annotation_results['no_annotation'])} ({len(annotation_results['no_annotation'])/total_pages*100:.1f}%)")
 
-    # Print detailed report for pages with PII
-    if annotation_results["yes_pii"]:
-        print("\nDetailed Report - Pages with PII:")
+    # Analyze PII types in public documents
+    if public_with_pii:
+        pii_counts_public = {}
+        for page in public_with_pii:
+            for pii_type in page.get('pii_types', []):
+                pii_counts_public[pii_type] = pii_counts_public.get(pii_type, 0) + 1
+        
+        print("\nPII Types in Public Documents:")
+        for pii_type, count in sorted(pii_counts_public.items(), key=lambda x: x[1], reverse=True):
+            print(f"  - {pii_type}: {count} ({count/len(public_with_pii)*100:.1f}%)")
+
+    # Analyze PII types in private documents
+    if private_with_pii:
+        pii_counts_private = {}
+        for page in private_with_pii:
+            for pii_type in page.get('pii_types', []):
+                pii_counts_private[pii_type] = pii_counts_private.get(pii_type, 0) + 1
+        
+        print("\nPII Types in Private Documents:")
+        for pii_type, count in sorted(pii_counts_private.items(), key=lambda x: x[1], reverse=True):
+            print(f"  - {pii_type}: {count} ({count/len(private_with_pii)*100:.1f}%)")
+
+    # Print detailed report for public documents with PII
+    if public_with_pii:
+        print("\nDetailed Report - Public Documents with PII:")
         print("-" * 80)
-        for i, item in enumerate(annotation_results["yes_pii"], 1):
+        for i, item in enumerate(public_with_pii, 1):
             print(f"{i}. PDF: {item['pdf_path']}")
             print(f"   Page ID: {item['page_id']}")
             print(f"   Link: {item['link']}#{item['page_id']}")
-            print(f"   Description: {item['description']}")
+            print(f"   PII Types: {', '.join(item['pii_types'])}")
+            if item.get('description'):
+                print(f"   Description: {item['description']}")
+            print("-" * 80)
+
+    # Print detailed report for private documents with PII
+    if private_with_pii:
+        print("\nDetailed Report - Private Documents with PII:")
+        print("-" * 80)
+        for i, item in enumerate(private_with_pii, 1):
+            print(f"{i}. PDF: {item['pdf_path']}")
+            print(f"   Page ID: {item['page_id']}")
+            print(f"   Link: {item['link']}#{item['page_id']}")
+            print(f"   PII Types: {', '.join(item['pii_types'])}")
+            if item.get('description'):
+                print(f"   Description: {item['description']}")
             print("-" * 80)
 
     print("\nReport complete.")
@@ -1103,11 +1419,32 @@ def read_and_process_results(args):
 
         with open(output_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Category", "PDF Path", "Page ID", "Link", "Description"])
+            writer.writerow(["Category", "PDF Path", "Page ID", "Link", "Document Type", "PII Types", "Description"])
 
             for category, items in annotation_results.items():
                 for item in items:
-                    writer.writerow([category, item["pdf_path"], item["page_id"], f"{item['link']}#{item['page_id']}", item.get("description", "")])
+                    if category == "public_document":
+                        doc_type = "Public"
+                        pii_types = ", ".join(item.get("pii_types", []))
+                        description = item.get("description", "")
+                    elif category == "private_document":
+                        doc_type = "Private"
+                        pii_types = ", ".join(item.get("pii_types", []))
+                        description = item.get("description", "")
+                    else:
+                        doc_type = ""
+                        pii_types = ""
+                        description = ""
+                    
+                    writer.writerow([
+                        category, 
+                        item["pdf_path"], 
+                        item["page_id"], 
+                        f"{item['link']}#{item['page_id']}", 
+                        doc_type,
+                        pii_types,
+                        description
+                    ])
 
         print(f"Report saved to {output_file}")
 
