@@ -582,7 +582,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             <ul>
                 <li><strong>Yes</strong> - If the document appears to be a publication, research paper, public information, etc.</li>
                 <li><strong>No</strong> - If the document appears to be private, personal, or not intended for public release</li>
-                <li><strong>I cannot read it</strong> - If you are unable to read the page (e.g., foreign language, poor quality)</li>
+                <li><strong>Cannot Read</strong> - If you are unable to read the page (e.g., foreign language, poor quality)</li>
                 <li><strong>Report Content</strong> - If the content is inappropriate or disturbing</li>
             </ul>
             
@@ -669,9 +669,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             html_content += f"""
             <div class="page-container" data-index="{i}">
                 <div class="page-info">
-                    <h2 title="{pdf_path}">{original_url}</h2>
-                    <p>Page {page_num}</p>
-                    <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
+                    <p>{f'<a href="{presigned_url}#page={page_num}" target="_blank">View Cached PDF (page {page_num})</a>' if presigned_url else pdf_path}</p>
                     <p>
                         Status: <span class="annotation-status status-pending" id="status-{i}">Pending</span>
                     </p>
@@ -685,7 +683,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                         <span class="btn-group">
                             <button type="button" class="toggle-button primary-option" data-value="yes-public" onclick="togglePrimaryOption(this, {i})">Yes</button>
                             <button type="button" class="toggle-button primary-option" data-value="no-public" onclick="togglePrimaryOption(this, {i})">No</button>
-                            <button type="button" class="toggle-button primary-option" data-value="cannot-read" onclick="togglePrimaryOption(this, {i})">I cannot read it</button>
+                            <button type="button" class="toggle-button primary-option" data-value="cannot-read" onclick="togglePrimaryOption(this, {i})">Cannot Read</button>
                             <button type="button" class="toggle-button primary-option" data-value="report-content" onclick="togglePrimaryOption(this, {i})">Report Content</button>
                         </span>
                     </div>
@@ -700,7 +698,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                             <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
                         </div>
                         <textarea id="other-pii-public-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
-                        <button type="button" class="continue-button" onclick="goToNextDocument()">Continue</button>
+                        <button type="button" class="continue-button" onclick="saveThenNext(this)">Continue</button>
                     </div>
                     
                     <div class="question-container" id="private-pii-options-{i}" style="display: none; margin-top: 1rem;">
@@ -717,7 +715,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                             <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
                         </div>
                         <textarea id="other-pii-private-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
-                        <button type="button" class="continue-button" onclick="goToNextDocument()">Continue</button>
+                        <button type="button" class="continue-button" onclick="saveThenNext(this)">Continue</button>
                     </div>
                 </div>
             </div>
@@ -733,9 +731,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             html_content += f"""
             <div class="page-container" data-index="{i}">
                 <div class="page-info">
-                    <h2 title="{pdf_path}">original_url</h2>
-                    <p>Page {page_num}</p>
-                    <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
+                    <p>{f'<a href="{presigned_url}#page={page_num}" target="_blank">View Cached PDF (page {page_num})</a>' if presigned_url else pdf_path}</p>
                     <p>
                         Status: <span class="annotation-status status-pending" id="status-{i}">Pending</span>
                     </p>
@@ -747,7 +743,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                         <span class="btn-group">
                             <button type="button" class="toggle-button primary-option" data-value="yes-public" onclick="togglePrimaryOption(this, {i})">Yes</button>
                             <button type="button" class="toggle-button primary-option" data-value="no-public" onclick="togglePrimaryOption(this, {i})">No</button>
-                            <button type="button" class="toggle-button primary-option" data-value="cannot-read" onclick="togglePrimaryOption(this, {i})">I cannot read it</button>
+                            <button type="button" class="toggle-button primary-option" data-value="cannot-read" onclick="togglePrimaryOption(this, {i})">Cannot Read</button>
                             <button type="button" class="toggle-button primary-option" data-value="report-content" onclick="togglePrimaryOption(this, {i})">Report Content</button>
                         </span>
                     </div>
@@ -762,7 +758,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                             <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
                         </div>
                         <textarea id="other-pii-public-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
-                        <button type="button" class="continue-button" onclick="goToNextDocument()">Continue</button>
+                        <button type="button" class="continue-button" onclick="saveThenNext(this)">Continue</button>
                     </div>
                     
                     <div class="question-container" id="private-pii-options-{i}" style="display: none; margin-top: 1rem;">
@@ -779,7 +775,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                             <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
                         </div>
                         <textarea id="other-pii-private-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
-                        <button type="button" class="continue-button" onclick="goToNextDocument()">Continue</button>
+                        <button type="button" class="continue-button" onclick="saveThenNext(this)">Continue</button>
                     </div>
                 </div>
             </div>
@@ -911,8 +907,9 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 // If Enter key is pressed and not with Shift key, move to next document
                 if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
-                    saveFeedback(textarea);
-                    goToNextDocument();
+                    saveFeedback(textarea).then(() => {
+                        goToNextDocument();
+                    });
                 }
             }
             
@@ -955,6 +952,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 await putDatastore(datastore);
             }
 
+            function saveThenNext(btn) {
+                const interfaceDiv = btn.closest('.annotation-interface');
+                saveFeedback(interfaceDiv).then(() => {
+                    goToNextDocument();
+                });
+            }
+            
             function togglePrimaryOption(btn, index) {
                 const interfaceDiv = btn.closest('.annotation-interface');
                 // Remove active class from all primary option buttons in this group
@@ -969,6 +973,9 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 document.querySelector(`#public-pii-options-${index}`).style.display = 'none';
                 document.querySelector(`#private-pii-options-${index}`).style.display = 'none';
                 
+                // Immediately save the primary option selection
+                saveFeedback(interfaceDiv);
+                
                 const option = btn.getAttribute('data-value');
                 
                 // Show the appropriate secondary options based on the selected primary option
@@ -978,7 +985,6 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     document.querySelector(`#private-pii-options-${index}`).style.display = 'block';
                 } else {
                     // For "cannot-read" or "report-content", just save and move to next
-                    saveFeedback(interfaceDiv);
                     goToNextDocument();
                 }
             }
@@ -1000,7 +1006,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             
             function saveCheckboxes(input) {
                 const interfaceDiv = input.closest('.annotation-interface');
-                saveFeedback(interfaceDiv);
+                return saveFeedback(interfaceDiv);
             }
 
             // Function to deobfuscate the Prolific code
@@ -1223,80 +1229,62 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -
 
             primary_option = annotation["primaryOption"]
             pdf_path = annotation.get("pdfPath", "Unknown")
-            
+
             # Build a result item based on the new annotation structure
             if primary_option == "yes-public":
                 # Public document with potential PII
                 public_pii_options = annotation.get("publicPiiOptions", [])
                 other_desc = annotation.get("otherPublicDesc", "")
-                
+
                 if not public_pii_options:
                     # No PII selected in a public document
-                    results["public_document"].append({
-                        "page_id": page_id,
-                        "link": link,
-                        "pdf_path": pdf_path,
-                        "pii_types": [],
-                        "has_pii": False,
-                        "description": ""
-                    })
+                    results["public_document"].append(
+                        {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pii_types": [], "has_pii": False, "description": ""}
+                    )
                 else:
                     # PII found in a public document
-                    results["public_document"].append({
-                        "page_id": page_id,
-                        "link": link,
-                        "pdf_path": pdf_path,
-                        "pii_types": public_pii_options,
-                        "has_pii": True,
-                        "description": other_desc if "other" in public_pii_options else ""
-                    })
-                    
+                    results["public_document"].append(
+                        {
+                            "page_id": page_id,
+                            "link": link,
+                            "pdf_path": pdf_path,
+                            "pii_types": public_pii_options,
+                            "has_pii": True,
+                            "description": other_desc if "other" in public_pii_options else "",
+                        }
+                    )
+
             elif primary_option == "no-public":
                 # Private document with potential PII
                 private_pii_options = annotation.get("privatePiiOptions", [])
                 other_desc = annotation.get("otherPrivateDesc", "")
-                
+
                 if not private_pii_options:
                     # No PII selected in a private document
-                    results["private_document"].append({
-                        "page_id": page_id,
-                        "link": link,
-                        "pdf_path": pdf_path,
-                        "pii_types": [],
-                        "has_pii": False,
-                        "description": ""
-                    })
+                    results["private_document"].append(
+                        {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pii_types": [], "has_pii": False, "description": ""}
+                    )
                 else:
                     # PII found in a private document
-                    results["private_document"].append({
-                        "page_id": page_id,
-                        "link": link,
-                        "pdf_path": pdf_path,
-                        "pii_types": private_pii_options,
-                        "has_pii": True,
-                        "description": other_desc if "other" in private_pii_options else ""
-                    })
-                    
+                    results["private_document"].append(
+                        {
+                            "page_id": page_id,
+                            "link": link,
+                            "pdf_path": pdf_path,
+                            "pii_types": private_pii_options,
+                            "has_pii": True,
+                            "description": other_desc if "other" in private_pii_options else "",
+                        }
+                    )
+
             elif primary_option == "cannot-read":
-                results["cannot_read"].append({
-                    "page_id": page_id,
-                    "link": link,
-                    "pdf_path": pdf_path
-                })
-                
+                results["cannot_read"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path})
+
             elif primary_option == "report-content":
-                results["report_content"].append({
-                    "page_id": page_id,
-                    "link": link,
-                    "pdf_path": pdf_path
-                })
-                
+                results["report_content"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path})
+
             else:
-                results["no_annotation"].append({
-                    "page_id": page_id,
-                    "link": link,
-                    "pdf_path": pdf_path
-                })
+                results["no_annotation"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path})
 
     return results
 
@@ -1310,23 +1298,31 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
     print("=" * 80)
 
     # Count pages with PII in public documents
-    public_with_pii = [page for page in annotation_results['public_document'] if page.get('has_pii', False)]
-    public_without_pii = [page for page in annotation_results['public_document'] if not page.get('has_pii', False)]
-    
+    public_with_pii = [page for page in annotation_results["public_document"] if page.get("has_pii", False)]
+    public_without_pii = [page for page in annotation_results["public_document"] if not page.get("has_pii", False)]
+
     # Count pages with PII in private documents
-    private_with_pii = [page for page in annotation_results['private_document'] if page.get('has_pii', False)]
-    private_without_pii = [page for page in annotation_results['private_document'] if not page.get('has_pii', False)]
+    private_with_pii = [page for page in annotation_results["private_document"] if page.get("has_pii", False)]
+    private_without_pii = [page for page in annotation_results["private_document"] if not page.get("has_pii", False)]
 
     # Print summary statistics
     print("\nSummary:")
-    print(f"  Public documents (total): {len(annotation_results['public_document'])} ({len(annotation_results['public_document'])/total_pages*100:.1f}% of all pages)")
+    print(
+        f"  Public documents (total): {len(annotation_results['public_document'])} ({len(annotation_results['public_document'])/total_pages*100:.1f}% of all pages)"
+    )
     print(f"    - With PII: {len(public_with_pii)} ({len(public_with_pii)/max(1, len(annotation_results['public_document']))*100:.1f}% of public docs)")
-    print(f"    - Without PII: {len(public_without_pii)} ({len(public_without_pii)/max(1, len(annotation_results['public_document']))*100:.1f}% of public docs)")
-    
-    print(f"  Private documents (total): {len(annotation_results['private_document'])} ({len(annotation_results['private_document'])/total_pages*100:.1f}% of all pages)")
+    print(
+        f"    - Without PII: {len(public_without_pii)} ({len(public_without_pii)/max(1, len(annotation_results['public_document']))*100:.1f}% of public docs)"
+    )
+
+    print(
+        f"  Private documents (total): {len(annotation_results['private_document'])} ({len(annotation_results['private_document'])/total_pages*100:.1f}% of all pages)"
+    )
     print(f"    - With PII: {len(private_with_pii)} ({len(private_with_pii)/max(1, len(annotation_results['private_document']))*100:.1f}% of private docs)")
-    print(f"    - Without PII: {len(private_without_pii)} ({len(private_without_pii)/max(1, len(annotation_results['private_document']))*100:.1f}% of private docs)")
-    
+    print(
+        f"    - Without PII: {len(private_without_pii)} ({len(private_without_pii)/max(1, len(annotation_results['private_document']))*100:.1f}% of private docs)"
+    )
+
     print(f"  Unreadable pages: {len(annotation_results['cannot_read'])} ({len(annotation_results['cannot_read'])/total_pages*100:.1f}%)")
     print(f"  Pages with reported content: {len(annotation_results['report_content'])} ({len(annotation_results['report_content'])/total_pages*100:.1f}%)")
     print(f"  Pages without annotation: {len(annotation_results['no_annotation'])} ({len(annotation_results['no_annotation'])/total_pages*100:.1f}%)")
@@ -1335,9 +1331,9 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
     if public_with_pii:
         pii_counts_public = {}
         for page in public_with_pii:
-            for pii_type in page.get('pii_types', []):
+            for pii_type in page.get("pii_types", []):
                 pii_counts_public[pii_type] = pii_counts_public.get(pii_type, 0) + 1
-        
+
         print("\nPII Types in Public Documents:")
         for pii_type, count in sorted(pii_counts_public.items(), key=lambda x: x[1], reverse=True):
             print(f"  - {pii_type}: {count} ({count/len(public_with_pii)*100:.1f}%)")
@@ -1346,9 +1342,9 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
     if private_with_pii:
         pii_counts_private = {}
         for page in private_with_pii:
-            for pii_type in page.get('pii_types', []):
+            for pii_type in page.get("pii_types", []):
                 pii_counts_private[pii_type] = pii_counts_private.get(pii_type, 0) + 1
-        
+
         print("\nPII Types in Private Documents:")
         for pii_type, count in sorted(pii_counts_private.items(), key=lambda x: x[1], reverse=True):
             print(f"  - {pii_type}: {count} ({count/len(private_with_pii)*100:.1f}%)")
@@ -1362,7 +1358,7 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
             print(f"   Page ID: {item['page_id']}")
             print(f"   Link: {item['link']}#{item['page_id']}")
             print(f"   PII Types: {', '.join(item['pii_types'])}")
-            if item.get('description'):
+            if item.get("description"):
                 print(f"   Description: {item['description']}")
             print("-" * 80)
 
@@ -1375,7 +1371,7 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
             print(f"   Page ID: {item['page_id']}")
             print(f"   Link: {item['link']}#{item['page_id']}")
             print(f"   PII Types: {', '.join(item['pii_types'])}")
-            if item.get('description'):
+            if item.get("description"):
                 print(f"   Description: {item['description']}")
             print("-" * 80)
 
@@ -1435,16 +1431,8 @@ def read_and_process_results(args):
                         doc_type = ""
                         pii_types = ""
                         description = ""
-                    
-                    writer.writerow([
-                        category, 
-                        item["pdf_path"], 
-                        item["page_id"], 
-                        f"{item['link']}#{item['page_id']}", 
-                        doc_type,
-                        pii_types,
-                        description
-                    ])
+
+                    writer.writerow([category, item["pdf_path"], item["page_id"], f"{item['link']}#{item['page_id']}", doc_type, pii_types, description])
 
         print(f"Report saved to {output_file}")
 

@@ -1,6 +1,7 @@
 def build_basic_prompt() -> str:
     return "Please provide a natural, plain text representation of the document, formatted in Markdown. For mathematical expressions, use LaTeX notation with \( and \) for inline equations and \[ and \] for display equations. Convert any tables into Markdown format."
 
+
 def claude_response_format_schema() -> dict:
     return (
         {

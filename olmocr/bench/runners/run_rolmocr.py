@@ -1,4 +1,3 @@
-
 import httpx
 
 from olmocr.data.renderpdf import render_pdf_to_base64png
