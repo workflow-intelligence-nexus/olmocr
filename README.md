@@ -57,6 +57,10 @@ conda activate olmocr
 git clone https://github.com/allenai/olmocr.git
 cd olmocr
 
+# For CPU-only operations, ex. running benchmarks
+pip install -e .
+
+# For actually converting the files with your own GPU
 pip install -e .[gpu] --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
 
