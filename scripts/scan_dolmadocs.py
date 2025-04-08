@@ -7,7 +7,6 @@ import os
 import random
 import re
 import sqlite3
-import string
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path

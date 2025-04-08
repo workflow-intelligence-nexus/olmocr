@@ -1,5 +1,5 @@
 def build_basic_prompt() -> str:
-    return "Just return the markdown representation of this document as if you were reading it naturally. Convert equations to markdown using \( \) for inline math, and \[ \] otherwise."
+    return "Just return the plain text representation of this document as if you were reading it naturally. Convert equations to LaTeX using \( \) for inline math, and \[ \] otherwise. Convert all tables to markdown."
 
 
 def claude_response_format_schema() -> dict:

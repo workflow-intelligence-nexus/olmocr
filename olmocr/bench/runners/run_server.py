@@ -45,8 +45,6 @@ async def run_server(
         prompt = build_finetuning_prompt(anchor_text)
     elif prompt_template == "basic":
         prompt = build_basic_prompt()
-    elif prompt_template == "rolmocr":
-        prompt = build_rolmocr_prompt()
     else:
         raise ValueError("Unknown prompt template")
 
