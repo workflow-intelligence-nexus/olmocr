@@ -243,6 +243,9 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 color: var(--text-color);
                 background-color: var(--bg-color);
                 padding: 2rem;
+                display: flex;
+                flex-direction: row;
+                gap: 2rem;
             }}
             
             ul {{
@@ -250,15 +253,23 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             }}
 
             .container {{
-                max-width: 1200px;
-                margin: 0 auto;
+                flex: 2;
+                max-width: 750px;
             }}
             
             header {{
-                margin-bottom: 2rem;
-                border-bottom: 1px solid var(--border-color);
-                padding-bottom: 1rem;
-
+                position: sticky;
+                top: 2rem;
+                flex: 1;
+                min-width: 380px;
+                max-width: 420px;
+                max-height: calc(100vh - 4rem);
+                overflow-y: auto;
+                padding: 1.5rem;
+                background-color: white;
+                border-radius: 0.5rem;
+                box-shadow: var(--card-shadow);
+                align-self: flex-start;
                 font-size: small;
             }}
 
@@ -296,7 +307,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             
             .page-grid {{
                 display: grid;
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: 1fr;
                 gap: 2rem;
             }}
             
@@ -494,53 +505,61 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             @media (max-width: 768px) {{
                 body {{
                     padding: 1rem;
+                    flex-direction: column;
                 }}
                 
-                .page-grid {{
-                    grid-template-columns: 1fr;
+                header {{
+                    position: static;
+                    max-width: 100%;
+                    margin-left: 0;
+                    margin-bottom: 2rem;
+                }}
+                
+                .container {{
+                    max-width: 100%;
                 }}
             }}
         </style>
     </head>
     <body>
-        <div class="container">
-            <header>
+        <header>
             <h2>Task Instructions</h2>
-                <p>Your task is to review {len(random_pages)} document pages and determine whether they contain any <strong>Personally Identifiable Information (PII)</strong>. Carefully but efficiently inspect each page and select the appropriate response. You do not need to read every word - quickly scan the page and look for any obvious PII. The time expected to complete this task is 10-15 minutes.</p>
-                
-                <h2>How to Annotate</h2>
-                <p>The page you are currently annotating will be highlighted with a blue outline and a set of response buttons will be displayed directly below it.</p>
-                <br/>
-                <p><strong>Yes PII</strong> - Select this if you find any information on the page that qualifies as PII. A text box will appear below - briefly describe the kind of PII you encountered (e.g., full name, social security number, etc.) then press the Enter key.</p>
-                <p><strong>No PII</strong> - Select this if the page does not contain any PII.</p>
-                <p><strong>I cannot read this</strong> - Select this if you are unable to read the page for any reason (e.g., written in a language other than English, heavily redacted text, etc.)</p>
-                <p><strong>Disturbing content</strong> - Select this if the page contains disturbing or graphic content.</p>
-                
-                <br/>
-                <p>You may edit your annotations any time before submitting. To do so, press the green Edit button directly above the page.</p>
-                <p>After completing all the document pages on this screen, you will receive a Prolific completion code.</p>
-                
-                <h2>What Counts as PII?</h2>
-                <ul>
-                    <li><strong>Names</strong>: Full names, first names, last names, nicknames, maiden names, aliases</li>
-                    <li><strong>Addresses</strong>: Street addresses, postal codes, cities, states, countries</li>
-                    <li><strong>Contact Information</strong>: Phone numbers, email addresses</li>
-                    <li><strong>Government IDs</strong>: SSNs, passport numbers, driver's license numbers, tax IDs</li>
-                    <li><strong>Financial Information</strong>: Credit card numbers, bank account numbers, routing numbers</li>
-                    <li><strong>Biometric Data</strong>: Fingerprints, retina scans, facial recognition data, voice signatures</li>
-                    <li><strong>Personal Attributes</strong>: Date of birth, place of birth, gender, race, religion</li>
-                    <li><strong>Online Identifiers</strong>: IP addresses, login IDs, usernames, passwords, API keys, URLs</li>
-                    <li><strong>Location Information</strong>: Geolocations, specific coordinates</li>
-                    <li><strong>Employment Information</strong>: Job titles, workplace names, employment history</li>
-                    <li><strong>Education Information</strong>: School names, degrees, transcripts</li>
-                    <li><strong>Medical Information</strong>: Health records, diagnoses</li>
-                    <li><strong>Company Names</strong>: If they are tied to an individual's identity (e.g., a person's personal business)</li>
-                </ul>
-                
-                <h2>What NOT to Mark as PII</h2>
-                <p><strong>Author names, researcher names, citations, or references from published research papers</strong> should NOT be marked as PII. These names are part of the normal publication process and are not considered private or sensitive information for the purposes of this task.
-                Only mark information as PII if it relates to private, sensitive, or personal details about an individual outside the context of the publication.</p>
-            </header>
+            <p>Your task is to review {len(random_pages)} document pages and determine whether they contain any <strong>Personally Identifiable Information (PII)</strong>. Carefully but efficiently inspect each page and select the appropriate response. You do not need to read every word - quickly scan the page and look for any obvious PII. The time expected to complete this task is 10-15 minutes.</p>
+            
+            <h2>How to Annotate</h2>
+            <p>The page you are currently annotating will be highlighted with a blue outline and a set of response buttons will be displayed directly below it.</p>
+            <br/>
+            <p><strong>Yes PII</strong> - Select this if you find any information on the page that qualifies as PII. A text box will appear below - briefly describe the kind of PII you encountered (e.g., full name, social security number, etc.) then press the Enter key.</p>
+            <p><strong>No PII</strong> - Select this if the page does not contain any PII.</p>
+            <p><strong>I cannot read this</strong> - Select this if you are unable to read the page for any reason (e.g., written in a language other than English, heavily redacted text, etc.)</p>
+            <p><strong>Disturbing content</strong> - Select this if the page contains disturbing or graphic content.</p>
+            
+            <br/>
+            <p>You may edit your annotations any time before submitting. To do so, press the green Edit button directly above the page.</p>
+            <p>After completing all the document pages on this screen, you will receive a Prolific completion code.</p>
+            
+            <h2>What Counts as PII?</h2>
+            <ul>
+                <li><strong>Names</strong>: Full names, first names, last names, nicknames, maiden names, aliases</li>
+                <li><strong>Addresses</strong>: Street addresses, postal codes, cities, states, countries</li>
+                <li><strong>Contact Information</strong>: Phone numbers, email addresses</li>
+                <li><strong>Government IDs</strong>: SSNs, passport numbers, driver's license numbers, tax IDs</li>
+                <li><strong>Financial Information</strong>: Credit card numbers, bank account numbers, routing numbers</li>
+                <li><strong>Biometric Data</strong>: Fingerprints, retina scans, facial recognition data, voice signatures</li>
+                <li><strong>Personal Attributes</strong>: Date of birth, place of birth, gender, race, religion</li>
+                <li><strong>Online Identifiers</strong>: IP addresses, login IDs, usernames, passwords, API keys, URLs</li>
+                <li><strong>Location Information</strong>: Geolocations, specific coordinates</li>
+                <li><strong>Employment Information</strong>: Job titles, workplace names, employment history</li>
+                <li><strong>Education Information</strong>: School names, degrees, transcripts</li>
+                <li><strong>Medical Information</strong>: Health records, diagnoses</li>
+                <li><strong>Company Names</strong>: If they are tied to an individual's identity (e.g., a person's personal business)</li>
+            </ul>
+            
+            <h2>What NOT to Mark as PII</h2>
+            <p><strong>Author names, researcher names, citations, or references from published research papers</strong> should NOT be marked as PII. These names are part of the normal publication process and are not considered private or sensitive information for the purposes of this task.
+            Only mark information as PII if it relates to private, sensitive, or personal details about an individual outside the context of the publication.</p>
+        </header>
+        <div class="container">
             
             <div class="info-bar">
                 <div class="info-item">
@@ -591,7 +610,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             html_content += f"""
             <div class="page-container" data-index="{i}">
                 <div class="page-info">
-                    <h2 title="{pdf_path}"><a href="{original_url}" target="_blank">{original_url}</a></h2>
+                    <h2 title="{pdf_path}">{original_url}</h2>
                     <p>Page {page_num}</p>
                     <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
                     <p>
@@ -623,7 +642,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             html_content += f"""
             <div class="page-container" data-index="{i}">
                 <div class="page-info">
-                    <h2 title="{pdf_path}"><a href="{original_url}" target="_blank">{original_url}</a></h2>
+                    <h2 title="{pdf_path}">original_url</h2>
                     <p>Page {page_num}</p>
                     <p>{f'<a href="{presigned_url}" target="_blank">View Cached PDF</a>' if presigned_url else pdf_path}</p>
                     <p>
