@@ -260,7 +260,7 @@ pip install --upgrade vllm==0.8.3
 
 
 start_server vllm "Qwen/Qwen2.5-VL-7B-Instruct" --max-model-len 8192
-python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=qwen25vl_prompt6:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=basic:response_template=plain --parallel 50
+python -m olmocr.bench.convert --dir "$BENCH_DIR" server:name=qwen25vl_prompt7:model=Qwen/Qwen2.5-VL-7B-Instruct:temperature=0.1:prompt_template=basic:response_template=plain --parallel 50
 stop_server
 
 start_server vllm "reducto/RolmOCR" --max-model-len 8192
