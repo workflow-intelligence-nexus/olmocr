@@ -11,6 +11,8 @@ from typing import Dict, List, Optional, Tuple
 from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
 app = Flask(__name__)
+# Add static folder for KaTeX files
+app.static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "katex")
 
 # Global state
 DATASET_DIR = ""

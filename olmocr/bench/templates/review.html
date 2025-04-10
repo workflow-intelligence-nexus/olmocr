@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Test Review</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- KaTeX files for math rendering -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='katex.min.css') }}">
+    <script src="{{ url_for('static', filename='katex.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='auto-render.min.js') }}"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -306,6 +310,23 @@
             margin-bottom: 10px;
         }
         
+        /* Math display styles */
+        .math-display {
+            display: inline-block;
+            cursor: pointer;
+            padding: 5px;
+            margin-top: 2px;
+            margin-bottom: 10px;
+            min-width: 50px;
+            border: 1px dashed transparent;
+            background-color: rgba(240, 240, 240, 0.2);
+        }
+        
+        .math-display:hover {
+            background-color: rgba(200, 200, 200, 0.3);
+            border-color: #6f42c1;
+        }
+        
         .tests-header {
             display: flex;
             justify-content: space-between;
@@ -451,7 +472,7 @@
                         {% if test.top_heading %}<div><strong>Top Heading:</strong> <span class="editable" data-field="top_heading" data-id="{{ test.id }}">{{ test.top_heading }}</span></div>{% endif %}
                         {% if test.left_heading %}<div><strong>Left Heading:</strong> <span class="editable" data-field="left_heading" data-id="{{ test.id }}">{{ test.left_heading }}</span></div>{% endif %}
                     {% elif test.type == 'math' %}
-                        <div><strong>Math:</strong> <span class="editable" data-field="math" data-id="{{ test.id }}">{{ test.math }}</span></div>
+                        <div><strong>Math:</strong> <span class="math-display" data-id="{{ test.id }}">{{ test.math }}</span><span class="editable math-edit" style="display: none;" data-field="math" data-id="{{ test.id }}">{{ test.math }}</span></div>
                     {% endif %}
                     <div class="max-diffs-control">
                         <strong>Max Diffs:</strong>
@@ -883,6 +904,12 @@
             const editables = document.querySelectorAll(`.editable[data-id="${testId}"]`);
             
             editables.forEach(editable => {
+                // Special handling for math fields
+                if (editable.classList.contains('math-edit')) {
+                    toggleMathEdit(testId);
+                    return;
+                }
+                
                 const field = editable.dataset.field;
                 const currentValue = editable.innerText;
                 
@@ -944,6 +971,85 @@
         function startEditField(element) {
             const field = element.dataset.field;
             const testId = element.dataset.id;
+            
+            // Special handling for math fields
+            if (element.classList.contains('math-edit')) {
+                const currentValue = element.innerText;
+                
+                // Create textarea
+                const textarea = document.createElement('textarea');
+                textarea.value = currentValue;
+                textarea.dataset.field = field;
+                textarea.dataset.originalValue = currentValue;
+                
+                // Replace the span with textarea
+                element.parentNode.replaceChild(textarea, element);
+                
+                // Focus the textarea
+                textarea.focus();
+                
+                // Function to save and exit edit mode
+                function saveAndExit() {
+                    const newValue = textarea.value;
+                    const pdfName = '{{ pdf_name }}';
+                    
+                    // If value changed, save it
+                    if (newValue !== textarea.dataset.originalValue) {
+                        updateTestStatus(pdfName, testId, field, newValue);
+                    }
+                    
+                    // Create span again
+                    const span = document.createElement('span');
+                    span.className = 'editable math-edit';
+                    span.style.display = 'none';
+                    span.dataset.field = field;
+                    span.dataset.id = testId;
+                    span.innerText = newValue;
+                    
+                    // Replace textarea with span
+                    if (textarea.parentNode) {
+                        textarea.parentNode.replaceChild(span, textarea);
+                    }
+                    
+                    // Also update and render the math display element
+                    const mathDisplay = document.querySelector(`.math-display[data-id="${testId}"]`);
+                    if (mathDisplay) {
+                        mathDisplay.textContent = newValue;
+                        mathDisplay.style.display = 'inline-block';
+                        
+                        // Render math with KaTeX
+                        try {
+                            katex.render(newValue, mathDisplay, {
+                                displayMode: true,
+                                throwOnError: false
+                            });
+                        } catch (error) {
+                            console.error("KaTeX rendering error:", error);
+                            mathDisplay.textContent = newValue;
+                        }
+                    }
+                    
+                    // Important: Reset edit mode flag
+                    isEditMode = false;
+                }
+                
+                // Add keydown event to handle Enter key
+                textarea.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault(); // Prevent default Enter behavior
+                        saveAndExit(); // Save directly rather than triggering blur
+                    }
+                });
+                
+                // Add blur event to save changes
+                textarea.addEventListener('blur', function() {
+                    saveAndExit();
+                });
+                
+                return;
+            }
+            
+            // Regular (non-math) field handling
             const currentValue = element.innerText;
             
             // Create textarea
@@ -1086,6 +1192,7 @@
             
             const testId = testItem.dataset.id;
             const pdfName = '{{ pdf_name }}';
+            const testType = testItem.querySelector('.test-type').textContent.toLowerCase();
             
             switch (action) {
                 case 'approve':
@@ -1104,6 +1211,15 @@
                     
                 case 'edit':
                     isEditMode = true;
+                    // Special handling for math tests
+                    if (testType === 'math') {
+                        const mathDisplay = testItem.querySelector(`.math-display[data-id="${testId}"]`);
+                        if (mathDisplay) {
+                            toggleMathEdit(testId);
+                            return;
+                        }
+                    }
+                    // Regular handling for other test types
                     toggleEditMode(testId);
                     break;
                     
@@ -1205,10 +1321,68 @@
             }
         }
         
+        // Function to render math with KaTeX
+        function renderMath() {
+            const mathElements = document.querySelectorAll('.math-display');
+            mathElements.forEach(elem => {
+                try {
+                    katex.render(elem.textContent, elem, {
+                        displayMode: true,
+                        throwOnError: false
+                    });
+                } catch (error) {
+                    console.error("KaTeX rendering error:", error);
+                    // If rendering fails, show the raw LaTeX
+                    elem.textContent = elem.textContent;
+                }
+            });
+        }
+
+        // Custom edit mode for math fields
+        function toggleMathEdit(testId) {
+            const mathDisplay = document.querySelector(`.math-display[data-id="${testId}"]`);
+            const mathEdit = document.querySelector(`.math-edit[data-id="${testId}"]`);
+            
+            if (mathDisplay.style.display !== 'none') {
+                // Switch to edit mode
+                mathDisplay.style.display = 'none';
+                mathEdit.style.display = 'inline-block';
+                startEditField(mathEdit);
+            } else {
+                // Switch back to display mode with rendered math
+                const newValue = mathEdit.value || mathEdit.textContent;
+                mathDisplay.textContent = newValue;
+                try {
+                    katex.render(newValue, mathDisplay, {
+                        displayMode: true,
+                        throwOnError: false
+                    });
+                } catch (error) {
+                    console.error("KaTeX rendering error:", error);
+                    mathDisplay.textContent = newValue;
+                }
+                mathDisplay.style.display = 'inline-block';
+                mathEdit.style.display = 'none';
+            }
+        }
+
         // Add click event listeners to all editable fields and initialize keyboard navigation
         document.addEventListener('DOMContentLoaded', function() {
-            // Set up editable fields
-            const editables = document.querySelectorAll('.editable');
+            // Render all math on page load
+            renderMath();
+            
+            // Set up math display fields - clicking on rendered math starts edit mode
+            const mathDisplays = document.querySelectorAll('.math-display');
+            mathDisplays.forEach(mathDisplay => {
+                mathDisplay.onclick = function() {
+                    isEditMode = true;
+                    const testId = this.getAttribute('data-id');
+                    toggleMathEdit(testId);
+                };
+            });
+            
+            // Set up regular editable fields
+            const editables = document.querySelectorAll('.editable:not(.math-edit)');
             editables.forEach(editable => {
                 editable.onclick = function() { 
                     isEditMode = true;
@@ -1223,9 +1397,10 @@
             testItems.forEach((item, index) => {
                 item.addEventListener('click', function(e) {
                     // Only handle clicks on the test item itself or its direct children
-                    // Ignore clicks on buttons and editable elements
+                    // Ignore clicks on buttons, editable elements, and math displays
                     if (e.target.tagName !== 'BUTTON' && 
-                        !e.target.closest('.editable') && 
+                        !e.target.closest('.editable') &&
+                        !e.target.closest('.math-display') &&
                         !e.target.classList.contains('kbd-shortcut')) {
                         setCurrentTest(index);
                         e.stopPropagation();
