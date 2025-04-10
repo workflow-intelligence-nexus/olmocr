@@ -25,9 +25,9 @@ and commonly available. Almost any other format can be converted to a PDF, but n
   first article appears after the heading of that article. But, you may be okay with swapping the order of those 
   two articles.
 - Table Accuracy
-  - Both Markdown and HTML based tables are supported. These tests check that a cell with a given text exists somewhere in the table, and that its neighbors have certain properties. Ex. Cell exists with text "4.5%" and above that is a cell with the text "2.4%"
+  - Both Markdown and HTML based tables are supported. These tests check that a cell with a given text exists somewhere in the table, and that its neighbors have certain properties. Ex. A cell exists on this page with text "4.5%" and above that is a cell with the text "2.4%"
 - Math Formula Accuracy
-  - We render a given Latex style equation using Katex in a headless browser. And then see if it exists in the final OCRed document as a subset. Matching is performed on a relative symbol level, ex. in "\f\relax{x} = \int_{-\infty}^\infty
+  - We render a given Latex style equation using Katex in a headless browser. And then see if it exists anywhere in the final OCRed document. Matching is performed on a relative symbol level, ex. in "\f\relax{x} = \int_{-\infty}^\infty
     x^2dx" we check that a ∫ appears to the left of a x, x appears to the left of dx, etc...
   
 ## Downloading and running the benchmark
