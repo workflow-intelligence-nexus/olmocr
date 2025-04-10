@@ -4,68 +4,67 @@ We develop olmOCR-Bench in order to automatically and effectively evaluate docum
 parsing and OCR of various tools.
 
 olmOCR-Bench works by testing various "facts" or "properties" about document pages at the PDF-level.
-We choose PDFs directly, because PDFs do preserve some digital metadata and information which is helpful
+Our intention is that each "fact" is very simple, unambiguous, and machine-checkable. 
+
+We stay away from soft metrics like edit distance comparisons, because they may not correctly capture things like
+two articles appearing on the same page. You want the text of each article to be grouped together, but the relative order of the two articles is less important. Also, some documents may have critical details, like switching x and y in an equation that can make all the difference in understanding the document, but would appear as just a small edit in an edit-distance metric.
+
+We also choose PDFs directly, because PDFs do preserve some digital metadata and information which is helpful
 and commonly available. Almost any other format can be converted to a PDF, but not the reverse.
 
-## Property classes
+## Test classes
 
-- Text presence/absence
- - This task makes sure that a given small piece of text (ex. 1-3 sentence level) is present with high probability within
-    a parsed document. It looks at documents with ambiguity around headers, footers, and other ambiguous content. Text still
-    has a fuzzy matching allowed.
+- Text presence
+  - This task makes sure that a given small piece of text (ex. 1-3 sentence level) is present within
+    a parsed document. Soft/fuzzy matching is allowed.
+- Text absense
+  - This task makes sure that a given piece of next does NOT appear in the OCR'ed version of a document. We generally want our OCR systems to filter out content like headers/footers/page numbers from documents. 
 - Natural Reading Order
- - This task ensures that blocks of text which are present have a defined order relative to one another. For example,
+  - This task ensures that blocks of text which are present have a defined order relative to one another. For example,
   on a document that contains multiple news articles on one page, you'd want to see that the first sentence of the 
   first article appears after the heading of that article. But, you may be okay with swapping the order of those 
   two articles.
 - Table Accuracy
- - Pages with tables get parsed out and are checked for accuracy on a direct row/column/title basis.
-- Formula Accuracy
- - Extract formula from document, render it, and compare rendering using foundation model.
+  - Both Markdown and HTML based tables are supported. These tests check that a cell with a given text exists somewhere in the table, and that its neighbors have certain properties. Ex. Cell exists with text "4.5%" and above that is a cell with the text "2.4%"
+- Math Formula Accuracy
+  - We render a given Latex style equation using Katex in a headless browser. And then see if it exists in the final OCRed document as a subset. Matching is performed on a relative symbol level, ex. in "\f\relax{x} = \int_{-\infty}^\infty
+    x^2dx" we check that a ∫ appears to the left of a x, x appears to the left of dx, etc...
+  
+## Downloading and running the benchmark
 
-Table Format:
- - pdf_filename
- - Task ID
- - Type: text_presence, text_absense, reading_order, table
- - text_presence, text_absense: {text: str, fuzzy_threshold: float}
- - reading_order: {target_text_presence: task_id, appears_before: task_id, appears_after: task_id}
- - table: {table_index: int, needs to be fuzzy as well, ex. does row exist with column text X, does column exist with a row containing Y}
- - formula: TODO
+Currently the full benchmark data is located here, but it's private until we are done reviewing and checking all of the tests:
+https://huggingface.co/datasets/allenai/olmOCR-bench
 
-## Creation
-
-We sampled documents from the same source as olmocrmix. We run them through two models, and see which ones have biggest 
-plain textual diffs, but still contain lots of good text, and aren't just tables/formula heavy for now.
-Then, we will extract text presence/absense markers and verify using tinyhost UI. 
-Write those to JSON. Maybe do some embedding and grouping to try to get lots of variation, at least when 
-prioritizing manual review.
-
-Later, we will repeat the same for tables and formulas.
-
-Write the evalutor script which will output a nice templated tinyhostable results page.
-
-## Running
-We do not want to depend on a model having any specific format of its output.
-
-Step 1. Download dataset with all pdfs (all will be single page) to /pdfs
-Step 2. Run your extraction on it, point output to folder, ex. olmocr-v2_1/ where you expect pdf_page1.md for /pdfs/pdf_page1.pdf file
-Step 3. Run the evaluation script
-Step 4. Get results, and use tinyhost to view all failing examples
-
-### Running existing scripts
-
+To run a benchmark, first install the bench requirements
 ```bash
-pip install marker-pdf==1.5.4
-python olmocr/bench/runners/run_marker.py olmocr/bench/sample_data/pdfs
+conda create -n olmocr python=3.11
+conda activate olmocr
 
-pip install verovio torchvision
-python olmocr/bench/runners/run_gotocr.py olmocr/bench/sample_data/pdfs
+git clone https://github.com/allenai/olmocr.git
+cd olmocr
 
-conda create -n MinerU python=3.10
-conda activate MinerU
-pip install -U magic-pdf[full]==1.1.0 --extra-index-url https://wheels.myhloli.com
-pip install huggingface_hub
-wget https://github.com/opendatalab/MinerU/raw/master/scripts/download_models_hf.py -O download_models_hf.py
-python download_models_hf.py
-python olmocr/bench/runners/run_mineru.py olmocr/bench/sample_data/pdfs
+pip install -e .[bench]
 ```
+
+Convert your documents
+```bash
+# convert using a single OCR-engine, see the olmocr/bench/runners directory for options
+python -m olmocr.bench.convert olmocr_pipeline --dir ./olmOCR-bench/bench_data
+
+# or use convert_all.sh to run OCR with many common frameworks all at once, API keys will be required
+./olmocr/bench/scripts/convert_all.sh
+```
+
+Now run the benchmark
+```bash
+python -m olmocr.bench.benchmark --dir ./olmOCR-bench/bench_data
+```
+
+## How were the tests made
+
+Several categories of tests have been made so far:
+1. arxiv_math -> We downloaded recent math papers from arxiv, filtered to those which had a single tex source file, and a rendered pdf, using https://github.com/allenai/olmocr/blob/main/olmocr/bench/miners/download_math.py. Then we matched up the text on a pdf page to the location in the tex source mostly likely to match to it using a dynamic programming matching algorithm in https://github.com/allenai/olmocr/blob/main/olmocr/bench/miners/mine_math.py. From there, Latex equations from the matching page were then parsed out, and we checked they rendered in Katex before adding them as test cases.
+2. headers_footers -> We sampled documents from our internal crawled PDF repository. (The same from which olmOCR-mix was derived, though the likelyhood of duplicates is low, as there are 200M+ pdfs in this set). Then we used [DocLayout-YOLO](https://github.com/opendatalab/DocLayout-YOLO) to identify regions of the pages which were marked as headers/footers using the abandon category. We then got the text of those headers/footers regions by extracting them out and prompting Gemini, and we added them as test cases which should be absent. Manual review was then performed to remove mistakenly filtered text, and to set conditions such as limiting the search area to the first N or last N characters. Ex. if a page number "5" appears on the bottom a page, you want to test that your OCR system does not output a "5" in the last 20 characters of the page, but "5" could apepar earlier if in the actual body text.
+3. table_tests -> We sampled documents from our internal crawled PDF repository, and found those which had tables using gemini-flash-2.0. https://github.com/allenai/olmocr/blob/main/olmocr/bench/miners/mine_tables_gemini.py On pages that had tables, we then further asked gemini-flash-2.0 to tell us the relationships between randomly chosen cells. Those tests were then manually checked.
+4. multi_column -> We sampled documents from our internal crawled PDF repository manually, to find documents which had multi-column layouts and multiple articles on one page. Then, we used claude-sonnet-3.7 to render those pages to html, and from that html, we extracted text segments which were before/after one another. Then we manually reviewed each entry.
+5. old_scans -> We sampled documents from the library of congress which contained handwriting or typewritten text.
