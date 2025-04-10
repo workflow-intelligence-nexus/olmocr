@@ -16,9 +16,9 @@ and commonly available. Almost any other format can be converted to a PDF, but n
 
 - Text presence
   - This task makes sure that a given small piece of text (ex. 1-3 sentence level) is present within
-    a parsed document. Soft/fuzzy matching is allowed.
+    a parsed document. Soft/fuzzy matching is allowed, as well as specifying if the text must be in the first N or last N characters of the document. Case sensitive by default.
 - Text absense
-  - This task makes sure that a given piece of next does NOT appear in the OCR'ed version of a document. We generally want our OCR systems to filter out content like headers/footers/page numbers from documents. 
+  - This task makes sure that a given piece of next does NOT appear in the OCR'ed version of a document. We generally want our OCR systems to filter out content like headers/footers/page numbers from documents. The same fuzzy matching as in Text Presence tests is allowed.
 - Natural Reading Order
   - This task ensures that blocks of text which are present have a defined order relative to one another. For example,
   on a document that contains multiple news articles on one page, you'd want to see that the first sentence of the 
