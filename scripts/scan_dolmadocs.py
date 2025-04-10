@@ -641,7 +641,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
     for i, (pdf_path, page_num, page_text, result_file) in enumerate(tqdm(random_pages, desc="Rendering pages")):
         # Get original URL from PDF hash
         pdf_hash = parse_pdf_hash(pdf_path)
-        original_url = get_original_url(pdf_hash, db_path) if pdf_hash else None
+        _original_url = get_original_url(pdf_hash, db_path) if pdf_hash else None
 
         # Create a truncated path for display
         display_path = pdf_path
