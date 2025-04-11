@@ -44,6 +44,9 @@ git clone https://github.com/allenai/olmocr.git
 cd olmocr
 
 pip install -e .[bench]
+
+# Now clone the benchmark data
+git clone https://huggingface.co/datasets/allenai/olmOCR-bench
 ```
 
 Convert your documents
@@ -58,6 +61,17 @@ python -m olmocr.bench.convert olmocr_pipeline --dir ./olmOCR-bench/bench_data
 Now run the benchmark
 ```bash
 python -m olmocr.bench.benchmark --dir ./olmOCR-bench/bench_data
+```
+
+## Previewing the benchmark questions
+
+We have an internal data annotation tool that can be used to review the questions in the benchmark, and make edits.
+
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/dd24fd88-a642-4379-b5a1-9911717bf5b1" />
+
+
+```bash
+python -m olmocr.bench.review_app --port 5000 --debug ./olmOCR-bench/bench_data/multi_column.jsonl --force
 ```
 
 ## How were the tests made
