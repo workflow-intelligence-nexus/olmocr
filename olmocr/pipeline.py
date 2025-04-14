@@ -969,6 +969,11 @@ async def main():
         workspace_s3 = boto3.client("s3")
         pdf_s3 = boto3.client("s3")
 
+        # Wait a little bit so that not all beaker jobs in a task start at the same time and download the model at the same time
+        sleep_time = min(240, 10 * int(os.environ.get("BEAKER_REPLICA_RANK", "0")))
+        logger.info(f"Beaker job sleeping for {sleep_time} in order to not overwhelm model downloads")
+        await asyncio.sleep(sleep_time)
+
     if args.workspace_profile:
         workspace_session = boto3.Session(profile_name=args.workspace_profile)
         workspace_s3 = workspace_session.client("s3")
