@@ -288,7 +288,10 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 margin-top: 1em;
             }}
         
-            
+             .important {{
+                font-weight: bold;
+             }}
+
             .info-bar {{
                 background-color: white;
                 padding: 1rem;
@@ -1067,14 +1070,30 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 // Toggle on the clicked button
                 btn.classList.add('active');
                 
+                // Get the selected option
+                const option = btn.getAttribute('data-value');
+                
+                // If user selected Yes, Cannot Read, or Report Content, clear any checkboxes
+                // from "No" option that might have been selected before
+                if (option === 'yes-public' || option === 'cannot-read' || option === 'report-content') {
+                    // Clear all checkboxes
+                    interfaceDiv.querySelectorAll('.pii-checkbox').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    
+                    // Hide/clear any textareas
+                    interfaceDiv.querySelectorAll('textarea').forEach(textarea => {
+                        textarea.value = '';
+                        textarea.style.display = 'none';
+                    });
+                }
+                
                 // Hide all secondary option containers
                 document.querySelector(`#public-pii-options-${index}`).style.display = 'none';
                 document.querySelector(`#private-pii-options-${index}`).style.display = 'none';
                 
                 // Immediately save the primary option selection
                 saveFeedback(interfaceDiv);
-                
-                const option = btn.getAttribute('data-value');
                 
                 // Show the appropriate secondary options based on the selected primary option
                 if (option === 'yes-public') {
@@ -1421,18 +1440,18 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
         pii_categories = {
             "Identifiers": ["names", "email", "phone"],
             "PII requiring identifiers": ["addresses", "biographical", "location", "employment", "education", "medical"],
-            "Always sensitive PII": ["government-id", "financial", "biometric", "login-info"]
+            "Always sensitive PII": ["government-id", "financial", "biometric", "login-info"],
         }
-        
+
         # Dictionary to track all PII counts
         pii_counts_private = {}
         for page in private_with_pii:
             for pii_type in page.get("pii_types", []):
                 pii_counts_private[pii_type] = pii_counts_private.get(pii_type, 0) + 1
-        
+
         # Print categorized PII counts
         print("\nPII Types in Private Documents:")
-        
+
         # Print each category
         for category, pii_types in pii_categories.items():
             print(f"\n  {category}:")
@@ -1440,10 +1459,9 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
                 count = pii_counts_private.get(pii_type, 0)
                 if count > 0:
                     print(f"    - {pii_type}: {count} ({count/len(private_with_pii)*100:.1f}%)")
-        
+
         # Print any other PII types not in our categories (like "other")
-        other_pii = [pii_type for pii_type in pii_counts_private.keys() 
-                     if not any(pii_type in types for types in pii_categories.values())]
+        other_pii = [pii_type for pii_type in pii_counts_private.keys() if not any(pii_type in types for types in pii_categories.values())]
         if other_pii:
             print("\n  Other PII types:")
             for pii_type in other_pii:
