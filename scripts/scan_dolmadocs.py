@@ -647,20 +647,19 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             
             <h2>How to Identify PII</h2>
             
-            <h3>Identifiers for PII</h3>
+            <h3 style="color: #3b82f6;">Identifiers for PII</h3>
             <p>Some personal information needs to be accompanied by an <span class="important">identifier</span> to be considered PII. Identifiers that trigger PII include:</p>
             <ul>
                 <li>Names</li>
                 <li>Email Addresses</li>
                 <li>Phone Numbers</li>
             </ul>
+            <br/>
             
-            <h3>PII that must co-occur with an Identifier</h3>
+            <h3 style="color: #10b981;">PII that must co-occur with an Identifier</h3>
             <div class="highlight">
                 <p>The following types of information should <span class="important">only</span> be marked as PII if they occur <span class="important">alongside an identifier</span> (commonly, a person's name):</p>
                 <ul>
-                    <li>Names (full, first, last, maiden, nicknames, aliases)</li>
-                    <li>Contact Information (phone numbers, emails)</li>
                     <li>Addresses (street address, postal code, etc.)</li>
                     <li>Biographical Information (date of birth, place of birth, gender, sexual orientation, race, ethnicity, citizenship/immigration status, religion)</li>
                     <li>Location Information (geolocations, specific coordinates)</li>
@@ -673,7 +672,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             <p class="note">Note that some of these items are identifiers themselves.</p>
             <p><em>Example</em>: A street address might be personal information, but is not PII by itself. However, a street address associated with a name <span class="important">is</span> regulated PII.</p>
             
-            <h3>PII that occurs even without an Identifier</h3>
+            <br/>
+            <h3 style="color: #f59e0b;">PII that occurs even without an Identifier</h3>
             <div class="highlight">
                 <p>Certain types of sensitive information should always be classified as PII because the information is inherently self-identifying. The following should <span class="important">always be marked as PII</span> even if they do not occur alongside an identifier:</p>
                 <ul>
@@ -770,14 +770,14 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     <div class="question-container" id="private-pii-options-{i}" style="display: none; margin-top: 1rem;">
                         <p class="question-text">Select any PII found in this private document:</p>
                         
-                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #3b82f6;">Identifiers (Select these if found)</h4>
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #3b82f6;">Identifiers for PII (Select these if found)</h4>
                         <div class="checkbox-group">
                             <label><input type="checkbox" class="pii-checkbox" data-value="names" onchange="saveCheckboxes(this)"> Names (full, first, last, nicknames)</label>
                             <label><input type="checkbox" class="pii-checkbox" data-value="email" onchange="saveCheckboxes(this)"> Email Addresses</label>
                             <label><input type="checkbox" class="pii-checkbox" data-value="phone" onchange="saveCheckboxes(this)"> Phone Numbers</label>
                         </div>
                         
-                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #10b981;">PII that requires an identifier above</h4>
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #10b981;">PII that must co-occur with an Identifier</h4>
                         <div class="checkbox-group">
                             <label><input type="checkbox" class="pii-checkbox" data-value="addresses" onchange="saveCheckboxes(this)"> Addresses</label>
                             <label><input type="checkbox" class="pii-checkbox" data-value="biographical" onchange="saveCheckboxes(this)"> Biographical Info (DOB, gender, etc.)</label>
@@ -787,7 +787,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                             <label><input type="checkbox" class="pii-checkbox" data-value="medical" onchange="saveCheckboxes(this)"> Medical Information</label>
                         </div>
                         
-                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #f59e0b;">PII that is always sensitive (even without an identifier)</h4>
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #f59e0b;">PII that occurs even without an Identifier</h4>
                         <div class="checkbox-group">
                             <label><input type="checkbox" class="pii-checkbox" data-value="government-id" onchange="saveCheckboxes(this)"> Government IDs (SSN, passport, etc.)</label>
                             <label><input type="checkbox" class="pii-checkbox" data-value="financial" onchange="saveCheckboxes(this)"> Financial Information (credit card, bank)</label>
