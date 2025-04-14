@@ -459,6 +459,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 border-radius: 0.25rem;
                 cursor: pointer;
                 font-size: 0.875rem;
+                border-left: 3px solid transparent;
             }}
             
             .checkbox-group label:hover {{
@@ -467,6 +468,28 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             
             .checkbox-group input[type="checkbox"] {{
                 margin-right: 0.5rem;
+            }}
+            
+            /* Styling for checkbox groups with headings */
+            .question-container h4 {{
+                margin-bottom: 0.5rem;
+                font-weight: 600;
+                font-size: 0.9rem;
+                border-bottom: 1px solid #e5e7eb;
+                padding-bottom: 0.25rem;
+            }}
+            
+            /* Slightly different styling for each group */
+            .question-container h4:nth-of-type(1) + .checkbox-group label {{
+                border-left-color: #3b82f6;  /* Blue for identifiers */
+            }}
+            
+            .question-container h4:nth-of-type(2) + .checkbox-group label {{
+                border-left-color: #10b981;  /* Green for PII with identifier */
+            }}
+            
+            .question-container h4:nth-of-type(3) + .checkbox-group label {{
+                border-left-color: #f59e0b;  /* Amber for always-PII */
             }}
             
             .continue-button {{
@@ -584,7 +607,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
     <body>
         <header>
             <h2>Task Overview</h2>
-            <p>In this task, you will review 50 document pages and determine whether they contain any <span class="important">Personally Identifiable Information (PII)</span>. For each page, please follow the decision flow outlined in the "How to Annotate" section below.</p>
+            <p>In this task, you will review {len(random_pages)} document pages and determine whether they contain any <span class="important">Personally Identifiable Information (PII)</span>. For each page, please follow the decision flow outlined in the "How to Annotate" section below.</p>
             <p>Carefully but efficiently inspect each page and select the appropriate response. You do <span class="important">not</span> need to read every word. Instead, focus on ascertaining the document's intended use and spotting information that would qualify as PII.</p>
             <p>The entire task should take about <span class="important">25-30 minutes</span>.</p>
             
@@ -601,11 +624,11 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                         <li><strong>Cannot Read</strong> - If you are unable to read the page (e.g., foreign language, no text, etc.)</li>
                         <li><strong>Report Content</strong> - If the content is inappropriate or disturbing</li>
                     </ul>
-                    <p>If you selected "No," move on to Step 2. Otherwise, the annotation is complete.</p>
+                    <p>If you selected "Yes," "Cannot Read," or "Report Content," you will automatically move to the next document. If you selected "No," proceed to Step 2.</p>
                 </li>
                 
                 <li>
-                    <p><span class="important">Identify the kind of PII found in the document (if any).</span></p>
+                    <p><span class="important">Identify the kind of PII found in the private document (if any).</span></p>
                     <p>You will be shown a checklist with a set of PII options.</p>
                     <ul>
                         <li>Refer to the "How to Identify PII" section below and mark all options that apply.</li>
@@ -620,7 +643,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             </ol>
             
             <p>You may review and edit your previous annotations at any time. To do so, press the green Edit button directly above the page preview for the annotation you want to edit.</p>
-            <p>After completing all 50 document pages, you will receive a Prolific completion code.</p>
+            <p>After completing all {len(random_pages)} document pages, you will receive a Prolific completion code.</p>
             
             <h2>How to Identify PII</h2>
             
@@ -643,7 +666,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     <li>Location Information (geolocations, specific coordinates)</li>
                     <li>Employment Information (job titles, workplace names, employment history)</li>
                     <li>Education Information (school names, degrees, transcripts)</li>
-                    <li><strong>Medical Information (health records, diagnoses, genetic or neural data)</strong></li>
+                    <li>Medical Information (health records, diagnoses, genetic or neural data)</li>
                 </ul>
             </div>
             
@@ -722,7 +745,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 </div>
                 <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}">
                     <div class="question-container" id="question1-{i}">
-                        <p class="question-text">Is this document meant for public dissemination?</p>
+                        <p class="question-text">Is this document meant for public dissemination? (ex. news article, research paper, etc.)</p>
                         <span class="btn-group">
                             <button type="button" class="toggle-button primary-option" data-value="yes-public" onclick="togglePrimaryOption(this, {i})">Yes</button>
                             <button type="button" class="toggle-button primary-option" data-value="no-public" onclick="togglePrimaryOption(this, {i})">No</button>
@@ -746,17 +769,33 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     
                     <div class="question-container" id="private-pii-options-{i}" style="display: none; margin-top: 1rem;">
                         <p class="question-text">Select any PII found in this private document:</p>
+                        
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #3b82f6;">Identifiers (Select these if found)</h4>
                         <div class="checkbox-group">
-                            <label><input type="checkbox" class="pii-checkbox" data-value="full-names" onchange="saveCheckboxes(this)"> Full Names</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="names" onchange="saveCheckboxes(this)"> Names (full, first, last, nicknames)</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="email" onchange="saveCheckboxes(this)"> Email Addresses</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="phone" onchange="saveCheckboxes(this)"> Phone Numbers</label>
+                        </div>
+                        
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #10b981;">PII that requires an identifier above</h4>
+                        <div class="checkbox-group">
                             <label><input type="checkbox" class="pii-checkbox" data-value="addresses" onchange="saveCheckboxes(this)"> Addresses</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="contact-info" onchange="saveCheckboxes(this)"> Contact Info</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="personal-attributes" onchange="saveCheckboxes(this)"> Personal Attributes</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="ssn" onchange="saveCheckboxes(this)"> SSN</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="bank-info" onchange="saveCheckboxes(this)"> Bank Info</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="credit-card" onchange="saveCheckboxes(this)"> Credit Card Info</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="usernames-passwords" onchange="saveCheckboxes(this)"> Usernames/Passwords</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="biographical" onchange="saveCheckboxes(this)"> Biographical Info (DOB, gender, etc.)</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="location" onchange="saveCheckboxes(this)"> Location Information</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="employment" onchange="saveCheckboxes(this)"> Employment Information</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="education" onchange="saveCheckboxes(this)"> Education Information</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="medical" onchange="saveCheckboxes(this)"> Medical Information</label>
+                        </div>
+                        
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #f59e0b;">PII that is always sensitive (even without an identifier)</h4>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="pii-checkbox" data-value="government-id" onchange="saveCheckboxes(this)"> Government IDs (SSN, passport, etc.)</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="financial" onchange="saveCheckboxes(this)"> Financial Information (credit card, bank)</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="biometric" onchange="saveCheckboxes(this)"> Biometric Data</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="login-info" onchange="saveCheckboxes(this)"> Login Information (username + password)</label>
                             <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
                         </div>
+                        
                         <textarea id="other-pii-private-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
                         <button type="button" class="continue-button" onclick="saveThenNext(this)">Continue</button>
                     </div>
@@ -806,17 +845,33 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     
                     <div class="question-container" id="private-pii-options-{i}" style="display: none; margin-top: 1rem;">
                         <p class="question-text">Select any PII found in this private document:</p>
+                        
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #3b82f6;">Identifiers (Select these if found)</h4>
                         <div class="checkbox-group">
-                            <label><input type="checkbox" class="pii-checkbox" data-value="full-names" onchange="saveCheckboxes(this)"> Full Names</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="names" onchange="saveCheckboxes(this)"> Names (full, first, last, nicknames)</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="email" onchange="saveCheckboxes(this)"> Email Addresses</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="phone" onchange="saveCheckboxes(this)"> Phone Numbers</label>
+                        </div>
+                        
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #10b981;">PII that requires an identifier above</h4>
+                        <div class="checkbox-group">
                             <label><input type="checkbox" class="pii-checkbox" data-value="addresses" onchange="saveCheckboxes(this)"> Addresses</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="contact-info" onchange="saveCheckboxes(this)"> Contact Info</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="personal-attributes" onchange="saveCheckboxes(this)"> Personal Attributes</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="ssn" onchange="saveCheckboxes(this)"> SSN</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="bank-info" onchange="saveCheckboxes(this)"> Bank Info</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="credit-card" onchange="saveCheckboxes(this)"> Credit Card Info</label>
-                            <label><input type="checkbox" class="pii-checkbox" data-value="usernames-passwords" onchange="saveCheckboxes(this)"> Usernames/Passwords</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="biographical" onchange="saveCheckboxes(this)"> Biographical Info (DOB, gender, etc.)</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="location" onchange="saveCheckboxes(this)"> Location Information</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="employment" onchange="saveCheckboxes(this)"> Employment Information</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="education" onchange="saveCheckboxes(this)"> Education Information</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="medical" onchange="saveCheckboxes(this)"> Medical Information</label>
+                        </div>
+                        
+                        <h4 style="margin-top: 1rem; font-size: 0.9rem; color: #f59e0b;">PII that is always sensitive (even without an identifier)</h4>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" class="pii-checkbox" data-value="government-id" onchange="saveCheckboxes(this)"> Government IDs (SSN, passport, etc.)</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="financial" onchange="saveCheckboxes(this)"> Financial Information (credit card, bank)</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="biometric" onchange="saveCheckboxes(this)"> Biometric Data</label>
+                            <label><input type="checkbox" class="pii-checkbox" data-value="login-info" onchange="saveCheckboxes(this)"> Login Information (username + password)</label>
                             <label><input type="checkbox" class="pii-checkbox" data-value="other" onchange="toggleOtherTextarea(this)"> Other</label>
                         </div>
+                        
                         <textarea id="other-pii-private-{i}" placeholder="Describe other PII found in the document" style="display: none;" onchange="saveFeedback(this)" onkeydown="handleTextareaKeydown(event, this)"></textarea>
                         <button type="button" class="continue-button" onclick="saveThenNext(this)">Continue</button>
                     </div>
@@ -1023,7 +1078,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 
                 // Show the appropriate secondary options based on the selected primary option
                 if (option === 'yes-public') {
-                    document.querySelector(`#public-pii-options-${index}`).style.display = 'block';
+                    // If "Yes" for public document, immediately go to next without asking for PII
+                    goToNextDocument();
                 } else if (option === 'no-public') {
                     document.querySelector(`#private-pii-options-${index}`).style.display = 'block';
                 } else {
@@ -1096,7 +1152,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                                 // Show the appropriate secondary options
                                 const option = btn.getAttribute('data-value');
                                 if (option === 'yes-public') {
-                                    document.querySelector(`#public-pii-options-${pageIndex}`).style.display = 'block';
+                                    // No action needed for public documents - PII options remain hidden
                                 } else if (option === 'no-public') {
                                     document.querySelector(`#private-pii-options-${pageIndex}`).style.display = 'block';
                                 }
@@ -1275,27 +1331,10 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -
 
             # Build a result item based on the new annotation structure
             if primary_option == "yes-public":
-                # Public document with potential PII
-                public_pii_options = annotation.get("publicPiiOptions", [])
-                other_desc = annotation.get("otherPublicDesc", "")
-
-                if not public_pii_options:
-                    # No PII selected in a public document
-                    results["public_document"].append(
-                        {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pii_types": [], "has_pii": False, "description": ""}
-                    )
-                else:
-                    # PII found in a public document
-                    results["public_document"].append(
-                        {
-                            "page_id": page_id,
-                            "link": link,
-                            "pdf_path": pdf_path,
-                            "pii_types": public_pii_options,
-                            "has_pii": True,
-                            "description": other_desc if "other" in public_pii_options else "",
-                        }
-                    )
+                # Public document - no PII info collected with new flow
+                results["public_document"].append(
+                    {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pii_types": [], "has_pii": False, "description": ""}
+                )
 
             elif primary_option == "no-public":
                 # Private document with potential PII
@@ -1370,40 +1409,52 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
     print(f"  Pages with reported content: {len(annotation_results['report_content'])} ({len(annotation_results['report_content'])/total_pages*100:.1f}%)")
     print(f"  Pages without annotation: {len(annotation_results['no_annotation'])} ({len(annotation_results['no_annotation'])/total_pages*100:.1f}%)")
 
-    # Analyze PII types in public documents
+    # With the updated flow, there should be no public documents with PII flags
+    # as we don't collect PII information for public documents anymore
     if public_with_pii:
-        pii_counts_public = {}
-        for page in public_with_pii:
-            for pii_type in page.get("pii_types", []):
-                pii_counts_public[pii_type] = pii_counts_public.get(pii_type, 0) + 1
-
-        print("\nPII Types in Public Documents:")
-        for pii_type, count in sorted(pii_counts_public.items(), key=lambda x: x[1], reverse=True):
-            print(f"  - {pii_type}: {count} ({count/len(public_with_pii)*100:.1f}%)")
+        print("\nNote: With the current annotation flow, public documents should not have PII flags.")
+        print(f"Found {len(public_with_pii)} public documents incorrectly marked with PII.")
 
     # Analyze PII types in private documents
     if private_with_pii:
+        # Categorize the PII types for clearer reporting
+        pii_categories = {
+            "Identifiers": ["names", "email", "phone"],
+            "PII requiring identifiers": ["addresses", "biographical", "location", "employment", "education", "medical"],
+            "Always sensitive PII": ["government-id", "financial", "biometric", "login-info"]
+        }
+        
+        # Dictionary to track all PII counts
         pii_counts_private = {}
         for page in private_with_pii:
             for pii_type in page.get("pii_types", []):
                 pii_counts_private[pii_type] = pii_counts_private.get(pii_type, 0) + 1
-
+        
+        # Print categorized PII counts
         print("\nPII Types in Private Documents:")
-        for pii_type, count in sorted(pii_counts_private.items(), key=lambda x: x[1], reverse=True):
-            print(f"  - {pii_type}: {count} ({count/len(private_with_pii)*100:.1f}%)")
+        
+        # Print each category
+        for category, pii_types in pii_categories.items():
+            print(f"\n  {category}:")
+            for pii_type in pii_types:
+                count = pii_counts_private.get(pii_type, 0)
+                if count > 0:
+                    print(f"    - {pii_type}: {count} ({count/len(private_with_pii)*100:.1f}%)")
+        
+        # Print any other PII types not in our categories (like "other")
+        other_pii = [pii_type for pii_type in pii_counts_private.keys() 
+                     if not any(pii_type in types for types in pii_categories.values())]
+        if other_pii:
+            print("\n  Other PII types:")
+            for pii_type in other_pii:
+                count = pii_counts_private.get(pii_type, 0)
+                print(f"    - {pii_type}: {count} ({count/len(private_with_pii)*100:.1f}%)")
 
-    # Print detailed report for public documents with PII
+    # With the updated flow, there should be no public documents with PII flags
+    # so we can remove this section
     if public_with_pii:
-        print("\nDetailed Report - Public Documents with PII:")
-        print("-" * 80)
-        for i, item in enumerate(public_with_pii, 1):
-            print(f"{i}. PDF: {item['pdf_path']}")
-            print(f"   Page ID: {item['page_id']}")
-            print(f"   Link: {item['link']}#{item['page_id']}")
-            print(f"   PII Types: {', '.join(item['pii_types'])}")
-            if item.get("description"):
-                print(f"   Description: {item['description']}")
-            print("-" * 80)
+        print("\nNote: Public documents with PII flags found in old annotation results.")
+        print("These are from annotation sessions before the workflow change and should be disregarded.")
 
     # Print detailed report for private documents with PII
     if private_with_pii:
