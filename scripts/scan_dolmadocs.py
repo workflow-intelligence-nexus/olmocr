@@ -252,6 +252,17 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 margin-left: 2em;
             }}
 
+            ol {{
+                margin-left: 2em;
+            }}
+
+            .highlight {{
+                background-color: #f8f9fa;
+                border-left: 3px solid #3498db;
+                padding: 10px 15px;
+                margin: 15px 0;
+            }}
+
             .container {{
                 flex: 2;
                 max-width: 750px;
@@ -572,51 +583,83 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
     </head>
     <body>
         <header>
-            <h2>Task Instructions</h2>
-            <p>Your task is to review {len(random_pages)} document pages and determine whether they contain any <strong>Personally Identifiable Information (PII)</strong>. Carefully but efficiently inspect each page and select the appropriate response. You do not need to read every word - quickly scan the page and look for any obvious PII. The time expected to complete this task is 10-15 minutes.</p>
+            <h2>Task Overview</h2>
+            <p>In this task, you will review 50 document pages and determine whether they contain any <span class="important">Personally Identifiable Information (PII)</span>. For each page, please follow the decision flow outlined in the "How to Annotate" section below.</p>
+            <p>Carefully but efficiently inspect each page and select the appropriate response. You do <span class="important">not</span> need to read every word. Instead, focus on ascertaining the document's intended use and spotting information that would qualify as PII.</p>
+            <p>The entire task should take about <span class="important">25-30 minutes</span>.</p>
             
             <h2>How to Annotate</h2>
-            <p>The page you are currently annotating will be highlighted with a blue outline and a set of questions will be displayed directly below it.</p>
-            <br/>
-            <p><strong>First question:</strong> Is this document meant for public dissemination?</p>
+            <p>The current annotation will be highlighted with a blue outline and a set of response buttons will be displayed directly below the page preview. For each page, complete the following steps:</p>
+            
+            <ol>
+                <li>
+                    <p><span class="important">Determine if the document is intended for public release.</span></p>
+                    <p>Inspect the page and answer: "Is this document intended for public release or dissemination?"</p>
+                    <ul>
+                        <li><strong>Yes</strong> - If the document appears to be a publication, research paper, public information, etc.</li>
+                        <li><strong>No</strong> - If the document appears to be private, personal, or not intended for public release</li>
+                        <li><strong>Cannot Read</strong> - If you are unable to read the page (e.g., foreign language, no text, etc.)</li>
+                        <li><strong>Report Content</strong> - If the content is inappropriate or disturbing</li>
+                    </ul>
+                    <p>If you selected "No," move on to Step 2. Otherwise, the annotation is complete.</p>
+                </li>
+                
+                <li>
+                    <p><span class="important">Identify the kind of PII found in the document (if any).</span></p>
+                    <p>You will be shown a checklist with a set of PII options.</p>
+                    <ul>
+                        <li>Refer to the "How to Identify PII" section below and mark all options that apply.</li>
+                        <li>If you select "Other," describe the kind of other PII in the expanded text box.</li>
+                    </ul>
+                </li>
+                
+                <li>
+                    <p><span class="important">Press the blue Continue button to complete your annotation.</span></p>
+                    <p>You will automatically be moved to the next annotation.</p>
+                </li>
+            </ol>
+            
+            <p>You may review and edit your previous annotations at any time. To do so, press the green Edit button directly above the page preview for the annotation you want to edit.</p>
+            <p>After completing all 50 document pages, you will receive a Prolific completion code.</p>
+            
+            <h2>How to Identify PII</h2>
+            
+            <h3>Identifiers for PII</h3>
+            <p>Some personal information needs to be accompanied by an <span class="important">identifier</span> to be considered PII. Identifiers that trigger PII include:</p>
             <ul>
-                <li><strong>Yes</strong> - If the document appears to be a publication, research paper, public information, etc.</li>
-                <li><strong>No</strong> - If the document appears to be private, personal, or not intended for public release</li>
-                <li><strong>Cannot Read</strong> - If you are unable to read the page (e.g., foreign language, poor quality)</li>
-                <li><strong>Report Content</strong> - If the content is inappropriate or disturbing</li>
+                <li>Names</li>
+                <li>Email Addresses</li>
+                <li>Phone Numbers</li>
             </ul>
             
-            <p><strong>Second question:</strong> Depending on your first answer, you'll be asked to identify any PII in the document:</p>
-            <ul>
-                <li>For <strong>public</strong> documents, select from: SSN, Bank Info, Credit Card Info, Usernames/Passwords, Other</li>
-                <li>For <strong>private</strong> documents, select from: Full Names, Addresses, Contact Info, Personal Attributes, SSN, Bank Info, Credit Card Info, Usernames/Passwords, Other</li>
-            </ul>
-            <p>You can select multiple PII types. If you select "Other", a text box will appear where you can describe the PII.</p>
+            <h3>PII that must co-occur with an Identifier</h3>
+            <div class="highlight">
+                <p>The following types of information should <span class="important">only</span> be marked as PII if they occur <span class="important">alongside an identifier</span> (commonly, a person's name):</p>
+                <ul>
+                    <li>Names (full, first, last, maiden, nicknames, aliases)</li>
+                    <li>Contact Information (phone numbers, emails)</li>
+                    <li>Addresses (street address, postal code, etc.)</li>
+                    <li>Biographical Information (date of birth, place of birth, gender, sexual orientation, race, ethnicity, citizenship/immigration status, religion)</li>
+                    <li>Location Information (geolocations, specific coordinates)</li>
+                    <li>Employment Information (job titles, workplace names, employment history)</li>
+                    <li>Education Information (school names, degrees, transcripts)</li>
+                    <li><strong>Medical Information (health records, diagnoses, genetic or neural data)</strong></li>
+                </ul>
+            </div>
             
-            <br/>
-            <p>You may edit your annotations any time before submitting. To do so, press the green Edit button directly above the page.</p>
-            <p>After completing all the document pages on this screen, you will receive a Prolific completion code.</p>
+            <p class="note">Note that some of these items are identifiers themselves.</p>
+            <p><em>Example</em>: A street address might be personal information, but is not PII by itself. However, a street address associated with a name <span class="important">is</span> regulated PII.</p>
             
-            <h2>What Counts as PII?</h2>
-            <ul>
-                <li><strong>Names</strong>: Full names, first names, last names, nicknames, maiden names, aliases</li>
-                <li><strong>Addresses</strong>: Street addresses, postal codes, cities, states, countries</li>
-                <li><strong>Contact Information</strong>: Phone numbers, email addresses</li>
-                <li><strong>Government IDs</strong>: SSNs, passport numbers, driver's license numbers, tax IDs</li>
-                <li><strong>Financial Information</strong>: Credit card numbers, bank account numbers, routing numbers</li>
-                <li><strong>Biometric Data</strong>: Fingerprints, retina scans, facial recognition data, voice signatures</li>
-                <li><strong>Personal Attributes</strong>: Date of birth, place of birth, gender, race, religion</li>
-                <li><strong>Online Identifiers</strong>: IP addresses, login IDs, usernames, passwords, API keys, URLs</li>
-                <li><strong>Location Information</strong>: Geolocations, specific coordinates</li>
-                <li><strong>Employment Information</strong>: Job titles, workplace names, employment history</li>
-                <li><strong>Education Information</strong>: School names, degrees, transcripts</li>
-                <li><strong>Medical Information</strong>: Health records, diagnoses</li>
-                <li><strong>Company Names</strong>: If they are tied to an individual's identity (e.g., a person's personal business)</li>
-            </ul>
-            
-            <h2>What NOT to Mark as PII</h2>
-            <p><strong>Author names, researcher names, citations, or references from published research papers</strong> should NOT be marked as PII. These names are part of the normal publication process and are not considered private or sensitive information for the purposes of this task.
-            Only mark information as PII if it relates to private, sensitive, or personal details about an individual outside the context of the publication.</p>
+            <h3>PII that occurs even without an Identifier</h3>
+            <div class="highlight">
+                <p>Certain types of sensitive information should always be classified as PII because the information is inherently self-identifying. The following should <span class="important">always be marked as PII</span> even if they do not occur alongside an identifier:</p>
+                <ul>
+                    <li>Government IDs (SSNs, passport numbers, driver's license numbers, tax IDs)</li>
+                    <li>Financial Information (credit card numbers, bank account/routing numbers)</li>
+                    <li>Biometric Data (fingerprints, retina scans, facial recognition data, voice signatures)</li>
+                    <li>Login information (<span class="important">only</span> mark as PII when a <span class="important">username, password, and login location</span> are present together)</li>
+                </ul>
+            </div>
         </header>
         <div class="container">
             
