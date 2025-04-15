@@ -244,7 +244,7 @@ def create_templates_directory():
     """Create templates directory for Flask if it doesn't exist."""
     templates_dir = os.path.join(os.path.dirname(__file__), "templates")
     os.makedirs(templates_dir, exist_ok=True)
-    
+
     # Create the review_latex.html template with MathJax support
     review_html = """
 <!DOCTYPE html>
@@ -607,7 +607,7 @@ def create_templates_directory():
 </body>
 </html>
     """
-    
+
     # Create the all_done_latex.html template
     all_done_html = """
 <!DOCTYPE html>
@@ -663,11 +663,10 @@ def create_templates_directory():
 </body>
 </html>
     """
-    
 
     with open(os.path.join(templates_dir, "review_latex.html"), "w") as f:
         f.write(review_html)
-        
+
     with open(os.path.join(templates_dir, "all_done_latex.html"), "w") as f:
         f.write(all_done_html)
 
@@ -689,7 +688,6 @@ def main():
     if not os.path.exists(args.dataset_file):
         print(f"Error: Dataset not found: {args.dataset_file}")
         return 1
-
 
     DATASET_DIR = os.path.dirname(os.path.abspath(args.dataset_file))
     DATASET_FILE = args.dataset_file
