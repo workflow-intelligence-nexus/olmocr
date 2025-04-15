@@ -1,5 +1,0 @@
-Col. Alexander of Louisville—formerly Maj. Alexander who kept the Soldier's Home in Washington had among other servants one "Louisa" Rudder who had been the property of his wife, Sally Rudder, and one Wesley Williams who became the husband of said Louisa while in Louisville and they had four children, two of which Mary & Robert they took with them to Washington and the other Rachael, and Louisa was left in Louisville with Capt. Rudder, on Mr. Alexander and now with Mr. Alexander.
-
-When Maj. Alexander went to Louisville in 1862 or 3, Louisa & Wesley Williams, declared going with him, and remained in Washington.
-
-On the Boat St. Nicholas, flying between Louisville & Cincinnati, I met Rachael Alexander, the mother of Louisa (Wesley) Williams of Washington, who desires to hear from her and wishes to tell her and her husband to send to

@@ -1,3 +1,0 @@
-This device is now, but for advertising purposes it will be very catchy. And as you will no doubt put out some kind of campaign advertisement, I wish I could see you in person, and thank you very very much for your kindness, consideration, to this rather lengthy letter, and trusting that I may receive from you an early and favorable reply.
-
-I am sending under separate cover, a rough model and copy of my patent. I am also enclosing my balance picture, the one that I am working for, and the reason I am writing you regarding my novelty is to see if I can.
