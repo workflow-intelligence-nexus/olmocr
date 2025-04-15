@@ -746,7 +746,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 <div class="page-image-wrapper">
                     <img class="page-image" src="data:image/webp;base64,{base64_image}" alt="PDF Page {page_num}" loading="lazy" />
                 </div>
-                <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}">
+                <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}" data-pdf-page="{page_num}">
                     <div class="question-container" id="question1-{i}">
                         <p class="question-text">Is this document meant for public dissemination? (ex. news article, research paper, etc.)</p>
                         <span class="btn-group">
@@ -822,7 +822,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     </p>
                 </div>
                 <div class="error">Error: {str(e)}</div>
-                <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}">
+                <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}" data-pdf-page="{page_num}">
                     <div class="question-container" id="question1-{i}">
                         <p class="question-text">Is this document meant for public dissemination?</p>
                         <span class="btn-group">
@@ -1039,6 +1039,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 const otherPrivateDesc = interfaceDiv.querySelector('#other-pii-private-' + id.split('-')[1])?.value || '';
                 
                 const pdfPath = interfaceDiv.getAttribute('data-pdf-path');
+                const pdfPage = interfaceDiv.getAttribute('data-pdf-page');
 
                 const datastore = await fetchDatastore() || {};
                 datastore[id] = {
@@ -1047,7 +1048,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     privatePiiOptions: privatePiiOptions,
                     otherPublicDesc: otherPublicDesc,
                     otherPrivateDesc: otherPrivateDesc,
-                    pdfPath: pdfPath
+                    pdfPath: pdfPath,
+                    pdfPage: pdfPage
                 };
 
                 await putDatastore(datastore);
@@ -1300,7 +1302,37 @@ def extract_datastore_url(html_content: str) -> Optional[str]:
     return None
 
 
-def fetch_annotations(tinyhost_link: str) -> Tuple[Dict[str, Any], str]:
+def extract_page_number_from_html(html_content: str, page_id: str) -> Optional[int]:
+    """Extract PDF page number from HTML content for a specific page_id.
+    
+    This is a fallback mechanism for older versions of the annotation page 
+    that didn't store the page number in a data attribute.
+    """
+    # Try to find the page number in the "View Cached PDF (page X)" text
+    # Look for section with this page_id
+    page_section_pattern = f'<div class="page-container"[^>]*data-index="([^"]*)"[^>]*>.*?<div class="page-info">.*?<a href="[^"]*#page=([0-9]+)"[^>]*>View Cached PDF \\(page ([0-9]+)\\)</a>'
+    matches = re.finditer(page_section_pattern, html_content, re.DOTALL)
+    
+    for match in matches:
+        container_index = match.group(1)
+        pdf_page_from_url = match.group(2)
+        pdf_page_from_text = match.group(3)
+        
+        # Check if this container index matches our page_id (page-X)
+        if f"page-{container_index}" == page_id:
+            # Both numbers should be the same, but prefer the one from the URL fragment
+            try:
+                return int(pdf_page_from_url)
+            except (ValueError, TypeError):
+                try:
+                    return int(pdf_page_from_text)
+                except (ValueError, TypeError):
+                    pass
+    
+    return None
+
+
+def fetch_annotations(tinyhost_link: str) -> Tuple[Dict[str, Any], str, str]:
     """Fetch and parse annotations from a tinyhost link."""
     # Request the HTML content
     print(f"Fetching annotations from {tinyhost_link}")
@@ -1312,7 +1344,7 @@ def fetch_annotations(tinyhost_link: str) -> Tuple[Dict[str, Any], str]:
     datastore_url = extract_datastore_url(html_content)
     if not datastore_url:
         print(f"Could not find datastore URL in {tinyhost_link}")
-        return {}, tinyhost_link
+        return {}, tinyhost_link, html_content
 
     # Fetch the datastore content
     print(f"Found datastore URL: {datastore_url}")
@@ -1320,13 +1352,13 @@ def fetch_annotations(tinyhost_link: str) -> Tuple[Dict[str, Any], str]:
         datastore_response = requests.get(datastore_url)
         datastore_response.raise_for_status()
         annotations = datastore_response.json()
-        return annotations, tinyhost_link
+        return annotations, tinyhost_link, html_content
     except Exception as e:
         print(f"Error fetching datastore from {datastore_url}: {e}")
-        return {}, tinyhost_link
+        return {}, tinyhost_link, html_content
 
 
-def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -> Dict[str, List[Dict[str, Any]]]:
+def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str]]) -> Dict[str, List[Dict[str, Any]]]:
     """Process and categorize annotations by feedback type."""
     results = {
         "public_document": [],
@@ -1337,7 +1369,7 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -
     }
 
     # Process each annotation
-    for annotations, link in annotations_by_link:
+    for annotations, link, html_content in annotations_by_link:
         for page_id, annotation in annotations.items():
             if not annotation or "primaryOption" not in annotation:
                 results["no_annotation"].append(
@@ -1347,12 +1379,28 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -
 
             primary_option = annotation["primaryOption"]
             pdf_path = annotation.get("pdfPath", "Unknown")
-
+            
+            # Get PDF page number from annotation data
+            # This is the actual page number in the PDF that was annotated
+            pdf_page = None
+            
+            # First try to get it from the annotation data (for new format)
+            if annotation.get("pdfPage"):
+                try:
+                    pdf_page = int(annotation.get("pdfPage"))
+                except (ValueError, TypeError):
+                    pass
+            
+            # Fallback: try to extract page number from HTML content (for older format)
+            if pdf_page is None:
+                pdf_page = extract_page_number_from_html(html_content, page_id)
+            
             # Build a result item based on the new annotation structure
             if primary_option == "yes-public":
                 # Public document - no PII info collected with new flow
                 results["public_document"].append(
-                    {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pii_types": [], "has_pii": False, "description": ""}
+                    {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page, 
+                     "pii_types": [], "has_pii": False, "description": ""}
                 )
 
             elif primary_option == "no-public":
@@ -1363,7 +1411,8 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -
                 if not private_pii_options:
                     # No PII selected in a private document
                     results["private_document"].append(
-                        {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pii_types": [], "has_pii": False, "description": ""}
+                        {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page,
+                         "pii_types": [], "has_pii": False, "description": ""}
                     )
                 else:
                     # PII found in a private document
@@ -1372,6 +1421,7 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -
                             "page_id": page_id,
                             "link": link,
                             "pdf_path": pdf_path,
+                            "pdf_page": pdf_page,
                             "pii_types": private_pii_options,
                             "has_pii": True,
                             "description": other_desc if "other" in private_pii_options else "",
@@ -1379,18 +1429,18 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str]]) -
                     )
 
             elif primary_option == "cannot-read":
-                results["cannot_read"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path})
+                results["cannot_read"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page})
 
             elif primary_option == "report-content":
-                results["report_content"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path})
+                results["report_content"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page})
 
             else:
-                results["no_annotation"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path})
+                results["no_annotation"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page})
 
     return results
 
 
-def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]]):
+def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]], pdf_s3_client=None):
     """Print a summary report of annotations."""
     total_pages = sum(len(items) for items in annotation_results.values())
 
@@ -1479,9 +1529,24 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
         print("\nDetailed Report - Private Documents with PII:")
         print("-" * 80)
         for i, item in enumerate(private_with_pii, 1):
-            print(f"{i}. PDF: {item['pdf_path']}")
-            print(f"   Page ID: {item['page_id']}")
-            print(f"   Link: {item['link']}#{item['page_id']}")
+            pdf_path = item['pdf_path']
+            page_id = item['page_id']
+            
+            # Get the actual PDF page number 
+            pdf_page = item.get('pdf_page')
+            
+            # Generate presigned URL with PDF page number if client is available
+            presigned_url = None
+            if pdf_s3_client and pdf_path.startswith("s3://"):
+                presigned_url = create_presigned_url(pdf_s3_client, pdf_path)
+                if presigned_url and pdf_page is not None:
+                    presigned_url += f"#page={pdf_page}"
+            
+            print(f"{i}. PDF: {pdf_path}")
+            print(f"   Page ID: {page_id}")
+            print(f"   Link: {item['link']}#{page_id}")
+            if presigned_url:
+                print(f"   Presigned URL: {presigned_url}")
             print(f"   PII Types: {', '.join(item['pii_types'])}")
             if item.get("description"):
                 print(f"   Description: {item['description']}")
@@ -1505,21 +1570,28 @@ def read_and_process_results(args):
             return
 
         print(f"Found {len(links)} tinyhost links in {args.read_results}")
+        
+        # Set up PDF S3 client with profile if specified
+        if args.pdf_profile:
+            pdf_session = boto3.Session(profile_name=args.pdf_profile)
+            pdf_s3_client = pdf_session.client("s3")
+        else:
+            pdf_s3_client = boto3.client("s3")
 
         # Fetch and process annotations
         annotations_by_link = []
         for link in tqdm(links, desc="Fetching annotations"):
             try:
-                annotations, link_url = fetch_annotations(link)
-                annotations_by_link.append((annotations, link_url))
+                annotations, link_url, html_content = fetch_annotations(link)
+                annotations_by_link.append((annotations, link_url, html_content))
             except Exception as e:
                 print(f"Error processing {link}: {e}")
 
         # Process and categorize annotations
         annotation_results = process_annotations(annotations_by_link)
 
-        # Print report
-        print_annotation_report(annotation_results)
+        # Print report with presigned URLs
+        print_annotation_report(annotation_results, pdf_s3_client)
 
         # Save detailed report to file
         output_file = Path(args.output_dir) / "annotation_report.csv"
@@ -1527,10 +1599,25 @@ def read_and_process_results(args):
 
         with open(output_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Category", "PDF Path", "Page ID", "Link", "Document Type", "PII Types", "Description"])
+            writer.writerow(["Category", "PDF Path", "Page ID", "Link", "Presigned URL", "Document Type", "PII Types", "Description"])
 
             for category, items in annotation_results.items():
                 for item in items:
+                    pdf_path = item["pdf_path"]
+                    page_id = item["page_id"]
+                    
+                    # Get the actual PDF page number
+                    pdf_page = item.get("pdf_page")
+                    
+                    # Generate presigned URL with the PDF page number
+                    presigned_url = ""
+                    if pdf_path.startswith("s3://"):
+                        url = create_presigned_url(pdf_s3_client, pdf_path)
+                        if url and pdf_page is not None:
+                            presigned_url = f"{url}#page={pdf_page}"
+                        elif url:
+                            presigned_url = url
+                    
                     if category == "public_document":
                         doc_type = "Public"
                         pii_types = ", ".join(item.get("pii_types", []))
@@ -1544,7 +1631,8 @@ def read_and_process_results(args):
                         pii_types = ""
                         description = ""
 
-                    writer.writerow([category, item["pdf_path"], item["page_id"], f"{item['link']}#{item['page_id']}", doc_type, pii_types, description])
+                    writer.writerow([category, item["pdf_path"], item["page_id"], f"{item['link']}#{item['page_id']}", 
+                                    presigned_url, doc_type, pii_types, description])
 
         print(f"Report saved to {output_file}")
 
