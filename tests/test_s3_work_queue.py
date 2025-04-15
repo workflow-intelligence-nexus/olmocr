@@ -214,6 +214,44 @@ class TestS3WorkQueue(unittest.TestCase):
         bucket, key = self.s3_client.delete_object.call_args[1]["Bucket"], self.s3_client.delete_object.call_args[1]["Key"]
         self.assertTrue(key.endswith(f"output_{work_item.hash}.jsonl"))
 
+    @async_test
+    async def test_paths_with_commas(self):
+        """Test handling of paths that contain commas"""
+        # Create paths with commas in them
+        paths_with_commas = ["s3://test-bucket/data/file1,with,commas.pdf", "s3://test-bucket/data/file2,comma.pdf", "s3://test-bucket/data/file3.pdf"]
+
+        # Mock empty existing index for initial population
+        with patch("olmocr.work_queue.download_zstd_csv", return_value=[]):
+            with patch("olmocr.work_queue.upload_zstd_csv") as mock_upload:
+                # Populate the queue with these paths
+                await self.work_queue.populate_queue(paths_with_commas, items_per_group=3)
+
+                # Capture what would be written to the index
+                _, _, lines = mock_upload.call_args[0]
+
+                # Now simulate reading back these lines (which have commas in the paths)
+                with patch("olmocr.work_queue.download_zstd_csv", return_value=lines):
+                    with patch("olmocr.work_queue.expand_s3_glob", return_value=[]):
+                        # Initialize a fresh queue from these lines
+                        await self.work_queue.initialize_queue()
+
+                        # Mock ClientError for head_object (file doesn't exist)
+                        self.s3_client.head_object.side_effect = ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject")
+
+                        # Get a work item
+                        work_item = await self.work_queue.get_work()
+
+                        # Now verify we get a work item
+                        self.assertIsNotNone(work_item, "Should get a work item")
+
+                        # Verify the work item has the correct number of paths
+                        self.assertEqual(len(work_item.work_paths), len(paths_with_commas), "Work item should have the correct number of paths")
+
+                        # Check that all original paths with commas are preserved
+                        for path in paths_with_commas:
+                            print(path)
+                            self.assertIn(path, work_item.work_paths, f"Path with commas should be preserved: {path}")
+
     def test_queue_size(self):
         """Test queue size property"""
         self.assertEqual(self.work_queue.size, 0)

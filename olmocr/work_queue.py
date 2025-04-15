@@ -1,7 +1,9 @@
 import abc
 import asyncio
+import csv
 import datetime
 import hashlib
+import io
 import logging
 import os
 import random
@@ -31,6 +33,35 @@ class WorkQueue(abc.ABC):
     """
     Base class defining the interface for a work queue.
     """
+
+    @staticmethod
+    def _encode_csv_row(row: List[str]) -> str:
+        """
+        Encodes a row of data for CSV storage with proper escaping.
+
+        Args:
+            row: List of strings to encode
+
+        Returns:
+            CSV-encoded string with proper escaping of commas and quotes
+        """
+        output = io.StringIO()
+        writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(row)
+        return output.getvalue().strip()
+
+    @staticmethod
+    def _decode_csv_row(line: str) -> List[str]:
+        """
+        Decodes a CSV row with proper unescaping.
+
+        Args:
+            line: CSV-encoded string
+
+        Returns:
+            List of unescaped string values
+        """
+        return next(csv.reader([line]))
 
     @abc.abstractmethod
     async def populate_queue(self, work_paths: List[str], items_per_group: int) -> None:
@@ -217,10 +248,11 @@ class LocalWorkQueue(WorkQueue):
         existing_groups = {}
         for line in existing_lines:
             if line.strip():
-                parts = line.strip().split(",")
-                group_hash = parts[0]
-                group_paths = parts[1:]
-                existing_groups[group_hash] = group_paths
+                parts = self._decode_csv_row(line.strip())
+                if parts:  # Ensure we have at least one part
+                    group_hash = parts[0]
+                    group_paths = parts[1:]
+                    existing_groups[group_hash] = group_paths
 
         existing_path_set = {p for paths in existing_groups.values() for p in paths}
         new_paths = all_paths - existing_path_set
@@ -249,7 +281,8 @@ class LocalWorkQueue(WorkQueue):
         for group_hash, group_paths in new_groups:
             combined_groups[group_hash] = group_paths
 
-        combined_lines = [",".join([group_hash] + group_paths) for group_hash, group_paths in combined_groups.items()]
+        # Use proper CSV encoding with escaping for paths that may contain commas
+        combined_lines = [self._encode_csv_row([group_hash] + group_paths) for group_hash, group_paths in combined_groups.items()]
 
         if new_groups:
             # Write the combined data back to disk in zstd CSV format
@@ -262,7 +295,12 @@ class LocalWorkQueue(WorkQueue):
         """
         # 1) Read the index
         work_queue_lines = await asyncio.to_thread(download_zstd_csv_local, self._index_path)
-        work_queue = {parts[0]: parts[1:] for line in work_queue_lines if (parts := line.strip().split(",")) and line.strip()}
+        work_queue = {}
+        for line in work_queue_lines:
+            if line.strip():
+                parts = self._decode_csv_row(line.strip())
+                if parts:  # Ensure we have at least one part
+                    work_queue[parts[0]] = parts[1:]
 
         # 2) Determine which items are completed by scanning local results/*.jsonl
         if not os.path.isdir(self._results_dir):
@@ -422,10 +460,11 @@ class S3WorkQueue(WorkQueue):
         existing_groups = {}
         for line in existing_lines:
             if line.strip():
-                parts = line.strip().split(",")
-                group_hash = parts[0]
-                group_paths = parts[1:]
-                existing_groups[group_hash] = group_paths
+                parts = self._decode_csv_row(line.strip())
+                if parts:  # Ensure we have at least one part
+                    group_hash = parts[0]
+                    group_paths = parts[1:]
+                    existing_groups[group_hash] = group_paths
 
         existing_path_set = {path for paths in existing_groups.values() for path in paths}
 
@@ -456,7 +495,8 @@ class S3WorkQueue(WorkQueue):
         for group_hash, group_paths in new_groups:
             combined_groups[group_hash] = group_paths
 
-        combined_lines = [",".join([group_hash] + group_paths) for group_hash, group_paths in combined_groups.items()]
+        # Use proper CSV encoding with escaping for paths that may contain commas
+        combined_lines = [self._encode_csv_row([group_hash] + group_paths) for group_hash, group_paths in combined_groups.items()]
 
         if new_groups:
             await asyncio.to_thread(upload_zstd_csv, self.s3_client, self._index_path, combined_lines)
@@ -473,7 +513,12 @@ class S3WorkQueue(WorkQueue):
         work_queue_lines, done_work_items = await asyncio.gather(download_task, expand_task)
 
         # Process work queue lines
-        work_queue = {parts[0]: parts[1:] for line in work_queue_lines if (parts := line.strip().split(",")) and line.strip()}
+        work_queue = {}
+        for line in work_queue_lines:
+            if line.strip():
+                parts = self._decode_csv_row(line.strip())
+                if parts:  # Ensure we have at least one part
+                    work_queue[parts[0]] = parts[1:]
 
         # Get set of completed work hashes
         done_work_hashes = {
