@@ -199,7 +199,7 @@ def main():
     parser.add_argument("--test_report", type=str, default=None, help="Generate an HTML report of test results. Provide a filename (e.g., results.html).")
     args = parser.parse_args()
 
-    input_folder = args.dir
+    input_folder = args.dir if os.path.isdir(args.dir) else os.path.dirname(args.dir)
     n_bootstrap = args.bootstrap_samples
     ci_level = args.confidence_level
     pdf_folder = os.path.join(input_folder, "pdfs")
@@ -216,7 +216,11 @@ def main():
 
     pdf_basenames = [os.path.relpath(p, pdf_folder) for p in all_pdf_files]
 
-    jsonl_files = glob.glob(os.path.join(input_folder, "*.jsonl"))
+    if os.path.isfile(args.dir):
+        jsonl_files = [args.dir]
+    else:
+        jsonl_files = glob.glob(os.path.join(input_folder, "*.jsonl"))
+
     if not jsonl_files:
         print(f"Error: No .jsonl files found in {input_folder}.", file=sys.stderr)
         sys.exit(1)

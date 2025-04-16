@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
+    <!-- You can adjust the viewport settings as needed -->
     <meta name="viewport" content="width=1200, initial-scale=1.0">
     <title>Equation Verification</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
@@ -30,15 +31,15 @@
             overflow: hidden;
         }
         .pdf-viewer {
-            flex: 2;
+            flex: 2; /* Increased from 1 to 2 to make PDF larger */
             border-right: 1px solid #ddd;
             overflow: hidden;
             position: relative;
         }
-
+        /* Updated PDF container size */
         #pdf-container {
-            width: 200%;  
-            height: 200%;
+            width: 200%;  /* New fixed width */
+            height: 200%;  /* New fixed height */
             overflow: auto;
         }
         #zoom-controls {
@@ -74,7 +75,7 @@
         .test-item.rejected {
             background-color: #f8d7da;
         }
-
+        /* The equation-display now stores the raw LaTeX in a data attribute */
         .equation-display {
             padding: 10px;
             margin: 5px 0;
@@ -82,7 +83,7 @@
             border-radius: 4px;
             background-color: #f9f9f9;
             overflow-x: auto;
-            font-size: 1.2em;
+            font-size: 1.2em; /* Larger font for equations */
         }
         .button-group {
             display: flex;
@@ -126,7 +127,7 @@
             background-color: #007bff;
             width: 0%;
         }
-
+        /* Make MathJax equations more visible */
         .MathJax {
             font-size: 120% !important;
         }
@@ -168,7 +169,7 @@
         <div class="tests-panel">
             <h3>Equations ({{ tests|length }})</h3>
             {% for test in tests %}
-
+            <!-- Added data-latex attribute to store raw LaTeX -->
             <div class="test-item {% if test.checked == 'verified' %}verified{% elif test.checked == 'rejected' %}rejected{% endif %}" id="test-{{ test.id }}">
                 <div class="equation-display" data-latex="{{ test.text|e }}">
                     {{ test.text|safe }}
@@ -176,6 +177,7 @@
                 <div class="button-group">
                     <button class="verify-button" onclick="updateTest('{{ test.id }}', '{{ test.pdf }}', 'checked', 'verified')">Verify</button>
                     <button class="reject-button" onclick="updateTest('{{ test.id }}', '{{ test.pdf }}', 'checked', 'rejected')">Reject</button>
+                    <!-- New Edit button -->
                     <button class="edit-button" onclick="enableEdit('{{ test.id }}', '{{ test.pdf }}')">Edit</button>
                 </div>
             </div>
@@ -184,19 +186,23 @@
     </div>
 
     <script>
+        // Set up PDF.js
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
         
+        // Track current zoom level
         let currentScale = 2.0; // Initial larger scale
         let pdfDoc = null;
         let pageNum = 1;
         let canvas = null;
         
+        // Load the PDF
         const loadingTask = pdfjsLib.getDocument('{{ pdf_path }}');
         loadingTask.promise.then(function(pdf) {
             pdfDoc = pdf;
             renderPage(pageNum);
         });
         
+        // Function to render a page with the current scale
         function renderPage(num) {
             pdfDoc.getPage(num).then(function(page) {
                 const viewport = page.getViewport({ scale: currentScale });
@@ -352,3 +358,4 @@
     </script>
 </body>
 </html>
+    
