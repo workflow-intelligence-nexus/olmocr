@@ -606,6 +606,20 @@ class TestRenderedEquationComparison(unittest.TestCase):
         eq2 = render_equation("\\boldsymbol{x}", use_cache=False)
         self.assertFalse(compare_rendered_equations(eq1, eq2))
 
+    def test_assert_subtle_square_root(self):
+        eq1 = render_equation("A N'P' = \\int \\beta d\\alpha = \\frac{2}{3\\sqrt{3} a}\\int (\\alpha - 2a)^{\\frac{3}{2}} d\\alpha", use_cache=False)
+        eq2 = render_equation("AN'P' = \\int \\beta \\, d\\alpha = \\frac{2}{3 \\sqrt{3a}} \\int (a - 2a)^{\\frac{3}{2}} d\\alpha")
+        self.assertFalse(compare_rendered_equations(eq1, eq2))
+
+    def test_text_added(self):
+        eq1 = render_equation("A N'P' = \\int \\beta d\\alpha = \\frac{2}{3\\sqrt{3} a}\\int (\\alpha - 2a)^{\\frac{3}{2}} d\\alpha", use_cache=False)
+        eq2 = render_equation("AN'P' = \\int \\beta  d\\alpha = \\frac{2}{3 \\sqrt{3} a} \\int (\\alpha - 2a)^{\\frac{3}{2}} d\\alpha")
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
+        eq1 = render_equation("A N'P' = \\int \\beta d\\alpha = \\frac{2}{3\\sqrt{3} a}\\int (\\alpha - 2a)^{\\frac{3}{2}} d\\alpha", use_cache=False)
+        eq2 = render_equation("\\text{area evolute } AN'P' = \\int \\beta  d\\alpha = \\frac{2}{3 \\sqrt{3} a} \\int (\\alpha - 2a)^{\\frac{3}{2}} d\\alpha")
+        self.assertTrue(compare_rendered_equations(eq1, eq2))
+
     def test_tensor_notation_equivalent(self):
         eq1 = render_equation("T_{ij}^{kl}", use_cache=False)
         eq2 = render_equation("T^{kl}_{ij}", use_cache=False)

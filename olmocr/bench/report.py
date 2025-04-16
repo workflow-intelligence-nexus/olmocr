@@ -2,6 +2,8 @@ import glob
 import os
 from typing import Dict, List, Tuple
 
+from tqdm import tqdm
+
 from olmocr.data.renderpdf import render_pdf_to_base64webp
 
 from .tests import BasePDFTest
@@ -357,6 +359,7 @@ def generate_html_report(
 """
 
     # Calculate summary statistics for each candidate
+    print("Calculating summary statistics...")
     for candidate in candidates:
         total_tests = 0
         passed_tests = 0
@@ -396,6 +399,7 @@ def generate_html_report(
 """
 
     # Create content for each candidate
+    print("Generating candidate content...")
     for i, candidate in enumerate(candidates):
         html += f"""    <div id="{candidate}" class="candidate-content{' active' if i == 0 else ''}">
 """
@@ -404,7 +408,7 @@ def generate_html_report(
         for c in test_results_by_candidate.values():
             all_pdfs.update(c.keys())
 
-        for pdf_name in sorted(all_pdfs):
+        for pdf_name in tqdm(sorted(all_pdfs), desc="Rendering report pages"):
             if pdf_name not in test_results_by_candidate[candidate]:
                 continue
 

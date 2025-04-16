@@ -172,6 +172,7 @@ def main():
         help="Run benchmark even if some files are missing",
     )
     parser.add_argument("--candidate", type=str, default=None, help="Run test only for a single candidate")
+    parser.add_argument("--skip_baseline", action="store_true", help="Skip running baseline tests (ex. that check that basic content is present on each page)")
     parser.add_argument(
         "--bootstrap_samples",
         type=int,
@@ -226,8 +227,12 @@ def main():
         sys.exit(1)
 
     all_tests = []
+    test_to_jsonl = {}  # Map test IDs to their source jsonl files
     for jsonl_path in jsonl_files:
+        jsonl_basename = os.path.basename(jsonl_path)
         tests = load_tests(jsonl_path)
+        for test in tests:
+            test_to_jsonl[test.id] = jsonl_basename
         all_tests.extend(tests)
 
     if not all_tests:
@@ -237,6 +242,7 @@ def main():
     for pdf in pdf_basenames:
         if not any(t.type == "baseline" for t in all_tests if t.pdf == pdf):
             all_tests.append(BaselineTest(id=f"{pdf}_baseline", pdf=pdf, page=1, type="baseline"))
+            test_to_jsonl[all_tests[-1].id] = "baseline"
 
     for pdf in pdf_basenames:
         pdf_doc = PdfReader(os.path.join(pdf_folder, pdf))
@@ -244,6 +250,9 @@ def main():
             if not any(test for test in all_tests if test.pdf == pdf and test.page == page) and not args.force:
                 print(f"No dataset entry found for pdf {pdf} page {page}")
                 sys.exit(1)
+
+    if args.skip_baseline:
+        all_tests = [test for test in all_tests if test.type != "baseline"]
 
     # Sample tests if requested
     if args.sample is not None and args.sample > 0:
@@ -280,9 +289,8 @@ def main():
             candidate, all_tests, pdf_basenames, args.force
         )
 
-        # Store test results for the report if needed
-        if args.test_report:
-            test_results_by_candidate[candidate_name] = test_results
+        # Always store test results for displaying jsonl file groupings
+        test_results_by_candidate[candidate_name] = test_results
 
         if all_test_scores:
             ci = calculate_bootstrap_ci(all_test_scores, n_bootstrap=n_bootstrap, ci_level=ci_level)
@@ -316,6 +324,37 @@ def main():
             scores = test_type_breakdown[ttype]
             avg = sum(scores) / len(scores) * 100 if scores else 0.0
             print(f"    {ttype:8s}: {avg:0.1f}% average pass rate over {len(scores)} tests")
+
+        # Group results by jsonl file
+        jsonl_results = {}
+        for test in all_tests:
+            # Get the jsonl file this test came from
+            jsonl_file = test_to_jsonl.get(test.id, "unknown")
+
+            if jsonl_file not in jsonl_results:
+                jsonl_results[jsonl_file] = {"total": 0, "passed": 0}
+
+            jsonl_results[jsonl_file]["total"] += 1
+
+            # Get the test result for this candidate if it exists
+            test_result = None
+            if not candidate_errors and hasattr(test, "pdf") and hasattr(test, "page"):
+                pdf_name = test.pdf
+                page = test.page
+                if pdf_name in test_results_by_candidate.get(candidate_name, {}) and page in test_results_by_candidate[candidate_name].get(pdf_name, {}):
+                    for t, passed, _ in test_results_by_candidate[candidate_name][pdf_name][page]:
+                        if t.id == test.id:
+                            test_result = passed
+                            break
+
+            if test_result:
+                jsonl_results[jsonl_file]["passed"] += 1
+
+        print("\n    Results by JSONL file:")
+        for jsonl_file, results in sorted(jsonl_results.items()):
+            if results["total"] > 0:
+                pass_rate = (results["passed"] / results["total"]) * 100
+                print(f"        {jsonl_file:30s}: {pass_rate:0.1f}% ({results['passed']}/{results['total']} tests)")
         print("")
 
     if args.permutation_tests is not None:
