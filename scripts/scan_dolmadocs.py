@@ -1602,7 +1602,7 @@ def read_and_process_results(args):
             for category, items in annotation_results.items():
                 for item in items:
                     pdf_path = item["pdf_path"]
-      
+
                     # Get the actual PDF page number
                     pdf_page = item.get("pdf_page")
 

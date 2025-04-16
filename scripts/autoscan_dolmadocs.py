@@ -279,6 +279,8 @@ The following should ALWAYS be marked as PII even if they do not occur alongside
 - Login information (ONLY mark as PII when a username, password, and login location are present together)
 
 If the document is a form, then only consider fields which are filled out with specific values as potential PII.
+If this page does not itself contain PII, but references documents (such as curriculum vitae, personal statements) that typically contain PII, then do not mark it as PII.
+Only consider actual occurrences of the PII within the document shown.
 """
 
         # Use the chat completions API with the custom schema
@@ -488,19 +490,19 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]])
             print("-" * 80)
 
     # Print links to unreadable pages
-    if annotation_results["cannot_read"]:
-        print("\nUnreadable Pages:")
-        print("-" * 80)
-        for i, item in enumerate(annotation_results["cannot_read"], 1):
-            pdf_path = item["pdf_path"]
-            pdf_page = item["pdf_page"]
-            presigned_url = item.get("presigned_url")
+    # if annotation_results["cannot_read"]:
+    #     print("\nUnreadable Pages:")
+    #     print("-" * 80)
+    #     for i, item in enumerate(annotation_results["cannot_read"], 1):
+    #         pdf_path = item["pdf_path"]
+    #         pdf_page = item["pdf_page"]
+    #         presigned_url = item.get("presigned_url")
 
-            print(f"{i}. PDF: {pdf_path}")
-            print(f"   Page: {pdf_page}")
-            if presigned_url:
-                print(f"   Presigned URL: {presigned_url}")
-            print("-" * 80)
+    #         print(f"{i}. PDF: {pdf_path}")
+    #         print(f"   Page: {pdf_page}")
+    #         if presigned_url:
+    #             print(f"   Presigned URL: {presigned_url}")
+    #         print("-" * 80)
 
     # Print links to inappropriate content
     if annotation_results["report_content"]:
