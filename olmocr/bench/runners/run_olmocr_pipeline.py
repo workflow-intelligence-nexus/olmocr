@@ -63,7 +63,7 @@ async def run_olmocr_pipeline(pdf_path: str, page_num: int = 1) -> Optional[str]
             logger.info("Using existing sglang server")
         except Exception:
             logger.info("Starting new sglang server")
-            _server_task = asyncio.create_task(sglang_server_host(args, semaphore))
+            _server_task = asyncio.create_task(sglang_server_host(args.model, args, semaphore))
             await sglang_server_ready()
 
     try:
