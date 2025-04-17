@@ -42,6 +42,7 @@ from olmocr.metrics import MetricsKeeper, WorkerTracker
 from olmocr.prompts import PageResponse, build_finetuning_prompt
 from olmocr.prompts.anchor import get_anchor_text
 from olmocr.s3_utils import (
+    download_directory,
     download_zstd_csv,
     expand_s3_glob,
     get_s3_bytes,
@@ -496,25 +497,7 @@ async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
             semaphore.release()
 
 
-async def sglang_server_task(args, semaphore):
-    model_name_or_path = args.model
-
-    # if "://" in model_name_or_path:
-    #     # TODO, Fix this code so that we support the multiple s3/weka paths, or else remove it
-    #     model_cache_dir = os.path.join(os.path.expanduser('~'), '.cache', 'olmocr', 'model')
-    #     download_directory(model_name_or_path, model_cache_dir)
-
-    #     # Check the rope config and make sure it's got the proper key
-    #     with open(os.path.join(model_cache_dir, "config.json"), "r") as cfin:
-    #         config_data = json.load(cfin)
-
-    #     if "rope_type" in config_data["rope_scaling"]:
-    #         del config_data["rope_scaling"]["rope_type"]
-    #         config_data["rope_scaling"]["type"] = "mrope"
-
-    #         with open(os.path.join(model_cache_dir, "config.json"), "w") as cfout:
-    #             json.dump(config_data, cfout)
-
+async def sglang_server_task(model_name_or_path, args, semaphore):
     # Check GPU memory, lower mem devices need a bit less KV cache space because the VLM takes additional memory
     gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # Convert to GB
     mem_fraction_arg = ["--mem-fraction-static", "0.80"] if gpu_memory < 60 else []
@@ -622,12 +605,12 @@ async def sglang_server_task(args, semaphore):
     await asyncio.gather(stdout_task, stderr_task, timeout_task, return_exceptions=True)
 
 
-async def sglang_server_host(args, semaphore):
+async def sglang_server_host(model_name_or_path, args, semaphore):
     MAX_RETRIES = 5
     retry = 0
 
     while retry < MAX_RETRIES:
-        await sglang_server_task(args, semaphore)
+        await sglang_server_task(model_name_or_path, args, semaphore)
         logger.warning("SGLang server task ended")
         retry += 1
 
@@ -662,9 +645,18 @@ async def sglang_server_ready():
 
 
 async def download_model(model_name_or_path: str):
-    logger.info(f"Downloading model '{model_name_or_path}'")
-    snapshot_download(repo_id=model_name_or_path)
-    logger.info(f"Model download complete '{model_name_or_path}'")
+    if model_name_or_path.startswith("s3://") or model_name_or_path.startswith("gs://") or model_name_or_path.startswith("weka://"):
+        logger.info(f"Downloading model directory from '{model_name_or_path}'")
+        model_cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "olmocr", "model")
+        download_directory([model_name_or_path], model_cache_dir)
+        return model_cache_dir
+    elif os.path.isabs(model_name_or_path) and os.path.isdir(model_name_or_path):
+        logger.info(f"Using local model path at '{model_name_or_path}'")
+        return model_name_or_path
+    else:
+        logger.info(f"Downloading model with hugging face '{model_name_or_path}'")
+        snapshot_download(repo_id=model_name_or_path)
+        return model_name_or_path
 
 
 async def metrics_reporter(work_queue):
@@ -1072,7 +1064,7 @@ async def main():
     logger.info(f"Starting pipeline with PID {os.getpid()}")
 
     # Download the model before you do anything else
-    await download_model(args.model)
+    model_name_or_path = await download_model(args.model)
 
     # Initialize the work queue
     qsize = await work_queue.initialize_queue()
@@ -1086,7 +1078,7 @@ async def main():
     # As soon as one worker is no longer saturating the gpu, the next one can start sending requests
     semaphore = asyncio.Semaphore(1)
 
-    sglang_server = asyncio.create_task(sglang_server_host(args, semaphore))
+    sglang_server = asyncio.create_task(sglang_server_host(model_name_or_path, args, semaphore))
 
     await sglang_server_ready()
 
