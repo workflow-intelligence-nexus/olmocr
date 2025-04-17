@@ -94,3 +94,4 @@ Several categories of tests have been made so far:
  - [ ] Remove [] and other special symbols from old_scans
  - [ ] Full review of old_scans, somehow, chatgpt or prolific
  - [ ] Adjust scoring to weight each test category equally in final score distribution
+ - [ ] Run against final set of comparison tools, and check list of all-pass and all-fail tests
