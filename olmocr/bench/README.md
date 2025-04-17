@@ -83,3 +83,14 @@ Several categories of tests have been made so far:
 4. multi_column -> We sampled documents from our internal crawled PDF repository manually, to find documents which had multi-column layouts and multiple articles on one page. Then, we used claude-sonnet-3.7 to render those pages to html, and from that html, we extracted text segments which were before/after one another. Then we manually reviewed each entry.
 5. old_scans -> We sampled documents from the library of congress which contained handwriting or typewritten text. (TODO)
 6. book_math -> We found old math textbooks in the public domain from the Internet Archive. We then extracted random pages from them, OCRed them, filtered down to pages which contained equations, and picked several random equations from each page to use as test cases. We then manually checked each test case to see that it was accurate capturing what was on the page. (TODO)
+
+
+## TODO List for release
+ - [ ] Check all tests for duplicates
+ - [ ] Write a script to verify that all baseline tests that actually have weird unicodes have exemptions
+ - [ ] Review math equations in old_scans_math.jsonl using chat gpt script
+ - [ ] Add test category of long_texts which are still ~1 standard printed page, but with dense/small text
+ - [ ] Review multicolumn_tests, make sure they are correct, clean, and don't have order tests between regions
+ - [ ] Remove [] and other special symbols from old_scans
+ - [ ] Full review of old_scans, somehow, chatgpt or prolific
+ - [ ] Adjust scoring to weight each test category equally in final score distribution
