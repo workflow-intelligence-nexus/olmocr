@@ -962,8 +962,10 @@ async def main():
         pdf_s3 = boto3.client("s3")
 
         # Wait a little bit so that not all beaker jobs in a task start at the same time and download the model at the same time
-        sleep_time = min(240, 10 * int(os.environ.get("BEAKER_REPLICA_RANK", "0")))
-        logger.info(f"Beaker job sleeping for {sleep_time} in order to not overwhelm model downloads")
+        replica_count = int(os.environ.get("BEAKER_REPLICA_COUNT", "1"))
+        interval = 10 if (replica_count - 1) * 10 <= 240 else 240 / max(1, replica_count - 1)
+        sleep_time = int(int(os.environ.get("BEAKER_REPLICA_RANK", "0")) * interval)
+        logger.info(f"Beaker job sleeping for {sleep_time} seconds to stagger model downloads")
         await asyncio.sleep(sleep_time)
 
     if args.workspace_profile:
