@@ -31,7 +31,9 @@ jobs:
         task:
           - name: Test
             run: |
+              playwright install chromium
               pytest -v --color=yes  -m "not nonci" tests/
+              pytest -v --color=yes  -m "not nonci" olmocr/bench/katex/render.py
 
         include:
           - python: "3.11"
@@ -178,6 +180,7 @@ jobs:
         run: |
           pip install --upgrade pip setuptools wheel build
           pip install -e .[dev]
+          pip install -e .[bench]
 
       - name: Prepare environment
         run: |

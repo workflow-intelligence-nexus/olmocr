@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -123,6 +124,9 @@ def normalize_text(md_content: str) -> str:
     # Remove markdown italics formatting (* or _ for italics)
     md_content = re.sub(r"\*(.*?)\*", r"\1", md_content)
     md_content = re.sub(r"_(.*?)_", r"\1", md_content)
+
+    # Convert down to a consistent unicode form, so é == e + accent, unicode forms
+    md_content = unicodedata.normalize("NFC", md_content)
 
     # Dictionary of characters to replace: keys are fancy characters, values are ASCII equivalents, unicode micro with greek mu comes up often enough too
     replacements = {"‘": "'", "’": "'", "‚": "'", "“": '"', "”": '"', "„": '"', "＿": "_", "–": "-", "—": "-", "‑": "-", "‒": "-", "−": "-", "\u00b5": "\u03bc"}

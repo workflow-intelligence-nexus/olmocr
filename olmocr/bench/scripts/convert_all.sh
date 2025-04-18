@@ -206,7 +206,7 @@ python -m olmocr.bench.convert marker --dir "$BENCH_DIR"
 
 # Run chatgpt benchmarks
 echo "Running chatgpt benchmarks..."
-python -m olmocr.bench.convert chatgpt --dir "$BENCH_DIR"
+python -m olmocr.bench.convert chatgpt --dir "$BENCH_DIR" --parallel 4
 #python -m olmocr.bench.convert chatgpt:name=chatgpt45:model=gpt-4.5-preview-2025-02-27
 
 # Run gemini benchmarks
