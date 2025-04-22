@@ -1141,8 +1141,22 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 }
             }
             
+            function getQueryParam(name) {
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get(name);
+            }
+            
             document.addEventListener("DOMContentLoaded", async function() {
+                // Get the datastore
                 const datastore = await fetchDatastore() || {};
+                
+                // Check for PROLIFIC_PID in the URL query parameters
+                const prolificPid = getQueryParam('PROLIFIC_PID');
+                if (prolificPid) {
+                    // If it exists, update the datastore with this value
+                    datastore.prolific_pid = prolificPid;
+                    await putDatastore(datastore);
+                }
                 
                 // Add editing class to the first container by default
                 const firstContainer = document.querySelector(`.page-container[data-index="0"]`);
@@ -1370,10 +1384,22 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
 
     # Process each annotation
     for annotations, link, html_content in annotations_by_link:
+        # Extract Prolific PID from datastore if available
+        prolific_pid = annotations.get("prolific_pid", None)
+        
         for page_id, annotation in annotations.items():
+            # Skip non-page entries like prolific_pid
+            if page_id == "prolific_pid":
+                continue
+                
             if not annotation or "primaryOption" not in annotation:
                 results["no_annotation"].append(
-                    {"page_id": page_id, "link": link, "pdf_path": annotation.get("pdfPath", "Unknown") if annotation else "Unknown"}
+                    {
+                        "page_id": page_id, 
+                        "link": link, 
+                        "pdf_path": annotation.get("pdfPath", "Unknown") if annotation else "Unknown",
+                        "prolific_pid": prolific_pid
+                    }
                 )
                 continue
 
@@ -1399,7 +1425,16 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
             if primary_option == "yes-public":
                 # Public document - no PII info collected with new flow
                 results["public_document"].append(
-                    {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page, "pii_types": [], "has_pii": False, "description": ""}
+                    {
+                        "page_id": page_id, 
+                        "link": link, 
+                        "pdf_path": pdf_path, 
+                        "pdf_page": pdf_page, 
+                        "pii_types": [], 
+                        "has_pii": False, 
+                        "description": "",
+                        "prolific_pid": prolific_pid
+                    }
                 )
 
             elif primary_option == "no-public":
@@ -1410,7 +1445,16 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
                 if not private_pii_options:
                     # No PII selected in a private document
                     results["private_document"].append(
-                        {"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page, "pii_types": [], "has_pii": False, "description": ""}
+                        {
+                            "page_id": page_id, 
+                            "link": link, 
+                            "pdf_path": pdf_path, 
+                            "pdf_page": pdf_page, 
+                            "pii_types": [], 
+                            "has_pii": False, 
+                            "description": "",
+                            "prolific_pid": prolific_pid
+                        }
                     )
                 else:
                     # PII found in a private document
@@ -1423,17 +1467,42 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
                             "pii_types": private_pii_options,
                             "has_pii": True,
                             "description": other_desc if "other" in private_pii_options else "",
+                            "prolific_pid": prolific_pid
                         }
                     )
 
             elif primary_option == "cannot-read":
-                results["cannot_read"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page})
+                results["cannot_read"].append(
+                    {
+                        "page_id": page_id, 
+                        "link": link, 
+                        "pdf_path": pdf_path, 
+                        "pdf_page": pdf_page,
+                        "prolific_pid": prolific_pid
+                    }
+                )
 
             elif primary_option == "report-content":
-                results["report_content"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page})
+                results["report_content"].append(
+                    {
+                        "page_id": page_id, 
+                        "link": link, 
+                        "pdf_path": pdf_path, 
+                        "pdf_page": pdf_page,
+                        "prolific_pid": prolific_pid
+                    }
+                )
 
             else:
-                results["no_annotation"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page})
+                results["no_annotation"].append(
+                    {
+                        "page_id": page_id, 
+                        "link": link, 
+                        "pdf_path": pdf_path, 
+                        "pdf_page": pdf_page,
+                        "prolific_pid": prolific_pid
+                    }
+                )
 
     return results
 
@@ -1548,6 +1617,8 @@ def print_annotation_report(annotation_results: Dict[str, List[Dict[str, Any]]],
             print(f"   PII Types: {', '.join(item['pii_types'])}")
             if item.get("description"):
                 print(f"   Description: {item['description']}")
+            if item.get("prolific_pid"):
+                print(f"   Prolific PID: {item['prolific_pid']}")
             print("-" * 80)
 
     print("\nReport complete.")
@@ -1597,7 +1668,7 @@ def read_and_process_results(args):
 
         with open(output_file, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Category", "PDF Path", "Page ID", "Link", "Presigned URL", "Document Type", "PII Types", "Description"])
+            writer.writerow(["Category", "PDF Path", "Page ID", "Link", "Presigned URL", "Document Type", "PII Types", "Description", "Prolific PID"])
 
             for category, items in annotation_results.items():
                 for item in items:
@@ -1627,9 +1698,12 @@ def read_and_process_results(args):
                         doc_type = ""
                         pii_types = ""
                         description = ""
+                        
+                    # Extract Prolific PID from the item if available
+                    prolific_pid = item.get("prolific_pid", "")
 
                     writer.writerow(
-                        [category, item["pdf_path"], item["page_id"], f"{item['link']}#{item['page_id']}", presigned_url, doc_type, pii_types, description]
+                        [category, item["pdf_path"], item["page_id"], f"{item['link']}#{item['page_id']}", presigned_url, doc_type, pii_types, description, prolific_pid]
                     )
 
         print(f"Report saved to {output_file}")
