@@ -1649,12 +1649,12 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
     for annotations, link, html_content in annotations_by_link:
         # Extract Prolific PID from datastore if available
         prolific_pid = annotations.get("prolific_pid", None)
-        
+
         for page_id, annotation in annotations.items():
             # Skip non-page entries like prolific_pid
             if page_id == "prolific_pid":
                 continue
-                
+
             # Handle case where annotation might be a boolean or non-dict value
             if not isinstance(annotation, dict) or "primaryOption" not in annotation:
                 continue
@@ -1682,14 +1682,14 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
                 # Public document - no PII info collected with new flow
                 results["public_document"].append(
                     {
-                        "page_id": page_id, 
-                        "link": link, 
-                        "pdf_path": pdf_path, 
-                        "pdf_page": pdf_page, 
-                        "pii_types": [], 
-                        "has_pii": False, 
+                        "page_id": page_id,
+                        "link": link,
+                        "pdf_path": pdf_path,
+                        "pdf_page": pdf_page,
+                        "pii_types": [],
+                        "has_pii": False,
                         "description": "",
-                        "prolific_pid": prolific_pid
+                        "prolific_pid": prolific_pid,
                     }
                 )
 
@@ -1702,14 +1702,14 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
                     # No PII selected in a private document
                     results["private_document"].append(
                         {
-                            "page_id": page_id, 
-                            "link": link, 
-                            "pdf_path": pdf_path, 
-                            "pdf_page": pdf_page, 
-                            "pii_types": [], 
-                            "has_pii": False, 
+                            "page_id": page_id,
+                            "link": link,
+                            "pdf_path": pdf_path,
+                            "pdf_page": pdf_page,
+                            "pii_types": [],
+                            "has_pii": False,
                             "description": "",
-                            "prolific_pid": prolific_pid
+                            "prolific_pid": prolific_pid,
                         }
                     )
                 else:
@@ -1723,42 +1723,18 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
                             "pii_types": private_pii_options,
                             "has_pii": True,
                             "description": other_desc if "other" in private_pii_options else "",
-                            "prolific_pid": prolific_pid
+                            "prolific_pid": prolific_pid,
                         }
                     )
 
             elif primary_option == "cannot-read":
-                results["cannot_read"].append(
-                    {
-                        "page_id": page_id, 
-                        "link": link, 
-                        "pdf_path": pdf_path, 
-                        "pdf_page": pdf_page,
-                        "prolific_pid": prolific_pid
-                    }
-                )
+                results["cannot_read"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page, "prolific_pid": prolific_pid})
 
             elif primary_option == "report-content":
-                results["report_content"].append(
-                    {
-                        "page_id": page_id, 
-                        "link": link, 
-                        "pdf_path": pdf_path, 
-                        "pdf_page": pdf_page,
-                        "prolific_pid": prolific_pid
-                    }
-                )
+                results["report_content"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page, "prolific_pid": prolific_pid})
 
             else:
-                results["no_annotation"].append(
-                    {
-                        "page_id": page_id, 
-                        "link": link, 
-                        "pdf_path": pdf_path, 
-                        "pdf_page": pdf_page,
-                        "prolific_pid": prolific_pid
-                    }
-                )
+                results["no_annotation"].append({"page_id": page_id, "link": link, "pdf_path": pdf_path, "pdf_page": pdf_page, "prolific_pid": prolific_pid})
 
     return results
 
@@ -1954,12 +1930,22 @@ def read_and_process_results(args):
                         doc_type = ""
                         pii_types = ""
                         description = ""
-                        
+
                     # Extract Prolific PID from the item if available
                     prolific_pid = item.get("prolific_pid", "")
 
                     writer.writerow(
-                        [category, item["pdf_path"], item["page_id"], f"{item['link']}#{item['page_id']}", presigned_url, doc_type, pii_types, description, prolific_pid]
+                        [
+                            category,
+                            item["pdf_path"],
+                            item["page_id"],
+                            f"{item['link']}#{item['page_id']}",
+                            presigned_url,
+                            doc_type,
+                            pii_types,
+                            description,
+                            prolific_pid,
+                        ]
                     )
 
         print(f"Report saved to {output_file}")
@@ -1967,6 +1953,7 @@ def read_and_process_results(args):
     except Exception as e:
         print(f"Error processing results: {e}")
         raise
+
 
 def main():
     args = parse_args()
