@@ -229,6 +229,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 --text-light: #6b7280;
                 --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
                 --success-color: #10b981;
+                --overlay-bg: rgba(0, 0, 0, 0.7);
             }}
             
             * {{
@@ -588,6 +589,133 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 padding-top: 1rem;
             }}
             
+            /* Instructions Modal */
+            .instructions-modal-overlay {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: var(--overlay-bg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+                backdrop-filter: blur(3px);
+            }}
+            
+            .instructions-modal-overlay.visible {{
+                opacity: 1;
+                visibility: visible;
+            }}
+            
+            .instructions-modal {{
+                background-color: white;
+                border-radius: 8px;
+                width: 90%;
+                max-width: 1000px;
+                max-height: 90vh;
+                overflow-y: auto;
+                padding: 2rem;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                position: relative;
+                animation: modalAppear 0.3s ease;
+            }}
+            
+            @keyframes modalAppear {{
+                from {{ 
+                    opacity: 0;
+                    transform: translateY(-20px);
+                }}
+                to {{ 
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
+            }}
+            
+            .instructions-modal-header {{
+                margin-bottom: 1.5rem;
+                text-align: center;
+            }}
+            
+            .instructions-modal-header h2 {{
+                font-size: 1.5rem;
+                color: var(--primary-color);
+                margin-bottom: 0.5rem;
+            }}
+            
+            .instructions-modal-content {{
+                margin-bottom: 2rem;
+                overflow-y: auto;
+                max-height: 60vh;
+                padding-right: 10px;
+                border-radius: 4px;
+                scrollbar-width: thin;
+            }}
+            
+            /* Scrollbar styling for webkit browsers */
+            .instructions-modal-content::-webkit-scrollbar {{
+                width: 8px;
+            }}
+            
+            .instructions-modal-content::-webkit-scrollbar-track {{
+                background: #f1f1f1;
+                border-radius: 10px;
+            }}
+            
+            .instructions-modal-content::-webkit-scrollbar-thumb {{
+                background: #c0c0c0;
+                border-radius: 10px;
+            }}
+            
+            .instructions-modal-content::-webkit-scrollbar-thumb:hover {{
+                background: #a0a0a0;
+            }}
+            
+            /* Styling for the cloned sidebar content in the modal */
+            .instructions-modal-content header {{
+                position: static;
+                min-width: unset;
+                max-width: unset;
+                max-height: unset;
+                overflow-y: visible;
+                padding: 0;
+                background-color: transparent;
+                border-radius: 0;
+                box-shadow: none;
+                align-self: auto;
+                font-size: inherit;
+            }}
+            
+            .instructions-modal-footer {{
+                text-align: center;
+            }}
+            
+            .instructions-modal-button {{
+                padding: 0.75rem 2rem;
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background-color 0.2s ease;
+            }}
+            
+            .instructions-modal-button:hover {{
+                background-color: #1d4ed8;
+            }}
+            
+            .instructions-modal-button:disabled {{
+                background-color: #9cb3f0;
+                cursor: not-allowed;
+                opacity: 0.7;
+            }}
+            
             @media (max-width: 768px) {{
                 body {{
                     padding: 1rem;
@@ -604,6 +732,11 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 .container {{
                     max-width: 100%;
                 }}
+                
+                .instructions-modal {{
+                    padding: 1.5rem;
+                    width: 95%;
+                }}
             }}
         </style>
     </head>
@@ -613,6 +746,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             <p>In this task, you will review {len(random_pages)} document pages and determine whether they contain any <span class="important">Personally Identifiable Information (PII)</span>. For each page, please follow the decision flow outlined in the "How to Annotate" section below.</p>
             <p>Carefully but efficiently inspect each page and select the appropriate response. You do <span class="important">not</span> need to read every word. Instead, focus on ascertaining the document's intended use and spotting information that would qualify as PII.</p>
             <p>The entire task should take about <span class="important">25-30 minutes</span>.</p>
+            
+            <button id="view-instructions-button" style="background-color: var(--primary-color); color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; margin: 1rem 0; cursor: pointer;">View Instructions Popup</button>
             
             <h2>How to Annotate</h2>
             <p>The current annotation will be highlighted with a blue outline and a set of response buttons will be displayed directly below the page preview. For each page, complete the following steps:</p>
@@ -1158,6 +1293,12 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     await putDatastore(datastore);
                 }
                 
+                // Track if instructions have been seen before
+                if (!datastore.hasOwnProperty('instructions_seen')) {
+                    datastore.instructions_seen = false;
+                    await putDatastore(datastore);
+                }
+                
                 // Add editing class to the first container by default
                 const firstContainer = document.querySelector(`.page-container[data-index="0"]`);
                 if (firstContainer) {
@@ -1278,6 +1419,128 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     updateStatusIndicators();
                 }
             });
+            
+            // Instructions modal functionality
+            // Create modal container
+            const instructionsModal = document.createElement('div');
+            instructionsModal.className = 'instructions-modal-overlay';
+            instructionsModal.id = 'instructions-modal';
+            
+            // Create modal content container
+            const modalContent = document.createElement('div');
+            modalContent.className = 'instructions-modal';
+            
+            // Create header
+            const modalHeader = document.createElement('div');
+            modalHeader.className = 'instructions-modal-header';
+            modalHeader.innerHTML = `
+                <h2>Welcome to the OLMO OCR Annotation Task</h2>
+                <p>Please read these instructions carefully before you begin.</p>
+            `;
+            
+            // Create content section - will be populated with sidebar content
+            const modalContentSection = document.createElement('div');
+            modalContentSection.className = 'instructions-modal-content';
+            
+            // Clone the sidebar content to reuse in the modal
+            const sidebarContent = document.querySelector('header').cloneNode(true);
+            
+            // Remove the "View Instructions Popup" button from the cloned content
+            const viewInstructionsButton = sidebarContent.querySelector('#view-instructions-button');
+            if (viewInstructionsButton) {
+                viewInstructionsButton.remove();
+            }
+            
+            // Style the sidebar content for use in the modal
+            sidebarContent.style.fontSize = '14px';
+            sidebarContent.style.lineHeight = '1.5';
+            
+            // Append the cloned sidebar content to the modal content section
+            modalContentSection.appendChild(sidebarContent);
+            
+            // Create footer with start button (initially disabled)
+            const modalFooter = document.createElement('div');
+            modalFooter.className = 'instructions-modal-footer';
+            modalFooter.innerHTML = `<button id="start-button" class="instructions-modal-button" disabled>I Understand, Begin Task</button>
+                <p id="scroll-notice" style="margin-top: 10px; font-size: 0.85rem; color: #6b7280;">Please scroll to the bottom to continue</p>`;
+            
+            // Assemble the modal
+            modalContent.appendChild(modalHeader);
+            modalContent.appendChild(modalContentSection);
+            modalContent.appendChild(modalFooter);
+            instructionsModal.appendChild(modalContent);
+            
+            // Track scroll position in instructions and enable button when scrolled to bottom
+            let hasReachedBottom = false;
+            
+            // Function to check if user has scrolled to the bottom of instructions
+            function checkScrollPosition() {
+                const contentSection = modalContentSection;
+                const scrollableContent = contentSection;
+                
+                // Calculate if the user is at the bottom (allowing for small differences)
+                // We consider "bottom" when user has scrolled to at least 90% of the content
+                const scrollPosition = scrollableContent.scrollTop + scrollableContent.clientHeight;
+                const scrollHeight = scrollableContent.scrollHeight;
+                const scrollPercentage = (scrollPosition / scrollHeight) * 100;
+                
+                if (scrollPercentage >= 90 && !hasReachedBottom) {
+                    // User has scrolled to the bottom, enable the button
+                    hasReachedBottom = true;
+                    const startButton = document.getElementById('start-button');
+                    if (startButton) {
+                        startButton.disabled = false;
+                        
+                        // Change the notice text
+                        const scrollNotice = document.getElementById('scroll-notice');
+                        if (scrollNotice) {
+                            scrollNotice.textContent = 'You may now proceed';
+                            scrollNotice.style.color = '#10b981'; // Success color
+                        }
+                    }
+                }
+            }
+            
+            // Add scroll event listener to the modal content
+            modalContentSection.addEventListener('scroll', checkScrollPosition);
+            
+            document.body.appendChild(instructionsModal);
+            
+            // Show the instructions modal when the page loads
+            async function showInstructionsModal() {
+                const datastore = await fetchDatastore() || {};
+                
+                // Check if the task is already completed or instructions have been seen
+                const isTaskCompleted = currentIndex >= totalPages;
+                const instructionsSeen = datastore.instructions_seen === true;
+                
+                // Only show instructions if task is not completed and instructions haven't been seen
+                if (!isTaskCompleted && !instructionsSeen) {
+                    instructionsModal.classList.add('visible');
+                }
+            }
+            
+            // Handle button clicks for instructions modal
+            document.addEventListener('click', async function(event) {
+                // Start button closes the modal and marks instructions as seen
+                if (event.target && event.target.id === 'start-button') {
+                    // Hide the modal
+                    instructionsModal.classList.remove('visible');
+                    
+                    // Update datastore to remember that instructions have been seen
+                    const datastore = await fetchDatastore() || {};
+                    datastore.instructions_seen = true;
+                    await putDatastore(datastore);
+                }
+                
+                // View instructions button shows the modal
+                if (event.target && event.target.id === 'view-instructions-button') {
+                    instructionsModal.classList.add('visible');
+                }
+            });
+            
+            // Show the instructions modal when page loads (after a slight delay)
+            setTimeout(showInstructionsModal, 500);
         </script>
     </body>
     </html>
@@ -1392,15 +1655,8 @@ def process_annotations(annotations_by_link: List[Tuple[Dict[str, Any], str, str
             if page_id == "prolific_pid":
                 continue
                 
-            if not annotation or "primaryOption" not in annotation:
-                results["no_annotation"].append(
-                    {
-                        "page_id": page_id, 
-                        "link": link, 
-                        "pdf_path": annotation.get("pdfPath", "Unknown") if annotation else "Unknown",
-                        "prolific_pid": prolific_pid
-                    }
-                )
+            # Handle case where annotation might be a boolean or non-dict value
+            if not isinstance(annotation, dict) or "primaryOption" not in annotation:
                 continue
 
             primary_option = annotation["primaryOption"]
@@ -1710,7 +1966,7 @@ def read_and_process_results(args):
 
     except Exception as e:
         print(f"Error processing results: {e}")
-
+        raise
 
 def main():
     args = parse_args()
