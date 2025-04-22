@@ -1,18 +1,31 @@
 # olmOCR-Bench
 
-We develop olmOCR-Bench in order to automatically and effectively evaluate document-level
-parsing and OCR of various tools.
+We develop olmOCR-Bench in order to automatically and effectively evaluate document-level OCR of various tools.
 
-olmOCR-Bench works by testing various "facts" or "properties" about document pages at the PDF-level.
-Our intention is that each "fact" is very simple, unambiguous, and machine-checkable. 
+olmOCR-Bench works by testing various "facts" about document pages at the PDF-level.
+Our intention is that each "fact" is very simple, unambiguous, and machine-checkable. For example, once your document has been OCRed, we may check that a particular sentence appears somewhere on the page.
 
-We stay away from soft metrics like edit distance comparisons, because they may not correctly capture things like
-two articles appearing on the same page. You want the text of each article to be grouped together, but the relative order of the two articles is less important. Also, some documents may have critical details, like switching x and y in an equation that can make all the difference in understanding the document, but would appear as just a small edit in an edit-distance metric.
+We stay away from soft metrics like edit distance comparisons, because they may assign lower scores for parses of the document that differ from the reference, but may in fact still be correct. For example, on a document containing multiple distinct articles: you want the text of each article to be grouped together, but the relative order of the two articles may not be critical. Also, some documents may have critical details, like switching x and y in an equation that can make all the difference in understanding, but would appear as just a single character edit in an edit-distance metric.
 
-We also choose PDFs directly, because PDFs do preserve some digital metadata and information which is helpful
-and commonly available. Almost any other format can be converted to a PDF, but not the reverse.
+olmOCR-bench operates on single page PDFs directly. We make this choice because PDFs do preserve some digital metadata and information which may be helpful to some OCR systems. Almost any other format can be converted to a PDF, but not the reverse, so we try to preserve these original documents where possible.
 
-## Test classes
+## Benchmark Principles
+
+As we created olmOCR-bench, we also kept a few general rules in mind:
+
+- We expect your OCR system to output a plain-text Unicode document in a reading order that would be considered natural.
+- Documents from the benchmark should fit on a standard A4 piece of paper and still be readable to a human.
+- Markdown syntax is allowed, but ignored. Ex. if we are looking for the word "enlightenment" to appear on a page, and your system outputs "**\*\*enlightenment\*\***" in Markdown bold, that still counts. 
+- olmOCR-bench is not position sensitive, ex. we check that a sentence or math equation appears anywhere on a page. The exception to this is header/footer tests where we want to find simple page numbers appearing in the first or last few characters of a page.
+- Tables can be in either Markdown syntax, or as an html `<table>`.
+- Math equations must render with [Katex](https://katex.org/) and be delimeted with $, $$, \\(, or \\[. 
+- Math equations are not position sensitive either, so if we are checking for 
+$ 3x^2 $ to appear on a page, then outputting $ \int_a^b{ 3x ^ 2dx} $ counts.
+- We normalize all Unicode to NFC before running the benchmark, so if your OCR model outputs é vs e + ◌́ then either way should not affect your benchmark score.
+- We normalize all the different variants of hyphens to the ascii -, all the variants of double quoets to ascii " and all variants of single quotes/apostrophes to ascii '. You should score the same on the benchmark if you output - vs —
+- All facts checked about documents are either pass/fail. We want it to be very clear if your OCR system fails a test, and if so, what output would make it pass.
+
+## olmOCR-Bench Fact classes
 
 - Text presence
   - This task makes sure that a given small piece of text (ex. 1-3 sentence level) is present within
@@ -77,12 +90,13 @@ python -m olmocr.bench.review_app --port 5000 --debug ./olmOCR-bench/bench_data/
 ## How were the tests made
 
 Several categories of tests have been made so far:
-1. arxiv_math -> We downloaded recent math papers from arxiv, filtered to those which had a single tex source file, and a rendered pdf, using https://github.com/allenai/olmocr/blob/main/olmocr/bench/miners/download_math.py. Then we matched up the text on a pdf page to the location in the tex source mostly likely to match to it using a dynamic programming matching algorithm in https://github.com/allenai/olmocr/blob/main/olmocr/bench/miners/mine_math.py. From there, Latex equations from the matching page were then parsed out, and we checked they rendered in Katex before adding them as test cases.
+1. arxiv_math -> We downloaded recent math papers from arxiv, filtered to those which had a single tex source file, and a rendered pdf, using https://github.com/allenai/olmocr/blob/main/olmocr/bench/miners/download_math.py. Then we matched up the text on a pdf page to the location in the tex source mostly likely to match to it using a dynamic programming matching algorithm in https://github.com/allenai/olmocr/blob/main/olmocr/bench/miners/mine_math.py. From there, Latex equations from the matching page were then parsed out, and we checked they rendered in Katex before adding them as test cases. We did a final quick scan over the data manually to remove any cases where the Latex parsing may have failed egregiously.
 2. headers_footers -> We sampled documents from our internal crawled PDF repository. (The same from which olmOCR-mix was derived, though the likelyhood of duplicates is low, as there are 200M+ pdfs in this set). Then we used [DocLayout-YOLO](https://github.com/opendatalab/DocLayout-YOLO) to identify regions of the pages which were marked as headers/footers using the abandon category. We then got the text of those headers/footers regions by extracting them out and prompting Gemini, and we added them as test cases which should be absent. Manual review was then performed to remove mistakenly filtered text, and to set conditions such as limiting the search area to the first N or last N characters. Ex. if a page number "5" appears on the bottom a page, you want to test that your OCR system does not output a "5" in the last 20 characters of the page, but "5" could apepar earlier if in the actual body text.
 3. table_tests -> We sampled documents from our internal crawled PDF repository, and found those which had tables using gemini-flash-2.0. https://github.com/allenai/olmocr/blob/main/olmocr/bench/miners/mine_tables_gemini.py On pages that had tables, we then further asked gemini-flash-2.0 to tell us the relationships between randomly chosen cells. Those tests were then manually checked.
 4. multi_column -> We sampled documents from our internal crawled PDF repository manually, to find documents which had multi-column layouts and multiple articles on one page. Then, we used claude-sonnet-3.7 to render those pages to html, and from that html, we extracted text segments which were before/after one another. Then we manually reviewed each entry.
-5. old_scans -> We sampled documents from the library of congress which contained handwriting or typewritten text. (TODO)
-6. book_math -> We found old math textbooks in the public domain from the Internet Archive. We then extracted random pages from them, OCRed them, filtered down to pages which contained equations, and picked several random equations from each page to use as test cases. We then manually checked each test case to see that it was accurate capturing what was on the page. (TODO)
+5. old_scans -> We sampled documents from the Library of Congress which contained handwriting or typewritten text. Then we priortized creating rules that check for reading order. (TODO)
+6. old_scans_math -> We found old math textbooks in the public domain from the Internet Archive. We then extracted random pages from them, OCRed them, filtered down to pages which contained equations, and picked several random equations from each page to use as test cases. We then manually checked each test case to see that it was accurate capturing what was on the page.
+7. long_tiny_text -> We found documents from the Internet Archive which contained a large amount of dense small print on a single page. Ex. pages from a dictionary, or pages of references from an academic paper. We then generated test cases using an LLM, and verified them manually.
 
 
 ## TODO List for release
