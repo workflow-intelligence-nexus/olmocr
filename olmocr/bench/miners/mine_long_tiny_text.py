@@ -101,7 +101,7 @@ def detect_long_text(pdf_path: str, page_num: int, api_key: str) -> List[str]:
                 parts=[
                     image_part,
                     types.Part.from_text(
-                        text = """Extract and display all text from the document without any omissions. The documents may be in a multi-column format, so handle that carefully. If the words are less than 9, combine text from the next line. I don't want all the text, just randomly pick few sentences. Do not summarize, abbreviate, or hallucinate any content."""
+                        text="""Extract and display all text from the document without any omissions. The documents may be in a multi-column format, so handle that carefully. If the words are less than 9, combine text from the next line. I don't want all the text, just randomly pick few sentences. Do not summarize, abbreviate, or hallucinate any content."""
                     ),
                 ],
             ),
@@ -131,7 +131,7 @@ def detect_long_text(pdf_path: str, page_num: int, api_key: str) -> List[str]:
         if len(response.candidates) == 0:
             print(f"No candidates found for {pdf_path} page {page_num+1}")
             return []
-            
+
         if response.candidates[0].finish_reason != types.FinishReason.STOP:
             print(f"Finish reason was not STOP for {pdf_path} page {page_num+1}, likely a processing error")
             return []
@@ -142,13 +142,15 @@ def detect_long_text(pdf_path: str, page_num: int, api_key: str) -> List[str]:
         except json.JSONDecodeError:
             print(f"Failed to parse JSON response for {pdf_path} page {page_num+1}")
             return []
-            
+
     except Exception as e:
         print(f"Error detecting text in {pdf_path} page {page_num+1}: {str(e)}")
         return []
 
 
-def process_pdf(pdf_path: str, output_dir: str, api_key: str, tests: List[TextPresenceTest], max_pages_per_pdf: int = 20, force_processing: bool = True) -> bool:
+def process_pdf(
+    pdf_path: str, output_dir: str, api_key: str, tests: List[TextPresenceTest], max_pages_per_pdf: int = 20, force_processing: bool = True
+) -> bool:
     """
     Process a single PDF, extracting text from multiple pages.
 
@@ -201,12 +203,12 @@ def process_pdf(pdf_path: str, output_dir: str, api_key: str, tests: List[TextPr
             # Extract the page regardless of text detection
             pdf_basename = os.path.splitext(pdf_filename)[0]
             output_pdf_path = os.path.join(output_dir, "pdfs", f"{pdf_basename}_pg{page_num+1}.pdf")
-            
+
             # Extract the page regardless of text detection
             page_extracted = extract_page_from_pdf(pdf_path, output_pdf_path, page_num)
             if page_extracted:
                 pdf_processed = True
-            
+
             if not text_sections:
                 print(f"No text detected in {pdf_filename} page {page_num+1} - creating empty test")
                 # Create a placeholder test to ensure the PDF is represented
@@ -236,7 +238,7 @@ def process_pdf(pdf_path: str, output_dir: str, api_key: str, tests: List[TextPr
 
             print(f"Processed {pdf_filename} page {page_num+1}, found {len(text_sections)} text sections")
             processed_pages += 1
-            
+
         print(f"Completed processing {processed_pages} pages from {pdf_filename}")
         return pdf_processed
 
@@ -256,13 +258,13 @@ def get_pdf_files_from_directory(directory: str) -> List[str]:
         List[str]: List of full paths to PDF files
     """
     pdf_files = []
-    
+
     for filename in os.listdir(directory):
-        if filename.lower().endswith('.pdf'):
+        if filename.lower().endswith(".pdf"):
             full_path = os.path.join(directory, filename)
             if os.path.isfile(full_path):
                 pdf_files.append(full_path)
-    
+
     return pdf_files
 
 
@@ -286,11 +288,11 @@ def main():
 
     # Get PDF files from input directory
     pdf_files = get_pdf_files_from_directory(args.input_dir)
-    
+
     if not pdf_files:
         print(f"No PDF files found in {args.input_dir}")
         return
-        
+
     print(f"Found {len(pdf_files)} PDF files in input directory")
 
     # Process each PDF
