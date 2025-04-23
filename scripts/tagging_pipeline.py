@@ -10,9 +10,7 @@ scratch/attributes/, mirroring the input structure.
 import argparse
 import asyncio
 import atexit
-import base64
-import datetime
-import hashlib
+import gzip
 import json
 import logging
 import multiprocessing
@@ -29,6 +27,7 @@ from dataclasses import dataclass
 from functools import cache, partial
 from io import BytesIO
 from urllib.parse import urlparse
+import zstandard as zstd
 
 import boto3
 import httpx
@@ -96,91 +95,142 @@ tracker = WorkerTracker()
 process_pool = ProcessPoolExecutor(max_workers=min(multiprocessing.cpu_count() // 2 + 1, 32), mp_context=multiprocessing.get_context("spawn"))
 
 
-async def build_query(dolma_doc):
-    text = dolma_doc["text"]
-
-    return {
+async def process_dolma_document(dolma_doc):
+    """
+    Send the text to SGLang server to classify PII presence.
+    Returns tuple (doc_id, contains_pii, text_length).
+    """
+    query = {
         "model": "google/gemma-3-4b-it",
         "messages": [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": f"{text}\n\n-----------\nGiven the text above, does it contain any Personally Indentifiable Information (PII)? Answer in a single JSON object with a single field named 'contains_pii' that's a bool."},
+                    {
+                        "type": "text",
+                        "text": (
+                            f"{dolma_doc['text']}\n\n-----------\n"
+                            "Given the text above, does it contain any Personally Identifiable Information (PII)? "
+                            "Answer in a single JSON object with a single field named 'contains_pii' that's a bool."
+                        )
+                    }
                 ],
             }
         ],
         "temperature": 0.0,
     }
+    async with httpx.AsyncClient() as client:
+        url = f"http://localhost:{SGLANG_SERVER_PORT}/v1/chat/completions"
+        resp = await client.post(url, json=query)
+        resp.raise_for_status()
+        response_json = resp.json()
 
-async def process_dolma_document(dolma_doc):
-    pass
+    # Extract the JSON content from the model's response
+    content = (
+        response_json.get('choices', [])[0]
+                    .get('message', {})
+                    .get('content', '')
+    )
+    try:
+        result = json.loads(content)
+        contains_pii = bool(result.get('contains_pii', False))
+    except json.JSONDecodeError:
+        logger.warning(f"Failed to parse JSON from SGLang response: {content}")
+        contains_pii = False
+
+    text_length = len(dolma_doc.get('text', ''))
+    return dolma_doc.get('id'), contains_pii, text_length
 
 async def process_file(args, worker_id: int, file_uri: str):
     """
-    Download a JSONL file, query SGLang per record, and write attributes.
+    Download a JSONL file, query SGLang per record, and collect attributes.
     """
     # Fetch raw bytes (S3 or local)
     if file_uri.startswith("s3://"):
         raw = await asyncio.to_thread(get_s3_bytes_with_backoff, dataset_s3, file_uri)
     else:
-        raise NotImplementedError()
-    
-    # TODO, extract the file
+        with open(file_uri, 'rb') as f:
+            raw = f.read()
 
+    # Decompress if needed
+    if file_uri.endswith('.gz'):
+        file_bytes = gzip.decompress(raw)
+    elif file_uri.endswith('.ztd') or file_uri.endswith('.zst') or file_uri.endswith('.zstd'):
+        dctx = zstd.ZstdDecompressor()
+        file_bytes = dctx.decompress(raw, max_output_size=1_000_000_000)
+    else:
+        file_bytes = raw
 
-    # TODO Fix up this code
+    lines = file_bytes.decode('utf-8').splitlines()
     page_tasks = {}
-    final_attributes = {}
 
-    # We use a task group so that we can submit the work for a whole file all at once to let sglang/vllm handle it efficiently
+    # Send all records in parallel
     async with asyncio.TaskGroup() as tg:
-        for line in file:
+        for line in lines:
             data = json.loads(line)
+            task = tg.create_task(process_dolma_document(data))
+            page_tasks[data['id']] = (task, data)
 
-            task = tg.create_task(process_dolma_document(...))
-            page_tasks[data['id']](task)
-    
-    # Collect the results from the entire task group, assuming no exceptions
-    page_results = [task.result() for task in page_tasks]
+    # Collect results and build attributes
+    attributes = []
+    key_name = f"{args.model.replace('/', '_')}_pii_classification"
+    for doc_id, (task, data) in page_tasks.items():
+        _, contains_pii, text_length = task.result()
+        score_or_flag = 1.0 if contains_pii else False
+        span = [0, text_length, score_or_flag]
+        attributes.append({
+            "id": doc_id,
+            "attributes": { key_name: [span] }
+        })
 
-    #final_attributes needs to  look like this for each file
-    # {
-    # "id": "...",
-    # attributes: {
-    #     "gemma_3_4b_it_pii_classification": [
-    #         [0, len(text), 1.0 if contains_pii else false], 
-    #     ],
-    # }
+    return attributes
 
-
-    return
 
 async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
     while True:
-        # Wait until allowed to proceed
         await semaphore.acquire()
-
         work_item = await work_queue.get_work()
-
         if work_item is None:
             logger.info(f"Worker {worker_id} exiting due to empty queue")
             semaphore.release()
             break
 
-        assert len(work_item.work_paths) == 1, "We are assuming 1 work path per work item in this pipeline"
-
-        logger.info(f"Worker {worker_id} processing work item {work_item.work_paths[0]}")
+        file_uri = work_item.work_paths[0]
+        logger.info(f"Worker {worker_id} processing work item {file_uri}")
         await tracker.clear_work(worker_id)
 
         try:
-            json_attributes = await process_file(args, worker_id, work_item.work_paths[0])
+            attrs = await process_file(args, worker_id, file_uri)
 
-            # TODO Write the attributes to the results file to indiciate the work is done
+            logger.info("Got attrs", attrs)
 
+            # Write out attributes JSONL to scratch/attributes/... mirroring input structure
+            if file_uri.startswith('s3://'):
+                _, key = parse_s3_path(file_uri)
+                # assume args.dataset is s3://bucket/prefix
+                _, docs_prefix = parse_s3_path(args.dataset)
+                rel_path = key[len(os.path.join(docs_prefix, 'documents/')):]
+            else:
+                docs_root = os.path.join(args.dataset, 'documents')
+                rel_path = os.path.relpath(file_uri, docs_root)
+
+            out_rel = os.path.join('attributes', rel_path)
+            out_jsonl = '\n'.join(json.dumps(x) for x in attrs) + '\n'
+
+            if args.scratch.startswith('s3://'):
+                out_bucket, out_prefix = parse_s3_path(args.scratch)
+                out_key = os.path.join(out_prefix, out_rel)
+                workspace_s3.put_object(Bucket=out_bucket, Key=out_key,
+                                        Body=out_jsonl.encode('utf-8'))
+            else:
+                out_path = os.path.join(args.scratch, out_rel)
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                with open(out_path, 'w', encoding='utf-8') as f:
+                    f.write(out_jsonl)
 
             await work_queue.mark_done(work_item)
         except Exception as e:
-            logger.exception(f"Exception occurred while processing work_hash {work_item.hash}: {e}")
+            logger.exception(f"Exception occurred while processing work item {work_item.hash}: {e}")
         finally:
             semaphore.release()
 
