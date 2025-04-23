@@ -745,12 +745,13 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             <h2>Task Overview</h2>
             <p>In this task, you will review {len(random_pages)} document pages and determine whether they contain any <span class="important">Personally Identifiable Information (PII)</span>. For each page, please follow the decision flow outlined in the "How to Annotate" section below.</p>
             <p>Carefully but efficiently inspect each page and select the appropriate response. You do <span class="important">not</span> need to read every word. Instead, focus on ascertaining the document's intended use and spotting information that would qualify as PII.</p>
-            <p>The entire task should take about <span class="important">25-30 minutes</span>.</p>
+            <p>The entire task should take about <span class="important">20-25 minutes</span>.</p>
             
             <button id="view-instructions-button" style="background-color: var(--primary-color); color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; margin: 1rem 0; cursor: pointer;">View Instructions Popup</button>
             
             <h2>How to Annotate</h2>
-            <p>The current annotation will be highlighted with a blue outline and a set of response buttons will be displayed directly below the page preview. For each page, complete the following steps:</p>
+            <p>The current annotation will be highlighted with a blue outline and a set of response buttons will be displayed directly below the page preview. If you are having trouble viewing the displayed page, click the “View Cached PDF” link for a better look. However, <span class="important">DO NOT</span> examine the entire document; <span class="important">ONLY</span> review the single page being previewed (also indicated in the parentheses after “Viewed Cached PDF”).</p>
+            <p>For each page, complete the following steps:</p>
             
             <ol>
                 <li>
@@ -780,6 +781,8 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 </li>
             </ol>
             
+            <p><span class="important">Note</span>: If you cannot confidently tell that a page is private, treat it as public and do not mark any PII you are unsure about. We anticipate very few private pages or instances of PII in these documents, so erring towards public and no PII minimizes false positives and keeps the review process consistent.</p>
+            
             <p>You may review and edit your previous annotations at any time. To do so, press the green Edit button directly above the page preview for the annotation you want to edit.</p>
             <p>After completing all {len(random_pages)} document pages, you will receive a Prolific completion code.</p>
             
@@ -788,10 +791,11 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
             <h3 style="color: #3b82f6;">Identifiers for PII</h3>
             <p>Some personal information needs to be accompanied by an <span class="important">identifier</span> to be considered PII. Identifiers that trigger PII include:</p>
             <ul>
-                <li>Names</li>
+                <li>Names (full names, first/last names, maiden names, nicknames, aliases)</li>
                 <li>Email Addresses</li>
                 <li>Phone Numbers</li>
             </ul>
+            <p>Note that the reverse is also true - an identifier must be accompanied by additional personal information or another identifier (e.g., name + email address) to be considered PII.</p>
             <br/>
             
             <h3 style="color: #10b981;">PII that must co-occur with an Identifier</h3>
@@ -806,9 +810,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                     <li>Medical Information (health records, diagnoses, genetic or neural data)</li>
                 </ul>
             </div>
-            
-            <p class="note">Note that some of these items are identifiers themselves.</p>
-            <p><em>Example</em>: A street address might be personal information, but is not PII by itself. However, a street address associated with a name <span class="important">is</span> regulated PII.</p>
+            <p>For example, a street address might be personal information, but is not PII by itself; however, a street address associated with a name <span class="important">is</span> regulated PII.</p>
             
             <br/>
             <h3 style="color: #f59e0b;">PII that occurs even without an Identifier</h3>
@@ -959,7 +961,7 @@ def create_html_output(random_pages, pdf_s3_client, output_path, workspace_path,
                 <div class="error">Error: {str(e)}</div>
                 <div class="annotation-interface{active_class}" data-id="page-{i}" data-pdf-path="{pdf_path}" data-pdf-page="{page_num}">
                     <div class="question-container" id="question1-{i}">
-                        <p class="question-text">Is this document meant for public dissemination?</p>
+                        <p class="question-text">Is this document intended for public release or dissemination?</p>
                         <span class="btn-group">
                             <button type="button" class="toggle-button primary-option" data-value="yes-public" onclick="togglePrimaryOption(this, {i})">Yes</button>
                             <button type="button" class="toggle-button primary-option" data-value="no-public" onclick="togglePrimaryOption(this, {i})">No</button>
