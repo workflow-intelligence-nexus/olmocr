@@ -15,51 +15,31 @@ import json
 import logging
 import multiprocessing
 import os
-import random
 import re
-import shutil
 import sys
-import tempfile
 import time
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
-from concurrent.futures.process import BrokenProcessPool
-from dataclasses import dataclass
-from functools import cache, partial
-from io import BytesIO
+from concurrent.futures import ProcessPoolExecutor
 from urllib.parse import urlparse
-import zstandard as zstd
 
 import boto3
 import httpx
 import torch
-from botocore.exceptions import ClientError
+import zstandard as zstd
 from huggingface_hub import snapshot_download
-from PIL import Image
-from pypdf import PdfReader
-from tqdm import tqdm
 
 from olmocr.check import (
-    check_poppler_version,
     check_sglang_version,
     check_torch_gpu_available,
 )
-from olmocr.data.renderpdf import render_pdf_to_base64png
-from olmocr.filter.filter import Language, PdfFilter
-from olmocr.image_utils import convert_image_to_pdf_bytes, is_jpeg, is_png
 from olmocr.metrics import MetricsKeeper, WorkerTracker
-from olmocr.prompts import PageResponse, build_finetuning_prompt
-from olmocr.prompts.anchor import get_anchor_text
 from olmocr.s3_utils import (
     download_directory,
-    download_zstd_csv,
     expand_s3_glob,
-    get_s3_bytes,
     get_s3_bytes_with_backoff,
     parse_s3_path,
 )
 from olmocr.version import VERSION
 from olmocr.work_queue import LocalWorkQueue, S3WorkQueue, WorkQueue
-
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -93,6 +73,7 @@ tracker = WorkerTracker()
 
 # Process pool for offloading cpu bound work, like calculating anchor texts, max 32 workers, otherwise it can spawn way too many workers on a big machine
 process_pool = ProcessPoolExecutor(max_workers=min(multiprocessing.cpu_count() // 2 + 1, 32), mp_context=multiprocessing.get_context("spawn"))
+
 
 # Manual simple implementation of HTTP Post
 # It feels strange perhaps, but httpx and aiohttp are very complex beasts
@@ -157,14 +138,15 @@ async def apost(url, json_data):
                 await writer.wait_closed()
             except:
                 pass
-            
+
+
 async def process_dolma_document(dolma_doc):
     """
     Send the text to SGLang server to classify PII presence.
     Returns tuple (doc_id, contains_pii, text_length).
     """
-    dolma_text = dolma_doc['text']
-    
+    dolma_text = dolma_doc["text"]
+
     query = {
         "model": "google/gemma-3-4b-it",
         "messages": [
@@ -177,7 +159,7 @@ async def process_dolma_document(dolma_doc):
                             f"{dolma_text}\n\n-----------\n"
                             "Given the text above, does it contain any Personally Identifiable Information (PII)? "
                             "Answer in a single JSON object with a single field named 'contains_pii' that's a bool."
-                        )
+                        ),
                     }
                 ],
             }
@@ -194,26 +176,27 @@ async def process_dolma_document(dolma_doc):
         raise ValueError(f"Got InternalServerError from server: {response_body}, skipping this response")
     elif status_code != 200:
         raise ValueError(f"Error http status {status_code}")
-    
+
     try:
         base_response_data = json.loads(response_body)
-    
+
         metrics.add_metrics(
-                sglang_documents=1,
-                sglang_input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
-                sglang_output_tokens=base_response_data["usage"].get("completion_tokens", 0),
-            )
+            sglang_documents=1,
+            sglang_input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
+            sglang_output_tokens=base_response_data["usage"].get("completion_tokens", 0),
+        )
 
         # Extract the JSON content from the model's response
         model_response_json = json.loads(base_response_data["choices"][0]["message"]["content"])
 
-        contains_pii = bool(model_response_json.get('contains_pii', False))
+        contains_pii = bool(model_response_json.get("contains_pii", False))
     except json.JSONDecodeError:
         logger.warning(f"Failed to parse JSON from SGLang response: {response_body}")
         contains_pii = False
 
-    text_length = len(dolma_doc.get('text', ''))
-    return dolma_doc.get('id'), contains_pii, text_length
+    text_length = len(dolma_doc.get("text", ""))
+    return dolma_doc.get("id"), contains_pii, text_length
+
 
 async def process_file(args, worker_id: int, file_uri: str):
     """
@@ -223,32 +206,33 @@ async def process_file(args, worker_id: int, file_uri: str):
     if file_uri.startswith("s3://"):
         raw = await asyncio.to_thread(get_s3_bytes_with_backoff, dataset_s3, file_uri)
     else:
-        with open(file_uri, 'rb') as f:
+        with open(file_uri, "rb") as f:
             raw = f.read()
 
     # Decompress if needed
-    if file_uri.endswith('.gz'):
+    if file_uri.endswith(".gz"):
         file_bytes = gzip.decompress(raw)
-    elif file_uri.endswith('.ztd') or file_uri.endswith('.zst') or file_uri.endswith('.zstd'):
+    elif file_uri.endswith(".ztd") or file_uri.endswith(".zst") or file_uri.endswith(".zstd"):
         dctx = zstd.ZstdDecompressor()
         file_bytes = dctx.decompress(raw, max_output_size=1_000_000_000)
     else:
         file_bytes = raw
 
-    lines = file_bytes.decode('utf-8').splitlines()
+    lines = file_bytes.decode("utf-8").splitlines()
     page_tasks = {}
 
     # Send all records in parallel, max 500 queued at a time
     sem = asyncio.Semaphore(500)
+
     async def _sem_process_dolma_document(dolma_doc):
         async with sem:
             return await process_dolma_document(dolma_doc)
-        
+
     async with asyncio.TaskGroup() as tg:
         for line in lines:
             data = json.loads(line)
             task = tg.create_task(_sem_process_dolma_document(data))
-            page_tasks[data['id']] = (task, data)
+            page_tasks[data["id"]] = (task, data)
 
     logger.info(f"Started taskgroup with {len(page_tasks)} items for {file_uri}")
 
@@ -259,11 +243,7 @@ async def process_file(args, worker_id: int, file_uri: str):
         _, contains_pii, text_length = task.result()
         score_or_flag = 1.0 if contains_pii else False
         span = [0, text_length, score_or_flag]
-        attributes.append({
-            "id": doc_id,
-            "attributes": { key_name: [span] }
-        })
-
+        attributes.append({"id": doc_id, "attributes": {key_name: [span]}})
 
     return attributes
 
@@ -287,27 +267,26 @@ async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
             logger.info("Got attrs", attrs)
 
             # Write out attributes JSONL to scratch/attributes/... mirroring input structure
-            if file_uri.startswith('s3://'):
+            if file_uri.startswith("s3://"):
                 _, key = parse_s3_path(file_uri)
                 # assume args.dataset is s3://bucket/prefix
                 _, docs_prefix = parse_s3_path(args.dataset)
-                rel_path = key[len(os.path.join(docs_prefix, 'documents/')):]
+                rel_path = key[len(os.path.join(docs_prefix, "documents/")) :]
             else:
-                docs_root = os.path.join(args.dataset, 'documents')
+                docs_root = os.path.join(args.dataset, "documents")
                 rel_path = os.path.relpath(file_uri, docs_root)
 
-            out_rel = os.path.join('attributes', rel_path)
-            out_jsonl = '\n'.join(json.dumps(x) for x in attrs) + '\n'
+            out_rel = os.path.join("attributes", rel_path)
+            out_jsonl = "\n".join(json.dumps(x) for x in attrs) + "\n"
 
-            if args.scratch.startswith('s3://'):
+            if args.scratch.startswith("s3://"):
                 out_bucket, out_prefix = parse_s3_path(args.scratch)
                 out_key = os.path.join(out_prefix, out_rel)
-                workspace_s3.put_object(Bucket=out_bucket, Key=out_key,
-                                        Body=out_jsonl.encode('utf-8'))
+                workspace_s3.put_object(Bucket=out_bucket, Key=out_key, Body=out_jsonl.encode("utf-8"))
             else:
                 out_path = os.path.join(args.scratch, out_rel)
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                with open(out_path, 'w', encoding='utf-8') as f:
+                with open(out_path, "w", encoding="utf-8") as f:
                     f.write(out_jsonl)
 
             await work_queue.mark_done(work_item)
@@ -631,7 +610,6 @@ async def main():
             f.write(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_FILE"))
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
         workspace_s3 = boto3.client("s3")
-        pdf_s3 = boto3.client("s3")
 
         # Wait a little bit so that not all beaker jobs in a task start at the same time and download the model at the same time
         replica_count = int(os.environ.get("BEAKER_REPLICA_COUNT", "1"))
