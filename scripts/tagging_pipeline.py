@@ -94,12 +94,77 @@ tracker = WorkerTracker()
 # Process pool for offloading cpu bound work, like calculating anchor texts, max 32 workers, otherwise it can spawn way too many workers on a big machine
 process_pool = ProcessPoolExecutor(max_workers=min(multiprocessing.cpu_count() // 2 + 1, 32), mp_context=multiprocessing.get_context("spawn"))
 
+# Manual simple implementation of HTTP Post
+# It feels strange perhaps, but httpx and aiohttp are very complex beasts
+# Ex. the sessionpool in httpcore has 4 different locks in it, and I've noticed
+# that at the scale of 100M+ requests, that they deadlock in different strange ways
+async def apost(url, json_data):
+    parsed_url = urlparse(url)
+    host = parsed_url.hostname
+    port = parsed_url.port or 80
+    path = parsed_url.path or "/"
 
+    writer = None
+    try:
+        reader, writer = await asyncio.open_connection(host, port)
+
+        json_payload = json.dumps(json_data)
+        request = (
+            f"POST {path} HTTP/1.1\r\n"
+            f"Host: {host}\r\n"
+            f"Content-Type: application/json\r\n"
+            f"Content-Length: {len(json_payload)}\r\n"
+            f"Connection: close\r\n\r\n"
+            f"{json_payload}"
+        )
+        writer.write(request.encode())
+        await writer.drain()
+
+        # Read status line
+        status_line = await reader.readline()
+        if not status_line:
+            raise ConnectionError("No response from server")
+        status_parts = status_line.decode().strip().split(" ", 2)
+        if len(status_parts) < 2:
+            raise ValueError(f"Malformed status line: {status_line.decode().strip()}")
+        status_code = int(status_parts[1])
+
+        # Read headers
+        headers = {}
+        while True:
+            line = await reader.readline()
+            if line in (b"\r\n", b"\n", b""):
+                break
+            key, _, value = line.decode().partition(":")
+            headers[key.strip().lower()] = value.strip()
+
+        # Read response body
+        if "content-length" in headers:
+            body_length = int(headers["content-length"])
+            response_body = await reader.readexactly(body_length)
+        else:
+            raise ConnectionError("Anything other than fixed content length responses are not implemented yet")
+
+        return status_code, response_body
+    except Exception as e:
+        # Pass through errors
+        raise e
+    finally:
+        # But just make sure to close the socket on your way out
+        if writer is not None:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except:
+                pass
+            
 async def process_dolma_document(dolma_doc):
     """
     Send the text to SGLang server to classify PII presence.
     Returns tuple (doc_id, contains_pii, text_length).
     """
+    dolma_text = dolma_doc['text']
+    
     query = {
         "model": "google/gemma-3-4b-it",
         "messages": [
@@ -109,7 +174,7 @@ async def process_dolma_document(dolma_doc):
                     {
                         "type": "text",
                         "text": (
-                            f"{dolma_doc['text']}\n\n-----------\n"
+                            f"{dolma_text}\n\n-----------\n"
                             "Given the text above, does it contain any Personally Identifiable Information (PII)? "
                             "Answer in a single JSON object with a single field named 'contains_pii' that's a bool."
                         )
@@ -119,23 +184,32 @@ async def process_dolma_document(dolma_doc):
         ],
         "temperature": 0.0,
     }
-    async with httpx.AsyncClient() as client:
-        url = f"http://localhost:{SGLANG_SERVER_PORT}/v1/chat/completions"
-        resp = await client.post(url, json=query)
-        resp.raise_for_status()
-        response_json = resp.json()
 
-    # Extract the JSON content from the model's response
-    content = (
-        response_json.get('choices', [])[0]
-                    .get('message', {})
-                    .get('content', '')
-    )
+    url = f"http://localhost:{SGLANG_SERVER_PORT}/v1/chat/completions"
+    status_code, response_body = await apost(url, json_data=query)
+
+    if status_code == 400:
+        raise ValueError(f"Got BadRequestError from server: {response_body}, skipping this response")
+    elif status_code == 500:
+        raise ValueError(f"Got InternalServerError from server: {response_body}, skipping this response")
+    elif status_code != 200:
+        raise ValueError(f"Error http status {status_code}")
+    
     try:
-        result = json.loads(content)
-        contains_pii = bool(result.get('contains_pii', False))
+        base_response_data = json.loads(response_body)
+    
+        metrics.add_metrics(
+                sglang_documents=1,
+                sglang_input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
+                sglang_output_tokens=base_response_data["usage"].get("completion_tokens", 0),
+            )
+
+        # Extract the JSON content from the model's response
+        model_response_json = json.loads(base_response_data["choices"][0]["message"]["content"])
+
+        contains_pii = bool(model_response_json.get('contains_pii', False))
     except json.JSONDecodeError:
-        logger.warning(f"Failed to parse JSON from SGLang response: {content}")
+        logger.warning(f"Failed to parse JSON from SGLang response: {response_body}")
         contains_pii = False
 
     text_length = len(dolma_doc.get('text', ''))
@@ -164,12 +238,19 @@ async def process_file(args, worker_id: int, file_uri: str):
     lines = file_bytes.decode('utf-8').splitlines()
     page_tasks = {}
 
-    # Send all records in parallel
+    # Send all records in parallel, max 500 queued at a time
+    sem = asyncio.Semaphore(500)
+    async def _sem_process_dolma_document(dolma_doc):
+        async with sem:
+            return await process_dolma_document(dolma_doc)
+        
     async with asyncio.TaskGroup() as tg:
         for line in lines:
             data = json.loads(line)
-            task = tg.create_task(process_dolma_document(data))
+            task = tg.create_task(_sem_process_dolma_document(data))
             page_tasks[data['id']] = (task, data)
+
+    logger.info(f"Started taskgroup with {len(page_tasks)} items for {file_uri}")
 
     # Collect results and build attributes
     attributes = []
@@ -182,6 +263,7 @@ async def process_file(args, worker_id: int, file_uri: str):
             "id": doc_id,
             "attributes": { key_name: [span] }
         })
+
 
     return attributes
 
@@ -246,9 +328,6 @@ async def sglang_server_task(model_name_or_path, args, semaphore):
         "sglang.launch_server",
         "--model-path",
         model_name_or_path,
-        "--chat-template",
-        args.model_chat_template,
-        # "--context-length", str(args.model_max_context),  # Commented out due to crashes
         "--port",
         str(SGLANG_SERVER_PORT),
         "--log-level-http",
@@ -588,8 +667,8 @@ async def main():
         return
 
     # If you get this far, then you are doing inference and need a GPU
-    # check_sglang_version()
-    # check_torch_gpu_available()
+    check_sglang_version()
+    check_torch_gpu_available()
 
     logger.info(f"Starting pipeline with PID {os.getpid()}")
 
@@ -609,9 +688,9 @@ async def main():
     # As soon as one worker is no longer saturating the gpu, the next one can start sending requests
     semaphore = asyncio.Semaphore(1)
 
-    # sglang_server = asyncio.create_task(sglang_server_host(model_name_or_path, args, semaphore))
+    sglang_server = asyncio.create_task(sglang_server_host(model_name_or_path, args, semaphore))
 
-    # await sglang_server_ready()
+    await sglang_server_ready()
 
     metrics_task = asyncio.create_task(metrics_reporter(work_queue))
 
@@ -627,7 +706,7 @@ async def main():
     # Wait for server to stop
     process_pool.shutdown(wait=False)
 
-    # sglang_server.cancel()
+    sglang_server.cancel()
     metrics_task.cancel()
     logger.info("Work done")
 
