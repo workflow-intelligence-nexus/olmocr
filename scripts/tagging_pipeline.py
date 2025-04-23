@@ -142,11 +142,27 @@ async def apost(url, json_data):
 
 async def process_dolma_document(dolma_doc):
     """
-    Send the text to SGLang server to classify PII presence.
-    Returns tuple (doc_id, contains_pii, text_length).
-    """
-    dolma_text = dolma_doc["text"]
+    Query SGLang to detect PII, enforcing a JSON schema.
 
+    Resilient to:
+      • Transport / HTTP errors
+      • Missing or malformed fields in the response
+      • Non-string or None `content`
+      • Bad JSON in the model’s answer
+
+    Always returns: (doc_id, contains_pii: bool, text_length: int)
+    """
+    doc_id = dolma_doc.get("id")
+    text = dolma_doc.get("text", "") or ""
+    text_len = len(text)
+
+    # Count the attempt up-front
+    metrics.add_metrics(sglang_documents=1)
+
+    # 1) Define the JSON Schema for the response
+    pii_schema = {"type": "object", "properties": {"is_resume_or_cv": {"type": "boolean"}}, "required": ["is_resume_or_cv"], "additionalProperties": False}
+
+    # 2) Build the request payload, including `response_format`
     query = {
         "model": "google/gemma-3-4b-it",
         "messages": [
@@ -156,46 +172,71 @@ async def process_dolma_document(dolma_doc):
                     {
                         "type": "text",
                         "text": (
-                            f"{dolma_text}\n\n-----------\n"
-                            "Given the text above, does it contain any Personally Identifiable Information (PII)? "
-                            "Answer in a single JSON object with a single field named 'contains_pii' that's a bool."
+                            f"{text}\n\n-----------\n"
+                            "Given the text above, determine if the text above is a resume (résumé) or CV. Answer in a simple JSON block."
                         ),
                     }
                 ],
             }
         ],
+        "max_tokens": 100,
         "temperature": 0.0,
+        "response_format": {"type": "json_schema", "json_schema": {"name": "PiiDetection", "schema": pii_schema}},
     }
 
     url = f"http://localhost:{SGLANG_SERVER_PORT}/v1/chat/completions"
-    status_code, response_body = await apost(url, json_data=query)
 
-    if status_code == 400:
-        raise ValueError(f"Got BadRequestError from server: {response_body}, skipping this response")
-    elif status_code == 500:
-        raise ValueError(f"Got InternalServerError from server: {response_body}, skipping this response")
-    elif status_code != 200:
-        raise ValueError(f"Error http status {status_code}")
-
+    # ---------- HTTP call ---------------------------------------------------
     try:
-        base_response_data = json.loads(response_body)
+        status, body = await apost(url, json_data=query)
+    except Exception as e:
+        logger.warning(f"SGLang network error: {e!s}")
+        metrics.add_metrics(sglang_errors=1)
+        return doc_id, False, text_len
 
+    if status != 200:
+        logger.warning(f"SGLang HTTP {status}: {body[:250]!r}")
+        metrics.add_metrics(sglang_errors=1)
+        return doc_id, False, text_len
+
+    # ---------- Parse base JSON --------------------------------------------
+    try:
+        base = json.loads(body)
+    except json.JSONDecodeError:
+        logger.warning(f"SGLang response is not valid JSON: {body[:250]!r}")
+        metrics.add_metrics(sglang_errors=1)
+        return doc_id, False, text_len
+
+    # Token accounting if available
+    if "usage" in base:
         metrics.add_metrics(
-            sglang_documents=1,
-            sglang_input_tokens=base_response_data["usage"].get("prompt_tokens", 0),
-            sglang_output_tokens=base_response_data["usage"].get("completion_tokens", 0),
+            sglang_input_tokens=base["usage"].get("prompt_tokens", 0),
+            sglang_output_tokens=base["usage"].get("completion_tokens", 0),
         )
 
-        # Extract the JSON content from the model's response
-        model_response_json = json.loads(base_response_data["choices"][0]["message"]["content"])
+    # ---------- Extract the model message ----------------------------------
+    try:
+        content = base["choices"][0]["message"].get("content")
+    except (KeyError, IndexError, AttributeError) as e:
+        logger.warning(f"Missing fields in SGLang response: {e!s}")
+        metrics.add_metrics(sglang_errors=1)
+        return doc_id, False, text_len
 
-        contains_pii = bool(model_response_json.get("contains_pii", False))
+    if not isinstance(content, str):
+        logger.warning("SGLang `content` is not a string; treating as error.")
+        metrics.add_metrics(sglang_errors=1)
+        return doc_id, False, text_len
+
+    # ---------- Parse the model’s JSON payload -----------------------------
+    try:
+        model_json = json.loads(content)
+        contains_pii = bool(model_json.get("is_resume_or_cv", False))
     except json.JSONDecodeError:
-        logger.warning(f"Failed to parse JSON from SGLang response: {response_body}")
-        contains_pii = False
+        logger.warning(f"Model JSON malformed: {content[:250]!r}")
+        metrics.add_metrics(sglang_errors=1)
+        return doc_id, False, text_len
 
-    text_length = len(dolma_doc.get("text", ""))
-    return dolma_doc.get("id"), contains_pii, text_length
+    return doc_id, contains_pii, text_len
 
 
 async def process_file(args, worker_id: int, file_uri: str):
@@ -241,35 +282,41 @@ async def process_file(args, worker_id: int, file_uri: str):
     key_name = f"{args.model.replace('/', '_')}_pii_classification"
     for doc_id, (task, data) in page_tasks.items():
         _, contains_pii, text_length = task.result()
-        score_or_flag = 1.0 if contains_pii else False
+        score_or_flag = 1.0 if contains_pii else 0.0
         span = [0, text_length, score_or_flag]
         attributes.append({"id": doc_id, "attributes": {key_name: [span]}})
 
     return attributes
 
 
-async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
+async def worker(args, work_queue: WorkQueue, semaphore: asyncio.Semaphore, worker_id: int):
+    """
+    Pop work-items off the queue, run PII tagging, write the attributes file
+    next to the dataset (keeping the original compression), mark the item done,
+    and drop an empty sentinel file in <workspace>/results/.
+    """
     while True:
         await semaphore.acquire()
         work_item = await work_queue.get_work()
+
         if work_item is None:
-            logger.info(f"Worker {worker_id} exiting due to empty queue")
+            logger.info(f"Worker {worker_id} exiting – queue empty")
             semaphore.release()
             break
 
         file_uri = work_item.work_paths[0]
-        logger.info(f"Worker {worker_id} processing work item {file_uri}")
+        logger.info(f"Worker {worker_id} processing {file_uri}")
         await tracker.clear_work(worker_id)
 
         try:
-            attrs = await process_file(args, worker_id, file_uri)
+            # ------------------------------------------------------------------
+            # Run the per-file pipeline
+            # ------------------------------------------------------------------
+            attributes = await process_file(args, worker_id, file_uri)
 
-            logger.info("Got attrs", attrs)
-
-            # Write out attributes JSONL to scratch/attributes/... mirroring input structure
+            # 1. Build the relative path that mirrors documents/…
             if file_uri.startswith("s3://"):
                 _, key = parse_s3_path(file_uri)
-                # assume args.dataset is s3://bucket/prefix
                 _, docs_prefix = parse_s3_path(args.dataset)
                 rel_path = key[len(os.path.join(docs_prefix, "documents/")) :]
             else:
@@ -277,29 +324,50 @@ async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
                 rel_path = os.path.relpath(file_uri, docs_root)
 
             out_rel = os.path.join("attributes", rel_path)
-            out_jsonl = "\n".join(json.dumps(x) for x in attrs) + "\n"
+            out_jsonl = "\n".join(json.dumps(x) for x in attributes) + "\n"
 
-            if args.scratch.startswith("s3://"):
-                out_bucket, out_prefix = parse_s3_path(args.scratch)
-                out_key = os.path.join(out_prefix, out_rel)
-                workspace_s3.put_object(Bucket=out_bucket, Key=out_key, Body=out_jsonl.encode("utf-8"))
+            # 2. Preserve compression type
+            if rel_path.endswith(".gz"):
+                payload = gzip.compress(out_jsonl.encode("utf-8"))
+            elif rel_path.endswith((".zst", ".ztd")):
+                payload = zstd.ZstdCompressor().compress(out_jsonl.encode("utf-8"))
             else:
-                out_path = os.path.join(args.scratch, out_rel)
-                os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                with open(out_path, "w", encoding="utf-8") as f:
-                    f.write(out_jsonl)
+                payload = out_jsonl.encode("utf-8")
 
+            # 3. Write to args.dataset (local or S3)
+            if args.dataset.startswith("s3://"):
+                bucket, prefix = parse_s3_path(args.dataset)
+                key = os.path.join(prefix, out_rel)
+                workspace_s3.put_object(Bucket=bucket, Key=key, Body=payload)
+            else:
+                out_path = os.path.join(args.dataset, out_rel)
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                with open(out_path, "wb") as fh:
+                    fh.write(payload)
+
+            # 4. Mark queue item done
             await work_queue.mark_done(work_item)
-        except Exception as e:
-            logger.exception(f"Exception occurred while processing work item {work_item.hash}: {e}")
+
+            # 5. Drop empty sentinel file in <workspace>/results/
+            sentinel_rel = os.path.join("results", f"output_{work_item.hash}.jsonl")
+            if args.scratch.startswith("s3://"):
+                bkt, pfx = parse_s3_path(args.scratch)
+                key = os.path.join(pfx, sentinel_rel)
+                workspace_s3.put_object(Bucket=bkt, Key=key, Body=b"")
+            else:
+                sentinel_path = os.path.join(args.scratch, sentinel_rel)
+                os.makedirs(os.path.dirname(sentinel_path), exist_ok=True)
+                open(sentinel_path, "w").close()
+
+        except Exception as exc:
+            logger.exception(f"Worker {worker_id} exception: {exc!s}")
         finally:
             semaphore.release()
 
 
 async def sglang_server_task(model_name_or_path, args, semaphore):
     # Check GPU memory, lower mem devices need a bit less KV cache space because the VLM takes additional memory
-    gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # Convert to GB
-    mem_fraction_arg = ["--mem-fraction-static", "0.80"] if gpu_memory < 60 else []
+    mem_fraction_arg = ["--mem-fraction-static", "0.60"]
 
     cmd = [
         "python3",
