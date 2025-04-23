@@ -83,7 +83,7 @@ def verify_latex_match(
     }
 
 
-def process_jsonl_file(input_jsonl_path: str, output_jsonl_path: str, model: str = "gpt-4o-2024-08-06", temperature: float = 0.1) -> None:
+def process_jsonl_file(input_jsonl_path: str, output_jsonl_path: str, model: str = "o4-mini-2025-04-16", temperature: float = 0.1) -> None:
     """
     Process a JSONL file containing math expressions to verify.
 
