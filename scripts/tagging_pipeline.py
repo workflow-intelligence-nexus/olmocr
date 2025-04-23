@@ -96,6 +96,25 @@ tracker = WorkerTracker()
 process_pool = ProcessPoolExecutor(max_workers=min(multiprocessing.cpu_count() // 2 + 1, 32), mp_context=multiprocessing.get_context("spawn"))
 
 
+async def build_query(dolma_doc):
+    text = dolma_doc["text"]
+
+    return {
+        "model": "google/gemma-3-4b-it",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"{text}\n\n-----------\nGiven the text above, does it contain any Personally Indentifiable Information (PII)? Answer in a single JSON object with a single field named 'contains_pii' that's a bool."},
+                ],
+            }
+        ],
+        "temperature": 0.0,
+    }
+
+async def process_dolma_document(dolma_doc):
+    pass
+
 async def process_file(args, worker_id: int, file_uri: str):
     """
     Download a JSONL file, query SGLang per record, and write attributes.
@@ -106,6 +125,34 @@ async def process_file(args, worker_id: int, file_uri: str):
     else:
         raise NotImplementedError()
     
+    # TODO, extract the file
+
+
+    # TODO Fix up this code
+    page_tasks = {}
+    final_attributes = {}
+
+    # We use a task group so that we can submit the work for a whole file all at once to let sglang/vllm handle it efficiently
+    async with asyncio.TaskGroup() as tg:
+        for line in file:
+            data = json.loads(line)
+
+            task = tg.create_task(process_dolma_document(...))
+            page_tasks[data['id']](task)
+    
+    # Collect the results from the entire task group, assuming no exceptions
+    page_results = [task.result() for task in page_tasks]
+
+    #final_attributes needs to  look like this for each file
+    # {
+    # "id": "...",
+    # attributes: {
+    #     "gemma_3_4b_it_pii_classification": [
+    #         [0, len(text), 1.0 if contains_pii else false], 
+    #     ],
+    # }
+
+
     return
 
 async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
@@ -128,8 +175,8 @@ async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
         try:
             json_attributes = await process_file(args, worker_id, work_item.work_paths[0])
 
-            # Write the attributes to the results folder to indiciate the work is done
-            
+            # TODO Write the attributes to the results file to indiciate the work is done
+
 
             await work_queue.mark_done(work_item)
         except Exception as e:
