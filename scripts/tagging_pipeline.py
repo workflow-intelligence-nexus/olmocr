@@ -690,7 +690,7 @@ async def main():
     dataset_s3 = boto3.client("s3")
 
     # setup the job to work in beaker environment, load secrets, adjust logging, etc.
-    if "BEAKER_JOB_NAME" in os.environ:
+    if "BEAKER_JOB_ID" in os.environ:
         sglang_logger.addHandler(console_handler)
         cred_path = os.path.join(os.path.expanduser("~"), ".aws", "credentials")
         os.makedirs(os.path.dirname(cred_path), exist_ok=True)
