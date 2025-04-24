@@ -13,22 +13,19 @@ import atexit
 import gzip
 import json
 import logging
-import multiprocessing
 import os
+import random
 import re
 import sys
 import time
-import random
-from concurrent.futures import ProcessPoolExecutor
+from typing import Optional
 from urllib.parse import urlparse
 
 import boto3
 import httpx
-import torch
 import zstandard as zstd
 from huggingface_hub import snapshot_download
 from pydantic import BaseModel, Field, ValidationError
-from typing import Optional
 
 from olmocr.check import (
     check_sglang_version,
@@ -81,7 +78,6 @@ class PIIClassification(BaseModel):
 async def _process_single_page(page_text: str) -> PIIClassification:
     """Helper function to process a single document or page."""
     text = page_text
-    text_len = len(text)
 
     # Count the attempt up-front
     metrics.add_metrics(sglang_documents=1)
@@ -223,6 +219,7 @@ async def apost(url, json_data):
             except:
                 pass
 
+
 async def process_dolma_document(args, dolma_doc, sem):
     """
     Query SGLang to detect PII, enforcing a JSON schema.
@@ -237,35 +234,32 @@ async def process_dolma_document(args, dolma_doc, sem):
     """
     doc_id = dolma_doc.get("id")
     text = dolma_doc.get("text", "") or ""
-    text_len = len(text)
 
     key_name = f"{args.model.replace('/', '_')}_pii_classification"
 
-    result_attributes = {
-        key_name: []
-    }
-    
+    result_attributes = {key_name: []}
+
     # If pdf_page_numbers is present, split the text and process each page separately
     if "attributes" in dolma_doc and "pdf_page_numbers" in dolma_doc["attributes"]:
         page_numbers = dolma_doc["attributes"]["pdf_page_numbers"]
-        
+
         logger.info(f"Document {doc_id} has {len(page_numbers)} pages, processing each individually")
 
         # Filter pages down to actual real content
-        selected_page_numbers = [p for p in page_numbers if p[0] < p[1]]
+        selected_page_numbers = [tuple(p) for p in page_numbers if p[0] < p[1]]
 
         # Sample 3 pages max per document
         random.shuffle(selected_page_numbers)
         selected_page_numbers = selected_page_numbers[:3]
-        
+
         for start_pos, end_pos, page_num in page_numbers:
             if (start_pos, end_pos, page_num) in selected_page_numbers:
                 page_text = text[start_pos:end_pos]
 
                 # Process each page with the semaphore to limit concurrent requests
                 async with sem:
-                    pii_class = await _process_single_document(page_text)
-                
+                    pii_class = await _process_single_page(page_text)
+
                 result_attributes[key_name].append([start_pos, end_pos, pii_class.is_resume_or_cv])
             else:
                 result_attributes[key_name].append([start_pos, end_pos, None])
@@ -273,7 +267,7 @@ async def process_dolma_document(args, dolma_doc, sem):
         return result_attributes
     else:
         raise NotImplementedError("Missing code here, expecting this to be dolma docs made by olmocr....")
-        
+
 
 async def process_file(args, worker_id: int, file_uri: str):
     """
@@ -305,18 +299,16 @@ async def process_file(args, worker_id: int, file_uri: str):
         for line in lines:
             dolma_doc = json.loads(line)
             task = tg.create_task(process_dolma_document(args, dolma_doc, sem))
-            page_tasks[data["id"]] = (task, data)
+            page_tasks[dolma_doc["id"]] = (task, dolma_doc)
 
     logger.info(f"Started taskgroup with {len(page_tasks)} items for {file_uri}")
 
     # Collect results and build attributes
     attributes = []
-    key_name = f"{args.model.replace('/', '_')}_pii_classification"
-    for doc_id, (task, data) in page_tasks.items():
-        _, contains_pii, text_length = task.result()
-        score_or_flag = 1.0 if contains_pii else 0.0
-        span = [0, text_length, score_or_flag]
-        attributes.append({"id": doc_id, "attributes": {key_name: [span]}})
+    for doc_id, (task, dolma_doc) in page_tasks.items():
+        doc_attributes = task.result()
+
+        attributes.append({"id": doc_id, "attributes": doc_attributes})
 
     return attributes
 
@@ -355,7 +347,7 @@ async def worker(args, work_queue: WorkQueue, semaphore: asyncio.Semaphore, work
                 docs_root = os.path.join(args.dataset, "documents")
                 rel_path = os.path.relpath(file_uri, docs_root)
 
-            out_rel = os.path.join("attributes", rel_path)
+            out_rel = os.path.join("attributes", args.attribute_name, rel_path)
             out_jsonl = "\n".join(json.dumps(x) for x in attributes) + "\n"
 
             # 2. Preserve compression type
@@ -676,6 +668,7 @@ async def main():
     parser.add_argument("scratch", help="Scratch workspace (local dir or s3://)")
     parser.add_argument("--workers", type=int, default=4, help="Number of concurrent workers")
     parser.add_argument("--model", default="google/gemma-3-4b-it", help="SGLang model path or name")
+    parser.add_argument("--attribute_name", default="model_pii_tagging", help="Path to use for attribute naming")
 
     # Beaker/job running stuff
     parser.add_argument("--beaker", action="store_true", help="Submit this job to beaker instead of running locally")
