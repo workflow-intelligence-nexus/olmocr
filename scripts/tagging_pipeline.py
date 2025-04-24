@@ -700,6 +700,7 @@ async def main():
                 f.write(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_FILE"))
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
         workspace_s3 = boto3.client("s3")
+        dataset_s3 = boto3.client("s3")
 
         # Wait a little bit so that not all beaker jobs in a task start at the same time and download the model at the same time
         replica_count = int(os.environ.get("BEAKER_REPLICA_COUNT", "1"))
