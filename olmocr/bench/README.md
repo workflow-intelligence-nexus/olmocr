@@ -102,7 +102,7 @@ Several categories of tests have been made so far:
 ## TODO List for release
  - [ ] Check all tests for duplicates
  - [ ] Write a script to verify that all baseline tests that actually have weird unicodes have exemptions
- - [ ] Review math equations in old_scans_math.jsonl using chat gpt script
+ - [X] Review math equations in old_scans_math.jsonl using chat gpt script
  - [X] Add test category of long_texts which are still ~1 standard printed page, but with dense/small text
  - [ ] Review multicolumn_tests, make sure they are correct, clean, and don't have order tests between regions
  - [X] Remove [] and other special symbols from old_scans
