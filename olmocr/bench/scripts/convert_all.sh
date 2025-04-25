@@ -189,6 +189,7 @@ stop_server() {
 create_conda_env "olmocr" "3.11"
 source $(conda info --base)/etc/profile.d/conda.sh
 source activate olmocr
+pip install -e .[bench]
 
 # Run olmocr benchmarks, exactly as the pipeline.py does it
 echo "Running olmocr benchmarks..."
