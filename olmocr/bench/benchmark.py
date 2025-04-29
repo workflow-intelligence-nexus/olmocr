@@ -27,7 +27,7 @@ from pypdf import PdfReader
 from tqdm import tqdm
 
 from .report import generate_html_report
-from .tests import BaselineTest, BasePDFTest, load_tests
+from .tests import BaselineTest, BasePDFTest, load_tests, save_tests
 from .utils import calculate_bootstrap_ci, perform_permutation_test
 
 
@@ -199,6 +199,9 @@ def main():
     # New arguments
     parser.add_argument("--sample", type=int, default=None, help="Randomly sample N tests to run instead of all tests.")
     parser.add_argument("--test_report", type=str, default=None, help="Generate an HTML report of test results. Provide a filename (e.g., results.html).")
+    parser.add_argument(
+        "--output_failed", type=str, default=None, help="Output a JSONL file containing tests that failed across all candidates. Provide a filename."
+    )
     args = parser.parse_args()
 
     input_folder = args.dir if os.path.isdir(args.dir) else os.path.dirname(args.dir)
@@ -434,6 +437,47 @@ def main():
     # Generate HTML report if requested
     if args.test_report:
         generate_html_report(test_results_by_candidate, pdf_folder, args.test_report)
+
+    # Output tests that failed across all candidates if requested
+    if args.output_failed:
+        # Identify tests that failed across all candidates
+        all_failed_tests = []
+        valid_candidates = [c for c in summary if not c[3]]  # Skip candidates with errors
+
+        for test in all_tests:
+            # Track whether this test has any results
+            has_results = False
+            any_passed = False
+
+            for candidate_name, _, _, _, _, _, _, _ in valid_candidates:
+                # Get the test result for this candidate
+                test_result = None
+                if hasattr(test, "pdf") and hasattr(test, "page"):
+                    pdf_name = test.pdf
+                    page = test.page
+                    if pdf_name in test_results_by_candidate.get(candidate_name, {}) and page in test_results_by_candidate[candidate_name].get(pdf_name, {}):
+                        for t, passed, explanation in test_results_by_candidate[candidate_name][pdf_name][page]:
+                            if t.id == test.id:
+                                has_results = True
+                                test_result = passed
+                                if passed:
+                                    any_passed = True
+                                break
+
+            # If we have results for this test and it never passed for any candidate, add it to the failed list
+            if has_results and not any_passed:
+                # Add to the list
+                all_failed_tests.append(test)
+
+        # If we have any failed tests, write them to the specified JSONL file
+        output_path = os.path.join(input_folder, args.output_failed) if not os.path.isabs(args.output_failed) else args.output_failed
+
+        if all_failed_tests:
+            save_tests(all_failed_tests, output_path)
+
+            print(f"\nOutput {len(all_failed_tests)} tests that failed across all candidates to {output_path}")
+        else:
+            print("\nNo tests failed across all candidates. No output file created.")
 
 
 if __name__ == "__main__":
