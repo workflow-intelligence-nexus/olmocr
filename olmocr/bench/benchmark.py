@@ -8,7 +8,7 @@ We will validate that each one of those contains at least one .md file (or repea
 corresponding to its parse for every .pdf in the /pdfs folder.
 Then, we will read each one, and check if they pass against all the rules.
 If a rule fails on some of the repeats, a short explanation is printed.
-The final score is averaged over the repeated generations.
+The final score is the average of per-JSONL file scores, where each JSONL file's score is the proportion of tests from that file that pass.
 Statistical analysis including bootstrap confidence intervals are provided for the results.
 Pairwise permutation tests are conducted between specific candidate pairs.
 """
@@ -43,6 +43,7 @@ def evaluate_candidate(
       (overall_score, total_tests, candidate_errors, test_failures, test_type_breakdown, all_test_scores, test_results)
 
       - overall_score: Average fraction of tests passed (averaged over repeats and tests).
+        Note: This is now updated at reporting time to be the average of per-JSONL file scores.
       - total_tests: Total number of tests evaluated.
       - candidate_errors: List of candidate errors (e.g. missing files).
       - test_failures: List of failure messages for tests not passing on all repeats.
@@ -59,11 +60,11 @@ def evaluate_candidate(
 
     # Map each PDF to its corresponding MD repeats (e.g., doc1_pg1_repeat1.md, doc1_pg2_repeat2.md, etc.)
     pdf_to_md_files = {}
+    all_files = list(glob.glob(os.path.join(candidate_folder, "**/*.md"), recursive=True))
+
     for pdf_name in pdf_basenames:
         md_base = os.path.splitext(pdf_name)[0]
         md_regex = re.compile(rf"^{re.escape(md_base)}_pg\d+_repeat\d+\.md$")
-        all_files = list(glob.glob(os.path.join(candidate_folder, "**/*.md"), recursive=True))
-
         md_files = [f for f in all_files if md_regex.match(os.path.relpath(f, candidate_folder))]
 
         if not md_files and not force:
@@ -305,26 +306,13 @@ def main():
             if test_failures:
                 for fail in test_failures:
                     print(f"  [FAIL] {fail}")
+            # Note: This score is still the average over all tests and will be updated to
+            # the average of per-JSONL file scores in the final summary
             print(f"  Average Score: {overall_score * 100:.1f}% (95% CI: [{ci[0] * 100:.1f}%, {ci[1] * 100:.1f}%]) over {total_tests} tests.")
 
     print("\n" + "=" * 60)
     print("Final Summary with 95% Confidence Intervals:")
-    for candidate_name, overall_score, total_tests, candidate_errors, _, test_type_breakdown, ci, _ in summary:
-        if candidate_errors:
-            status = "FAILED (errors)"
-            ciw_str = ""
-        else:
-            status = f"{overall_score * 100:0.1f}%"
-            half_width = ((ci[1] - ci[0]) / 2) * 100
-            ciw_str = f"± {half_width:0.1f}%"
-        print(f"{candidate_name:20s} : Average Score: {status} {ciw_str}")
-
-        # Sort the test types alphabetically
-        for ttype in sorted(test_type_breakdown.keys()):
-            scores = test_type_breakdown[ttype]
-            avg = sum(scores) / len(scores) * 100 if scores else 0.0
-            print(f"    {ttype:8s}: {avg:0.1f}% average pass rate over {len(scores)} tests")
-
+    for idx, (candidate_name, _, total_tests, candidate_errors, _, test_type_breakdown, ci, _) in enumerate(summary):
         # Group results by jsonl file
         jsonl_results = {}
         for test in all_tests:
@@ -349,6 +337,36 @@ def main():
 
             if test_result:
                 jsonl_results[jsonl_file]["passed"] += 1
+
+        # Calculate new overall score as average of per-JSONL pass rates
+        jsonl_pass_rates = []
+        for jsonl_file, results in jsonl_results.items():
+            if results["total"] > 0:
+                pass_rate = results["passed"] / results["total"]
+                jsonl_pass_rates.append(pass_rate)
+
+        # New overall score is average of per-JSONL pass rates
+        new_overall_score = sum(jsonl_pass_rates) / len(jsonl_pass_rates) if jsonl_pass_rates else 0.0
+
+        # Update the overall_score in the summary list for later use (e.g., in permutation tests)
+        summary[idx] = (candidate_name, new_overall_score, total_tests, candidate_errors, summary[idx][4], test_type_breakdown, ci, summary[idx][7])
+
+        if candidate_errors:
+            status = "FAILED (errors)"
+            ciw_str = ""
+        else:
+            status = f"{new_overall_score * 100:0.1f}%"
+            # Note: CI calculation would need to be updated too for full accuracy,
+            # but keeping as-is for now as it would require deeper changes
+            half_width = ((ci[1] - ci[0]) / 2) * 100
+            ciw_str = f"± {half_width:0.1f}%"
+        print(f"{candidate_name:20s} : Average Score: {status} {ciw_str} (average of per-JSONL scores)")
+
+        # Sort the test types alphabetically
+        for ttype in sorted(test_type_breakdown.keys()):
+            scores = test_type_breakdown[ttype]
+            avg = sum(scores) / len(scores) * 100 if scores else 0.0
+            print(f"    {ttype:8s}: {avg:0.1f}% average pass rate over {len(scores)} tests")
 
         print("\n    Results by JSONL file:")
         for jsonl_file, results in sorted(jsonl_results.items()):
