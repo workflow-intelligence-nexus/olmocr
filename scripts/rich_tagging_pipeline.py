@@ -75,6 +75,7 @@ class PIIClassification(BaseModel):
     is_resume_cv: Optional[bool] = Field(..., description="True if the document is a page from a resume or cv")
     contains_pii: Optional[bool] = Field(..., description="True if document contains PII")
 
+
 class RichPIIClassification(BaseModel):
     primary_language: str = Field(..., description="Primary language as a two-letter code")
     document_type: str = Field(..., description="Basic summary of document type classification")
@@ -100,12 +101,19 @@ class RichPIIClassification(BaseModel):
     def contains_any_pii(self) -> bool:
         if self.is_public_document:
             return False
-        
+
         if self.contains_pii_government_id or self.contains_pii_financial_info or self.contains_pii_biometric_data or self.contains_pii_login_info:
             return True
-        
+
         if self.contains_identifier_name or self.contains_identifier_email or self.contains_identifier_phone_number:
-            return self.contains_identifier_with_address or self.contains_identifier_with_biographical_info or self.contains_identifier_with_location_info or self.contains_identifier_with_employment_info or self.contains_identifier_with_education_info or self.contains_identifier_with_medical_info
+            return (
+                self.contains_identifier_with_address
+                or self.contains_identifier_with_biographical_info
+                or self.contains_identifier_with_location_info
+                or self.contains_identifier_with_employment_info
+                or self.contains_identifier_with_education_info
+                or self.contains_identifier_with_medical_info
+            )
         else:
             return False
 
@@ -113,8 +121,6 @@ class RichPIIClassification(BaseModel):
 async def _process_single_page(page_text: str) -> RichPIIClassification:
     """Helper function to process a single document or page."""
     text = page_text
-
-    basic_prompt = "Given the text above, determine what type of document it is, and if it's a resume/CV. answer in JSON. The format of your json object should be {'primary_language': str, 'document_type': str, 'is_resume_cv': bool, 'contains_pii': bool}"
 
     rich_prompt = """You are a document analyzer that identifies Personally Identifiable Information (PII) in documents. 
 Your task is to analyze the provided document image and determine:
@@ -157,17 +163,14 @@ Only consider actual occurrences of the PII within the document shown."""
                 "content": [
                     {
                         "type": "text",
-                        "text": (
-                            f"{text}\n\n-----------\n"
-                            f"{rich_prompt}"
-                        ),
+                        "text": (f"{text}\n\n-----------\n" f"{rich_prompt}"),
                     }
                 ],
             }
         ],
         "max_tokens": 100,
         "temperature": 0.0,
-        "response_format": {"type": "json_schema", "json_schema": {"name": "PIIClassification", "schema": RichRIIClassification.model_json_schema()}},
+        "response_format": {"type": "json_schema", "json_schema": {"name": "PIIClassification", "schema": RichPIIClassification.model_json_schema()}},
     }
 
     url = f"http://localhost:{SERVER_PORT}/v1/chat/completions"
@@ -186,7 +189,7 @@ Only consider actual occurrences of the PII within the document shown."""
         logger.warning(f"Server HTTP {status}: {body[:250]!r}")
         metrics.add_metrics(server_errors=1)
         return RichPIIClassification(primary_language="en", document_type="unknown", is_public_document=False)
-    
+
     # ---------- Parse base JSON --------------------------------------------
     try:
         base = json.loads(body)
@@ -209,12 +212,12 @@ Only consider actual occurrences of the PII within the document shown."""
         logger.warning(f"Missing fields in Server response: {e!s}")
         metrics.add_metrics(server_errors=1)
         return RichPIIClassification(primary_language="en", document_type="unknown", is_public_document=False)
-    
+
     if not isinstance(content, str):
         logger.warning("Server `content` is not a string; treating as error.")
         metrics.add_metrics(server_errors=1)
         return RichPIIClassification(primary_language="en", document_type="unknown", is_public_document=False)
-    
+
     try:
         pii_classification: RichPIIClassification = RichPIIClassification.model_validate_json(content)
         return pii_classification
@@ -222,7 +225,7 @@ Only consider actual occurrences of the PII within the document shown."""
         logger.warning(f"Unable to parse pii classification object: {e!s}")
         metrics.add_metrics(server_errors=1)
         return RichPIIClassification(primary_language="en", document_type="unknown", is_public_document=False)
-    
+
 
 # Manual simple implementation of HTTP Post
 # It feels strange perhaps, but httpx and aiohttp are very complex beasts
