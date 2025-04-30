@@ -153,7 +153,10 @@ The following types of information should ONLY be marked as PII if they occur AL
 
 If the document is a form, then only consider fields which are filled out with specific values as potential PII.
 If this page does not itself contain PII, but references documents (such as curriculum vitae, personal statements) that typically contain PII, then do not mark it as PII.
-Only consider actual occurrences of the PII within the document shown."""
+Only consider actual occurrences of the PII within the document shown.
+
+Answer as a JSON object with the following schema {'primary_language': str, 'document_type': str, 'is_public_document': bool, 'contains_pii_government_id': bool, 'contains_pii_financial_info': bool, 'contains_pii_biometric_data': bool, 'contains_pii_login_info': bool, 'contains_identifier_name': bool, 'contains_identifier_email': bool, 'contains_identifier_phone_number': bool, 'contains_identifier_with_address': bool, 'contains_identifier_with_biographical_info': bool, 'contains_identifier_with_location_info': bool, 'contains_identifier_with_employment_info': bool, 'contains_identifier_with_education_info': bool, 'contains_identifier_with_medical_info': bool}
+"""
 
     query = {
         "model": "google/gemma-3-4b-it",
@@ -168,9 +171,9 @@ Only consider actual occurrences of the PII within the document shown."""
                 ],
             }
         ],
-        "max_tokens": 100,
+        "max_tokens": 300,
         "temperature": 0.0,
-        "response_format": {"type": "json_schema", "json_schema": {"name": "PIIClassification", "schema": RichPIIClassification.model_json_schema()}},
+        "response_format": {"type": "json_schema", "json_schema": {"name": "RichPIIClassification", "schema": RichPIIClassification.model_json_schema()}},
     }
 
     url = f"http://localhost:{SERVER_PORT}/v1/chat/completions"
@@ -315,8 +318,6 @@ async def process_dolma_document(args, dolma_doc, sem):
     # If pdf_page_numbers is present, split the text and process each page separately
     if "attributes" in dolma_doc and "pdf_page_numbers" in dolma_doc["attributes"]:
         page_numbers = dolma_doc["attributes"]["pdf_page_numbers"]
-
-        logger.info(f"Document {doc_id} has {len(page_numbers)} pages, processing each individually")
 
         # Filter pages down to actual real content
         selected_page_numbers = [tuple(p) for p in page_numbers if p[0] < p[1]]
