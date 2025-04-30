@@ -39,10 +39,11 @@ RUN /root/.local/bin/uv pip install --system --no-cache -e .
 
 RUN /root/.local/bin/uv pip install --system --no-cache vllm==0.8.2
 
-COPY olmocr olmocr
 
 WORKDIR /root
 COPY olmocr olmocr
+COPY scripts scripts
 
-RUN python3 -m vllm --help
+RUN vllm --help
 RUN python3 -m olmocr.pipeline --help
+RUN python scripts/tagging_pipeline.py --help
