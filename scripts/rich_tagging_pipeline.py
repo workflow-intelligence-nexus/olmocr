@@ -14,7 +14,6 @@ import gzip
 import json
 import logging
 import os
-import random
 import re
 import sys
 import time
@@ -120,10 +119,9 @@ class RichPIIClassification(BaseModel):
 
 async def _process_single_page(page_text: str) -> RichPIIClassification:
     """Helper function to process a single document or page."""
-    text = page_text
 
     rich_prompt = """You are a document analyzer that identifies Personally Identifiable Information (PII) in documents. 
-Your task is to analyze the provided document image and determine:
+Your task is to analyze the document provided below and determine:
 1. Whether the document is intended for public release or dissemination (e.g., research paper, public report, etc.)
 2. If the document contains any PII
 
@@ -151,7 +149,7 @@ The following types of information should ONLY be marked as PII if they occur AL
 - Education Information (school names, degrees, transcripts)
 - Medical Information (health records, diagnoses, genetic or neural data)
 
-If the document is a form, then only consider fields which are filled out with specific values as potential PII.
+If the document is a form, then ONLY consider fields which are filled out with specific values as potential PII. An empty form that asks for PII is not to be marked as containing PII.
 If this page does not itself contain PII, but references documents (such as curriculum vitae, personal statements) that typically contain PII, then do not mark it as PII.
 Only consider actual occurrences of the PII within the document shown.
 """
@@ -307,7 +305,6 @@ async def process_dolma_document(args, dolma_doc, sem):
 
     Always returns: (doc_id, contains_pii: bool, text_length: int)
     """
-    doc_id = dolma_doc.get("id")
     text = dolma_doc.get("text", "") or ""
 
     # Generate attribute key names using model name
