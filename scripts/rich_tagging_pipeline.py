@@ -154,19 +154,19 @@ The following types of information should ONLY be marked as PII if they occur AL
 If the document is a form, then only consider fields which are filled out with specific values as potential PII.
 If this page does not itself contain PII, but references documents (such as curriculum vitae, personal statements) that typically contain PII, then do not mark it as PII.
 Only consider actual occurrences of the PII within the document shown.
-
-Answer as a JSON object with the following schema {'primary_language': str, 'document_type': str, 'is_public_document': bool, 'contains_pii_government_id': bool, 'contains_pii_financial_info': bool, 'contains_pii_biometric_data': bool, 'contains_pii_login_info': bool, 'contains_identifier_name': bool, 'contains_identifier_email': bool, 'contains_identifier_phone_number': bool, 'contains_identifier_with_address': bool, 'contains_identifier_with_biographical_info': bool, 'contains_identifier_with_location_info': bool, 'contains_identifier_with_employment_info': bool, 'contains_identifier_with_education_info': bool, 'contains_identifier_with_medical_info': bool}
 """
 
+    prompt_end = "Answer as a JSON object with the following schema {'primary_language': str, 'document_type': str, 'is_public_document': bool, 'contains_pii_government_id': bool, 'contains_pii_financial_info': bool, 'contains_pii_biometric_data': bool, 'contains_pii_login_info': bool, 'contains_identifier_name': bool, 'contains_identifier_email': bool, 'contains_identifier_phone_number': bool, 'contains_identifier_with_address': bool, 'contains_identifier_with_biographical_info': bool, 'contains_identifier_with_location_info': bool, 'contains_identifier_with_employment_info': bool, 'contains_identifier_with_education_info': bool, 'contains_identifier_with_medical_info': bool}"
+
     query = {
-        "model": "google/gemma-3-4b-it",
+        "model": "google/gemma-3-12b-it",
         "messages": [
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "text",
-                        "text": (f"{text}\n\n-----------\n" f"{rich_prompt}"),
+                        "text": (f"{rich_prompt}\n-----DOCUMENT_START-----\n{page_text}\n-----DOCUMENT_END-----\n{prompt_end}"),
                     }
                 ],
             }
@@ -310,10 +310,30 @@ async def process_dolma_document(args, dolma_doc, sem):
     doc_id = dolma_doc.get("id")
     text = dolma_doc.get("text", "") or ""
 
-    language_key_name = f"{args.model.replace('/', '_')}_language"
-    contains_pii_key_name = f"{args.model.replace('/', '_')}_contains_pii"
+    # Generate attribute key names using model name
+    model_prefix = args.model.replace("/", "_")
+    language_key_name = f"{model_prefix}_language"
+    contains_pii_key_name = f"{model_prefix}_contains_pii"
 
-    result_attributes = {contains_pii_key_name: [], language_key_name: []}
+    # Initialize result attributes with all RichPIIClassification attributes
+    result_attributes = {
+        contains_pii_key_name: [],
+        language_key_name: [],
+        f"{model_prefix}_is_public_document": [],
+        f"{model_prefix}_contains_pii_government_id": [],
+        f"{model_prefix}_contains_pii_financial_info": [],
+        f"{model_prefix}_contains_pii_biometric_data": [],
+        f"{model_prefix}_contains_pii_login_info": [],
+        f"{model_prefix}_contains_identifier_name": [],
+        f"{model_prefix}_contains_identifier_email": [],
+        f"{model_prefix}_contains_identifier_phone_number": [],
+        f"{model_prefix}_contains_identifier_with_address": [],
+        f"{model_prefix}_contains_identifier_with_biographical_info": [],
+        f"{model_prefix}_contains_identifier_with_location_info": [],
+        f"{model_prefix}_contains_identifier_with_employment_info": [],
+        f"{model_prefix}_contains_identifier_with_education_info": [],
+        f"{model_prefix}_contains_identifier_with_medical_info": [],
+    }
 
     # If pdf_page_numbers is present, split the text and process each page separately
     if "attributes" in dolma_doc and "pdf_page_numbers" in dolma_doc["attributes"]:
@@ -321,14 +341,19 @@ async def process_dolma_document(args, dolma_doc, sem):
 
         # Filter pages down to actual real content
         selected_page_numbers = [tuple(p) for p in page_numbers if p[0] < p[1]]
-        first_page_number = selected_page_numbers[0]
 
-        # Sample 3 pages max per document, but always include the first page, it's a good signal for CV classification
-        random.shuffle(selected_page_numbers)
-        selected_page_numbers = selected_page_numbers[:3]
+        # Select just the first page
+        selected_page_numbers = selected_page_numbers[:1]
 
-        if first_page_number not in selected_page_numbers:
-            selected_page_numbers[0] = first_page_number
+        # Original select first + 2 more code
+        # first_page_number = selected_page_numbers[0]
+
+        # # Sample 3 pages max per document, but always include the first page, it's a good signal for CV classification
+        # random.shuffle(selected_page_numbers)
+        # selected_page_numbers = selected_page_numbers[:3]
+
+        # if first_page_number not in selected_page_numbers:
+        #     selected_page_numbers[0] = first_page_number
 
         for start_pos, end_pos, page_num in page_numbers:
             if (start_pos, end_pos, page_num) in selected_page_numbers:
@@ -338,11 +363,37 @@ async def process_dolma_document(args, dolma_doc, sem):
                 async with sem:
                     pii_class = await _process_single_page(page_text)
 
+                # Add all attributes from RichPIIClassification
                 result_attributes[contains_pii_key_name].append([start_pos, end_pos, pii_class.contains_any_pii()])
                 result_attributes[language_key_name].append([start_pos, end_pos, pii_class.primary_language])
+                result_attributes[f"{model_prefix}_is_public_document"].append([start_pos, end_pos, pii_class.is_public_document])
+                result_attributes[f"{model_prefix}_contains_pii_government_id"].append([start_pos, end_pos, pii_class.contains_pii_government_id])
+                result_attributes[f"{model_prefix}_contains_pii_financial_info"].append([start_pos, end_pos, pii_class.contains_pii_financial_info])
+                result_attributes[f"{model_prefix}_contains_pii_biometric_data"].append([start_pos, end_pos, pii_class.contains_pii_biometric_data])
+                result_attributes[f"{model_prefix}_contains_pii_login_info"].append([start_pos, end_pos, pii_class.contains_pii_login_info])
+                result_attributes[f"{model_prefix}_contains_identifier_name"].append([start_pos, end_pos, pii_class.contains_identifier_name])
+                result_attributes[f"{model_prefix}_contains_identifier_email"].append([start_pos, end_pos, pii_class.contains_identifier_email])
+                result_attributes[f"{model_prefix}_contains_identifier_phone_number"].append([start_pos, end_pos, pii_class.contains_identifier_phone_number])
+                result_attributes[f"{model_prefix}_contains_identifier_with_address"].append([start_pos, end_pos, pii_class.contains_identifier_with_address])
+                result_attributes[f"{model_prefix}_contains_identifier_with_biographical_info"].append(
+                    [start_pos, end_pos, pii_class.contains_identifier_with_biographical_info]
+                )
+                result_attributes[f"{model_prefix}_contains_identifier_with_location_info"].append(
+                    [start_pos, end_pos, pii_class.contains_identifier_with_location_info]
+                )
+                result_attributes[f"{model_prefix}_contains_identifier_with_employment_info"].append(
+                    [start_pos, end_pos, pii_class.contains_identifier_with_employment_info]
+                )
+                result_attributes[f"{model_prefix}_contains_identifier_with_education_info"].append(
+                    [start_pos, end_pos, pii_class.contains_identifier_with_education_info]
+                )
+                result_attributes[f"{model_prefix}_contains_identifier_with_medical_info"].append(
+                    [start_pos, end_pos, pii_class.contains_identifier_with_medical_info]
+                )
             else:
-                result_attributes[contains_pii_key_name].append([start_pos, end_pos, None])
-                result_attributes[language_key_name].append([start_pos, end_pos, None])
+                # For pages we don't process, set all attributes to None
+                for attr_key in result_attributes:
+                    result_attributes[attr_key].append([start_pos, end_pos, None])
 
         return result_attributes
     else:
@@ -481,6 +532,11 @@ async def server_task(model_name_or_path, args, semaphore):
         "--uvicorn-log-level",
         "warning",
         "--disable-log-requests",
+        "--max-model-len",
+        "16000",
+        # "--hf_overrides",  "{\"architectures\": [\"Gemma3ForCausalLM\"]}",
+        "--limit-mm-per-prompt",
+        "images=0",
     ]
 
     proc = await asyncio.create_subprocess_exec(
@@ -578,7 +634,7 @@ async def server_host(model_name_or_path, args, semaphore):
 
 
 async def check_server_ready():
-    max_attempts = 300
+    max_attempts = 600
     delay_sec = 1
     url = f"http://localhost:{SERVER_PORT}/v1/models"
 
@@ -736,8 +792,8 @@ async def main():
     parser.add_argument("scratch", help="Scratch workspace (local dir or s3://)")
     parser.add_argument("--workers", type=int, default=4, help="Number of concurrent workers")
     parser.add_argument("--parallel_requests", type=int, default=800, help="Max number of parallel requests to send to model")
-    parser.add_argument("--model", default="google/gemma-3-4b-it", help="Model path or name, hugging face or local path format")
-    parser.add_argument("--attribute_name", default="model_pii_tagging", help="Path to use for attribute naming")
+    parser.add_argument("--model", default="google/gemma-3-12b-it", help="Model path or name, hugging face or local path format")
+    parser.add_argument("--attribute_name", default="model_rich_pii_tagging", help="Path to use for attribute naming")
 
     # Beaker/job running stuff
     parser.add_argument("--beaker", action="store_true", help="Submit this job to beaker instead of running locally")
