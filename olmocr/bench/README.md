@@ -101,6 +101,7 @@ Several categories of tests have been made so far:
 
 ## TODO List for release
  - [ ] Check all tests for duplicates
+ - [ ] Make absense tests not case sensitive by default
  - [ ] Check that we have URLs for all tests
  - [ ] Write a script to verify that all baseline tests that actually have weird unicodes have exemptions
  - [X] Review math equations in old_scans_math.jsonl using chat gpt script
@@ -108,7 +109,7 @@ Several categories of tests have been made so far:
  - [ ] Review multicolumn_tests, make sure they are correct, clean, and don't have order tests between regions
  - [ ] Run automated check of multicolumn tests for: #1 sub/super scripts #2 max diffs calibrations #3 mixing across different distinct regions of text 
  - [X] Remove [] and other special symbols from old_scans
- - [ ] Full review of old_scans, somehow, chatgpt or prolific
+ - [X] Full review of old_scans, somehow, chatgpt or prolific
  - [X] Adjust scoring to weight each test category equally in final score distribution
- - [ ] Double check marker inline math outputs
+ - [X] Double check marker inline math outputs
  - [ ] Run against final set of comparison tools, and check list of all-pass and all-fail tests
