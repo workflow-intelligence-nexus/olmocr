@@ -30,6 +30,6 @@ peft
 wandb
 omegaconf
 s3fs
-transformers>=4.45.1
+transformers==4.51.3
 bitsandbytes
 ftfy
