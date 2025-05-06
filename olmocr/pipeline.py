@@ -775,7 +775,7 @@ def submit_beaker_job(args):
     print(f"Experiment URL: https://beaker.org/ex/{experiment_data.id}")
 
 
-def print_stats(args):
+def print_stats(args, root_work_queue):
     LONG_CONTEXT_THRESHOLD = 32768
 
     assert args.workspace.startswith("s3://"), "Printing stats functionality only works with s3 workspaces for now."
@@ -785,7 +785,14 @@ def print_stats(args):
     output_glob = os.path.join(args.workspace, "results", "*.jsonl")
 
     done_work_items = expand_s3_glob(workspace_s3, output_glob)
-    work_queue = {parts[0]: parts[1:] for line in download_zstd_csv(workspace_s3, index_file_s3_path) if (parts := line.strip().split(",")) and line.strip()}
+    work_queue_lines = download_zstd_csv(workspace_s3, index_file_s3_path)
+
+    work_queue = {}
+    for line in work_queue_lines:
+        if line.strip():
+            parts = root_work_queue._decode_csv_row(line.strip())
+            if parts:  # Ensure we have at least one part
+                work_queue[parts[0]] = parts[1:]
 
     total_items = len(work_queue)
     completed_items = len(done_work_items)
@@ -855,7 +862,8 @@ def print_stats(args):
     for done_work_item in done_work_items:
         if match := re.search(r"output_(\w+).jsonl", done_work_item):
             done_work_hash = match.group(1)
-            original_paths.update(work_queue[done_work_hash])
+            if done_work_hash in work_queue:
+                original_paths.update(work_queue[done_work_hash])
 
     with ThreadPoolExecutor() as executor:
         futures = {executor.submit(process_output_file, item): item for item in done_work_items}
@@ -1052,7 +1060,7 @@ async def main():
         await work_queue.populate_queue(pdf_work_paths, items_per_group)
 
     if args.stats:
-        print_stats(args)
+        print_stats(args, work_queue)
         return
 
     if args.beaker:
