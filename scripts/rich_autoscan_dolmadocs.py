@@ -181,21 +181,25 @@ def list_result_files(s3_client, workspace_path):
 
     all_files = []
     paginator = s3_client.get_paginator("list_objects_v2")
-    
+
     logger.info(f"Listing files from s3://{bucket}/{documents_prefix}")
     for page in paginator.paginate(Bucket=bucket, Prefix=documents_prefix):
         if "Contents" in page:
-            all_files.extend([
-                f"s3://{bucket}/{obj['Key']}" 
-                for obj in page["Contents"] 
-                if (obj["Key"].endswith(".jsonl") or 
-                    obj["Key"].endswith(".json") or 
-                    obj["Key"].endswith(".jsonl.gz") or 
-                    obj["Key"].endswith(".jsonl.zst") or 
-                    obj["Key"].endswith(".jsonl.ztd") or 
-                    obj["Key"].endswith(".jsonl.zstd"))
-            ])
-            
+            all_files.extend(
+                [
+                    f"s3://{bucket}/{obj['Key']}"
+                    for obj in page["Contents"]
+                    if (
+                        obj["Key"].endswith(".jsonl")
+                        or obj["Key"].endswith(".json")
+                        or obj["Key"].endswith(".jsonl.gz")
+                        or obj["Key"].endswith(".jsonl.zst")
+                        or obj["Key"].endswith(".jsonl.ztd")
+                        or obj["Key"].endswith(".jsonl.zstd")
+                    )
+                ]
+            )
+
             if len(all_files) % 100 == 0:
                 logger.info(f"Found {len(all_files)} files so far...")
 
@@ -203,81 +207,108 @@ def list_result_files(s3_client, workspace_path):
     return all_files
 
 
-def get_all_pages(s3_client, result_files):
-    """Get all pages from the result files for processing."""
-    all_pages = []
+def load_document_file(s3_client, file_path):
+    """Load a single document file and return its contents."""
+    try:
+        # Fetch raw bytes (S3 or local)
+        if file_path.startswith("s3://"):
+            raw = get_s3_bytes(s3_client, file_path)
+        else:
+            with open(file_path, "rb") as f:
+                raw = f.read()
 
-    for result_file in tqdm(result_files, desc="Loading document pages"):
-        try:
-            # Fetch raw bytes (S3 or local)
-            if result_file.startswith("s3://"):
-                raw = get_s3_bytes(s3_client, result_file)
-            else:
-                with open(result_file, "rb") as f:
-                    raw = f.read()
+        # Decompress if needed
+        if file_path.endswith(".gz"):
+            file_bytes = gzip.decompress(raw)
+        elif file_path.endswith(".zst") or file_path.endswith(".ztd") or file_path.endswith(".zstd"):
+            dctx = zstd.ZstdDecompressor()
+            file_bytes = dctx.decompress(raw, max_output_size=1_000_000_000)
+        else:
+            file_bytes = raw
 
-            # Decompress if needed
-            if result_file.endswith(".gz"):
-                file_bytes = gzip.decompress(raw)
-            elif result_file.endswith(".zst") or result_file.endswith(".ztd") or result_file.endswith(".zstd"):
-                dctx = zstd.ZstdDecompressor()
-                file_bytes = dctx.decompress(raw, max_output_size=1_000_000_000)
-            else:
-                file_bytes = raw
+        # Return the decoded lines
+        return file_bytes.decode("utf-8").strip().split("\n")
+    except Exception as e:
+        logger.error(f"Error loading file {file_path}: {e}")
+        return []
 
-            # Process the file content
-            lines = file_bytes.decode("utf-8").strip().split("\n")
 
-            if not lines:
-                logger.warning(f"Empty file: {result_file}")
-                continue
+def get_document_info_from_line(line, file_path, line_index):
+    """Extract document information from a single line."""
+    try:
+        doc = json.loads(line)
 
-            for line in lines:
-                try:
-                    doc = json.loads(line)
+        # A Dolma document has "text", "metadata", and "attributes" fields
+        if "text" not in doc or "metadata" not in doc or "attributes" not in doc:
+            logger.warning(f"Document in {file_path} line {line_index} is not a valid Dolma document")
+            return None
 
-                    # A Dolma document has "text", "metadata", and "attributes" fields
-                    if "text" not in doc or "metadata" not in doc or "attributes" not in doc:
-                        logger.warning(f"Document in {result_file} is not a valid Dolma document")
-                        continue
+        # Get the original PDF path from metadata
+        pdf_path = doc["metadata"].get("Source-File")
+        if not pdf_path:
+            return None
 
-                    # Get the original PDF path from metadata
-                    pdf_path = doc["metadata"].get("Source-File")
-                    if not pdf_path:
-                        continue
+        # Get page spans from attributes
+        page_spans = doc["attributes"].get("pdf_page_numbers", [])
+        if not page_spans:
+            return None
 
-                    # Get page spans from attributes
-                    page_spans = doc["attributes"].get("pdf_page_numbers", [])
-                    if not page_spans:
-                        continue
+        # Just use the first page for each document
+        if page_spans:
+            page_span = page_spans[0]  # Just get the first page
+            if len(page_span) >= 3:
+                # Page spans are [start_pos, end_pos, page_num]
+                page_num = page_span[2]
 
-                    # Process all page spans - just the first page for each document to manage volume
-                    # Comment: Change this if you want to process ALL pages instead of just the first
-                    if page_spans:
-                        page_span = page_spans[0]  # Just get the first page
-                        if len(page_span) >= 3:
-                            # Page spans are [start_pos, end_pos, page_num]
-                            page_num = page_span[2]
+                # Extract text for this page
+                start_pos, end_pos = page_span[0], page_span[1]
+                page_text = doc["text"][start_pos:end_pos].strip()
 
-                            # Extract text for this page
-                            start_pos, end_pos = page_span[0], page_span[1]
-                            page_text = doc["text"][start_pos:end_pos].strip()
+                # Return the information
+                return {
+                    "pdf_path": pdf_path,
+                    "page_num": page_num,
+                    "page_text": page_text,
+                    "start_pos": start_pos,
+                    "end_pos": end_pos,
+                    "doc_id": doc["id"],
+                    "source_file": file_path,
+                    "line_index": line_index,
+                }
 
-                            # Include the text snippet with the page info
-                            all_pages.append((pdf_path, page_num, page_text, start_pos, end_pos, doc["id"], result_file))
-                except json.JSONDecodeError:
-                    logger.warning(f"Invalid JSON line in {result_file}")
-                    continue
-                except Exception as e:
-                    logger.warning(f"Error processing document in {result_file}: {e}")
-                    continue
+        return None
+    except json.JSONDecodeError:
+        logger.warning(f"Invalid JSON in {file_path} line {line_index}")
+        return None
+    except Exception as e:
+        logger.warning(f"Error processing document in {file_path} line {line_index}: {e}")
+        return None
 
-        except Exception as e:
-            logger.error(f"Error processing file {result_file}: {e}")
+
+def get_all_pages(s3_client, document_files):
+    """Get all pages from the document files for processing, preserving file and line order."""
+    file_contents = {}
+
+    # First, collect all file paths and their document info
+    for file_path in tqdm(document_files, desc="Loading document files"):
+        lines = load_document_file(s3_client, file_path)
+        if not lines:
+            logger.warning(f"Empty or invalid file: {file_path}")
             continue
 
-    logger.info(f"Found {len(all_pages)} pages for processing from Dolma documents")
-    return all_pages
+        # Parse each line for document info
+        documents = []
+        for i, line in enumerate(lines):
+            doc_info = get_document_info_from_line(line, file_path, i)
+            # Always add an entry for each line, even if None, to preserve line alignment
+            documents.append(doc_info)
+
+        # Store all documents for this file
+        file_contents[file_path] = documents
+        logger.info(f"Loaded {len(documents)} documents from {file_path}")
+
+    logger.info(f"Loaded documents from {len(file_contents)} files")
+    return file_contents
 
 
 def chatgpt_analyze_page(pdf_path: str, page_num: int, pdf_s3_client, openai_api_key: str, openai_model: str) -> Optional[PIIAnnotation]:
@@ -355,10 +386,21 @@ Only consider actual occurrences of the PII within the document shown.
         return None
 
 
-def process_single_page(args, page_data, pdf_s3_client=None):
-    """Process a single page and generate attribute data."""
-    pdf_path, page_num, page_text, start_pos, end_pos, doc_id, result_file = page_data
-    
+def process_single_page(args, doc_info, pdf_s3_client=None):
+    """Process a single document and generate attribute data."""
+    # Skip if document info is None
+    if doc_info is None:
+        return None
+
+    # Extract info from the document info
+    pdf_path = doc_info["pdf_path"]
+    page_num = doc_info["page_num"]
+    start_pos = doc_info["start_pos"]
+    end_pos = doc_info["end_pos"]
+    doc_id = doc_info["doc_id"]
+    source_file = doc_info["source_file"]
+    line_index = doc_info["line_index"]
+
     # Use provided PDF S3 client if given, otherwise create one
     if pdf_s3_client is None:
         if args.pdf_profile:
@@ -366,24 +408,29 @@ def process_single_page(args, page_data, pdf_s3_client=None):
             pdf_s3_client = pdf_session.client("s3")
         else:
             pdf_s3_client = boto3.client("s3")
-    
+
     # Get OpenAI API key
     openai_api_key = args.openai_api_key or os.environ.get("OPENAI_API_KEY")
     if not openai_api_key:
         raise ValueError("OpenAI API key must be provided via --openai_api_key or OPENAI_API_KEY environment variable")
-    
+
     # Analyze page with ChatGPT
     annotation = chatgpt_analyze_page(pdf_path, page_num, pdf_s3_client, openai_api_key, args.openai_model)
-    
+
     if not annotation:
         logger.warning(f"No annotation for {pdf_path} page {page_num}")
-        return None
-    
+        return {
+            "id": doc_id,
+            "line_index": line_index,
+            "attributes": None,
+            "source_file": source_file,
+        }
+
     # Generate attribute key names using model name
     model_prefix = args.openai_model.replace("/", "_").replace("-", "_").replace(".", "_")
     language_key_name = f"{model_prefix}_language"
     contains_pii_key_name = f"{model_prefix}_contains_pii"
-    
+
     # Initialize result attributes with all PIIAnnotation fields
     result_attributes = {
         contains_pii_key_name: [[start_pos, end_pos, annotation.has_pii]],
@@ -404,29 +451,33 @@ def process_single_page(args, page_data, pdf_s3_client=None):
         f"{model_prefix}_contains_login_info": [[start_pos, end_pos, annotation.contains_login_info]],
         f"{model_prefix}_other_pii": [[start_pos, end_pos, annotation.other_pii]],
     }
-    
-    # Return document ID and attributes
+
+    # Return document ID, line index, and attributes
     return {
         "id": doc_id,
+        "line_index": line_index,
         "attributes": result_attributes,
-        "source_file": result_file,
+        "source_file": source_file,
     }
 
 
-def write_attribute_file(args, results, workspace_s3):
-    """Write attribute results to the appropriate files following rich_tagging_pipeline structure."""
-    # Group results by source file
+def write_attribute_file(args, processed_docs, file_documents, workspace_s3):
+    """Write attribute results to the appropriate files, preserving exact line order."""
+    # Group results by source file and organize by line index
     results_by_file = {}
-    for result in results:
+    for result in processed_docs:
         if result is None:
             continue
+
         source_file = result["source_file"]
         if source_file not in results_by_file:
-            results_by_file[source_file] = []
-        results_by_file[source_file].append({"id": result["id"], "attributes": result["attributes"]})
-    
+            results_by_file[source_file] = {}
+
+        # Store by line index to preserve order
+        results_by_file[source_file][result["line_index"]] = {"id": result["id"], "attributes": result["attributes"]}
+
     # Process each source file
-    for source_file, file_results in results_by_file.items():
+    for source_file, file_results_dict in results_by_file.items():
         try:
             # 1. Build the relative path that mirrors documents/…
             if source_file.startswith("s3://"):
@@ -437,11 +488,31 @@ def write_attribute_file(args, results, workspace_s3):
                 docs_root = os.path.join(args.workspace, "documents")
                 rel_path = os.path.relpath(source_file, docs_root)
 
-            # 2. Create attribute path - following rich_tagging_pipeline structure
-            out_rel = os.path.join("attributes", args.attribute_name, rel_path)
-            out_jsonl = "\n".join(json.dumps(x) for x in file_results) + "\n"
+            # 2. Create ordered attribute entries in exact same order as source file
+            file_entries = []
+            # Get the original documents to ensure we have ALL lines in order
+            original_docs = file_documents[source_file]
 
-            # 3. Preserve compression type
+            # Create attribute entries for every line
+            for i, doc_info in enumerate(original_docs):
+                if i in file_results_dict and file_results_dict[i]["attributes"] is not None:
+                    # We have a processed result for this line
+                    file_entries.append(file_results_dict[i])
+                elif doc_info is not None:
+                    # We have document info but no processed attributes (processing failed)
+                    # Create an empty attributes entry with the correct ID
+                    file_entries.append({"id": doc_info["doc_id"], "attributes": {}})
+                else:
+                    # This line in the source file was invalid or not a document
+                    # Create a placeholder with a generated ID
+                    placeholder_id = f"placeholder_{source_file}_{i}"
+                    file_entries.append({"id": placeholder_id, "attributes": {}})
+
+            # 3. Create output JSONL
+            out_rel = os.path.join("attributes", args.attribute_name, rel_path)
+            out_jsonl = "\n".join(json.dumps(entry) for entry in file_entries) + "\n"
+
+            # 4. Preserve compression type
             if rel_path.endswith(".gz"):
                 payload = gzip.compress(out_jsonl.encode("utf-8"))
             elif rel_path.endswith((".zst", ".ztd", ".zstd")):
@@ -449,19 +520,19 @@ def write_attribute_file(args, results, workspace_s3):
             else:
                 payload = out_jsonl.encode("utf-8")
 
-            # 4. Write to args.workspace (local or S3)
+            # 5. Write to args.workspace (local or S3)
             if args.workspace.startswith("s3://"):
                 bucket, prefix = parse_s3_path(args.workspace)
                 key = os.path.join(prefix, out_rel)
                 workspace_s3.put_object(Bucket=bucket, Key=key, Body=payload)
-                logger.info(f"Wrote attributes to s3://{bucket}/{key}")
+                logger.info(f"Wrote {len(file_entries)} attribute entries to s3://{bucket}/{key}")
             else:
                 out_path = os.path.join(args.workspace, out_rel)
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
                 with open(out_path, "wb") as fh:
                     fh.write(payload)
-                logger.info(f"Wrote attributes to {out_path}")
-                
+                logger.info(f"Wrote {len(file_entries)} attribute entries to {out_path}")
+
         except Exception as e:
             logger.error(f"Error writing attributes for {source_file}: {e}")
             continue
@@ -495,7 +566,7 @@ def main():
     else:
         workspace_s3 = boto3.client("s3")
         logger.info("Using default AWS credentials for workspace access")
-    
+
     if args.pdf_profile:
         pdf_session = boto3.Session(profile_name=args.pdf_profile)
         pdf_s3 = pdf_session.client("s3")
@@ -518,47 +589,66 @@ def main():
     document_files = list_result_files(workspace_s3, args.workspace)
     logger.info(f"Found {len(document_files)} document files")
 
-    # Get all pages from all documents
-    logger.info("Loading all document pages...")
-    all_pages = get_all_pages(workspace_s3, document_files)
-    
-    # Process pages in batches to manage memory and API rate limits
-    total_pages = len(all_pages)
-    logger.info(f"Total pages to process: {total_pages}")
-    
-    # Process in batches
-    for i in range(0, total_pages, args.batch_size):
-        batch = all_pages[i:i+args.batch_size]
-        batch_num = i // args.batch_size + 1
-        total_batches = (total_pages + args.batch_size - 1) // args.batch_size
-        
-        logger.info(f"Processing batch {batch_num}/{total_batches} ({len(batch)} pages)...")
-        results = []
-        
-        with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
-            futures = []
-            # Pass both the pdf and workspace S3 clients to the task
-            for page_data in batch:
-                futures.append(executor.submit(process_single_page, args, page_data, pdf_s3))
-            
-            for future in tqdm(futures, desc=f"Processing batch {batch_num}"):
-                try:
-                    result = future.result()
-                    results.append(result)
-                except Exception as e:
-                    logger.error(f"Error processing page: {e}")
-        
-        # Save results for this batch
-        batch_output_dir = os.path.join(args.output_dir, f"batch_{batch_num}")
-        os.makedirs(batch_output_dir, exist_ok=True)
-        save_results(results, batch_output_dir)
-        
-        # Write attributes for this batch using the workspace S3 client
-        write_attribute_file(args, results, workspace_s3)
-        
-        logger.info(f"Completed batch {batch_num}/{total_batches}")
-    
-    logger.info(f"Processing complete - processed {total_pages} pages")
+    # Load all document files and their contents, organized by file
+    logger.info("Loading all document files...")
+    file_documents = get_all_pages(workspace_s3, document_files)
+
+    # Process each file individually
+    for file_index, (file_path, documents) in enumerate(file_documents.items()):
+        logger.info(f"Processing file {file_index+1}/{len(file_documents)}: {file_path}")
+
+        # Only process documents that have valid information
+        valid_docs = []
+        for doc in documents:
+            if doc is not None:
+                valid_docs.append(doc)
+
+        # Skip if no valid documents
+        if not valid_docs:
+            logger.warning(f"No valid documents in {file_path}")
+            continue
+
+        # Process in batches to manage memory and API rate limits
+        total_docs = len(valid_docs)
+        logger.info(f"Found {total_docs} valid documents to process in {file_path}")
+
+        # Process in batches (process by document, but maintain file coherence)
+        all_results = []
+        for i in range(0, total_docs, args.batch_size):
+            batch = valid_docs[i : i + args.batch_size]
+            batch_num = i // args.batch_size + 1
+            total_batches = (total_docs + args.batch_size - 1) // args.batch_size
+
+            logger.info(f"Processing batch {batch_num}/{total_batches} of {file_path} ({len(batch)} documents)...")
+            results = []
+
+            with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+                futures = []
+                # Process documents in parallel but within the same file
+                for doc_info in batch:
+                    futures.append(executor.submit(process_single_page, args, doc_info, pdf_s3))
+
+                for future in tqdm(futures, desc=f"Processing batch {batch_num} of {file_path}"):
+                    try:
+                        result = future.result()
+                        results.append(result)
+                    except Exception as e:
+                        logger.error(f"Error processing document: {e}")
+
+            # Save results for this batch
+            batch_output_dir = os.path.join(args.output_dir, f"file_{file_index+1}_batch_{batch_num}")
+            os.makedirs(batch_output_dir, exist_ok=True)
+            save_results(results, batch_output_dir)
+
+            # Collect all results for this file
+            all_results.extend(results)
+            logger.info(f"Completed batch {batch_num}/{total_batches} of {file_path}")
+
+        # Write attributes for the entire file, maintaining line order
+        write_attribute_file(args, all_results, file_documents, workspace_s3)
+        logger.info(f"Completed processing file {file_index+1}/{len(file_documents)}: {file_path}")
+
+    logger.info(f"Processing complete - processed {len(file_documents)} files")
 
 
 if __name__ == "__main__":
