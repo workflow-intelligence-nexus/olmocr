@@ -568,7 +568,7 @@ def submit_beaker_job(args):
     b = Beaker.from_env(default_workspace=args.beaker_workspace)
     account = b.account.whoami()
     owner = account.name
-    beaker_image = f"jakep/olmocr-inference-{VERSION}"
+    beaker_image = f"jakep/olmocr-tagging-{VERSION}"
 
     task_name = f"olmocr-{os.path.basename(args.dataset.rstrip('/'))}"
 
@@ -643,7 +643,7 @@ def submit_beaker_job(args):
                     preemptible=True,
                 ),
                 image=ImageSource(beaker=beaker_image),
-                command=["python", "-m", "scripts/tagging_pipeline.py"] + args_list,
+                command=["python", "scripts/tagging_pipeline.py"] + args_list,
                 env_vars=[EnvVar(name="BEAKER_JOB_NAME", value=task_name), EnvVar(name="OWNER", value=owner)] + env_var_secrets,
                 resources=TaskResources(gpu_count=1),
                 constraints=Constraints(cluster=args.beaker_cluster if isinstance(args.beaker_cluster, list) else [args.beaker_cluster]),
