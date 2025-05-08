@@ -114,6 +114,9 @@ def normalize_text(md_content: str) -> str:
     if md_content is None:
         return None
 
+    # Normalize <br> and <br/> to newlines
+    md_content = re.sub(r"<br/?>", " ", md_content)
+
     # Normalize whitespace in the md_content
     md_content = re.sub(r"\s+", " ", md_content)
 
