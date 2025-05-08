@@ -12,12 +12,11 @@ import gzip
 import json
 import logging
 import os
-import random
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional
 
 import boto3
 import pydantic
