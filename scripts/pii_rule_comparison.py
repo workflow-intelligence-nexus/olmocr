@@ -135,7 +135,7 @@ def parse_args():
                         where rule_type is 'any' or 'all'. Or a boolean expression like
                         'not rule1:any and rule2:all' or '(rule1:any or rule2:any) and not rule3:all'""",
     )
-    parser.add_argument("--output-file", default="iou_results.json", help="Output JSON file to save results")
+    parser.add_argument("--output-dir", default="results", help="Directory to save HTML result files")
     parser.add_argument("--aws-profile", help="AWS profile for S3 access")
     parser.add_argument("--recursive", action="store_true", help="Recursively process folder structure")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging for more detailed output")
@@ -1165,6 +1165,328 @@ def format_rule_stats(rule_stats):
     return "\n".join(formatted_stats)
 
 
+def generate_html_report(docs, title, summary, output_path):
+    """
+    Generate an HTML report file with document texts
+    
+    Args:
+        docs: List of documents to include in the report
+        title: Title of the report
+        summary: Summary statistics to include at the top
+        output_path: Path to save the HTML file
+        
+    Returns:
+        None
+    """
+    # Create header with CSS styling
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            scroll-behavior: smooth;
+        }}
+        
+        /* Header bar styles */
+        .header {{
+            background-color: #f8f9fa;
+            padding: 8px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 40px;
+        }}
+        
+        .title {{
+            font-size: 1.2em;
+            font-weight: bold;s
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 60%;
+        }}
+        
+        .controls {{
+            display: flex;
+            align-items: center;
+        }}
+        
+        .keyboard-controls {{
+            font-size: 0.85em;
+            margin-right: 15px;
+        }}
+        
+        .toggle-summary {{
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }}
+        
+        /* Summary panel styles */
+        #summary-panel {{
+            position: fixed;
+            top: 57px;
+            left: 0;
+            right: 0;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            padding: 15px 20px;
+            z-index: 90;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }}
+        
+        /* Main content styles */
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 20px 20px 20px;
+        }}
+        
+        /* Document styles */
+        .document {{
+            background-color: #fff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s ease-in-out;
+            scroll-margin-top: 60px;
+        }}
+        
+        .document:hover {{
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }}
+        
+        .document.selected {{
+            border: 2px solid #007bff;
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
+            background-color: #f8f9fa;
+        }}
+        
+        .document-id {{
+            color: #007bff;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }}
+        
+        .document-text {{
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+        }}
+        
+        /* Helper styles */
+        h2 {{
+            margin-top: 0;
+            font-size: 1.2em;
+            color: #333;
+        }}
+        
+        pre {{
+            font-size: 0.9em;
+            white-space: pre-wrap;
+        }}
+        
+        .stats {{
+            color: #666;
+            font-size: 0.8em;
+            font-weight: normal;
+        }}
+        
+        .keyboard-shortcut {{
+            display: inline-block;
+            padding: 1px 4px;
+            margin: 0 1px;
+            border-radius: 3px;
+            background-color: #f1f3f5;
+            border: 1px solid #ced4da;
+            font-family: monospace;
+            font-size: 0.9em;
+        }}
+    </style>
+</head>
+<body>
+    <!-- Fixed header -->
+    <div class="header">
+        <div class="title">{title} <span class="stats">({len(docs)} documents)</span></div>
+        <div class="controls">
+            <div class="keyboard-controls">
+                <span class="keyboard-shortcut">↑</span>/<span class="keyboard-shortcut">↓</span> to navigate
+                &nbsp;<span class="keyboard-shortcut">Home</span>/<span class="keyboard-shortcut">End</span>
+            </div>
+            <button class="toggle-summary" onclick="toggleSummary()">Show Summary</button>
+        </div>
+    </div>
+    
+    <!-- Summary panel (initially hidden) -->
+    <div id="summary-panel">
+        <h2>Summary</h2>
+        <pre>{summary}</pre>
+    </div>
+    
+    <!-- Main content -->
+    <div class="container">
+        <div id="document-container">
+"""
+
+    # Add each document with a unique ID
+    for i, doc in enumerate(docs, 1):
+        doc_id = doc.get("id", f"unknown_{i}")
+        # Get document text, falling back to JSON representation if not available
+        doc_text = doc.get("text", json.dumps(doc, indent=2))
+        
+        # The first document gets the "selected" class
+        selected_class = " selected" if i == 1 else ""
+        
+        html += f"""
+            <div id="doc-{i}" class="document{selected_class}" tabindex="0">
+                <div class="document-id">Document ID: {doc_id}</div>
+                <div class="document-text">{doc_text}</div>
+            </div>
+"""
+
+    # Add JavaScript for keyboard navigation and summary toggle
+    html += """
+        </div>
+    </div>
+
+    <script>
+        // Get all documents
+        const documents = document.querySelectorAll('.document');
+        let selectedIndex = 0; // First document is selected by default
+        let summaryVisible = false;
+        
+        // Function to toggle summary panel
+        function toggleSummary() {
+            const panel = document.getElementById('summary-panel');
+            const button = document.querySelector('.toggle-summary');
+            
+            if (summaryVisible) {
+                panel.style.display = 'none';
+                button.textContent = 'Show Summary';
+            } else {
+                panel.style.display = 'block';
+                button.textContent = 'Hide Summary';
+            }
+            
+            summaryVisible = !summaryVisible;
+        }
+        
+        // Function to select a document
+        function selectDocument(index) {
+            // Validate index
+            if (index < 0) index = 0;
+            if (index >= documents.length) index = documents.length - 1;
+            
+            // Store current index for use in setTimeout
+            const targetIndex = index;
+            
+            // Remove selected class from all documents
+            documents.forEach(doc => doc.classList.remove('selected'));
+            
+            // Add selected class to the current document
+            documents[targetIndex].classList.add('selected');
+            
+            // Update selected index
+            selectedIndex = targetIndex;
+            
+            // Use a more direct approach for scrolling
+            // Get the element's offset from the top of the document
+            const headerHeight = 60; // Fixed header height
+            const element = documents[targetIndex];
+            const elementPosition = element.offsetTop;
+            
+            // Scroll the element to the top of the viewport, accounting for header
+            window.scrollTo({
+                top: elementPosition - headerHeight,
+                behavior: 'smooth'
+            });
+            
+            // Focus the selected document for accessibility
+            documents[targetIndex].focus();
+        }
+        
+        // Add keyboard event listener to the document
+        document.addEventListener('keydown', function(event) {
+            // Arrow up
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                selectDocument(selectedIndex - 1);
+            }
+            // Arrow down
+            else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                selectDocument(selectedIndex + 1);
+            }
+            // Home key - go to first document
+            else if (event.key === 'Home') {
+                event.preventDefault();
+                selectDocument(0);
+            }
+            // End key - go to last document
+            else if (event.key === 'End') {
+                event.preventDefault();
+                selectDocument(documents.length - 1);
+            }
+            // Escape key - hide summary if visible
+            else if (event.key === 'Escape' && summaryVisible) {
+                toggleSummary();
+            }
+            // S key - toggle summary
+            else if (event.key === 's' || event.key === 'S') {
+                toggleSummary();
+            }
+        });
+        
+        // Make documents clickable to select them
+        documents.forEach((doc, index) => {
+            doc.addEventListener('click', () => {
+                selectDocument(index);
+            });
+        });
+        
+        // Select the first document when the page loads
+        window.addEventListener('load', () => {
+            // If there are documents, select the first one
+            if (documents.length > 0) {
+                selectDocument(0);
+            }
+        });
+    </script>
+</body>
+</html>
+"""
+
+    # Create directory if it doesn't exist
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    
+    # Write HTML to file
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    
+    logger.info(f"Generated HTML report: {output_path}")
+
+
 def main():
     global args
     args = parse_args()
@@ -1202,6 +1524,9 @@ def main():
     logger.info("Loading documents and merging with all attributes...")
     all_docs = load_documents_and_attributes(args.docs_folder, attr_folder, s3_client, args.recursive)
 
+    # Create output directory if it doesn't exist
+    os.makedirs(args.output_dir, exist_ok=True)
+
     # Use the same documents for both reference and hypothesis evaluation
     # since we've loaded all attributes into each document
     ref_docs = all_docs
@@ -1211,39 +1536,206 @@ def main():
     logger.info("Comparing documents using reference and hypothesis rules...")
     comparison_result = compare_documents(ref_docs, hyp_docs, ref_rule, hyp_rule)
 
+    # Get document IDs for each category
+    ref_matches = set()
+    hyp_matches = set()
+    
+    # Create mappings from document IDs to documents
+    doc_map = {doc["id"]: doc for doc in all_docs if "id" in doc}
+    
+    # Find documents that match the reference and hypothesis rules
+    for doc_id, doc in doc_map.items():
+        if apply_rule(doc, ref_rule):
+            ref_matches.add(doc_id)
+        if apply_rule(doc, hyp_rule):
+            hyp_matches.add(doc_id)
+    
+    # Calculate document sets for each category
+    true_positives_ids = ref_matches.intersection(hyp_matches)
+    true_negatives_ids = set(doc_map.keys()) - ref_matches - hyp_matches
+    false_positives_ids = hyp_matches - ref_matches
+    false_negatives_ids = ref_matches - hyp_matches
+    
+    # Create document lists for each category
+    true_positives = [doc_map[doc_id] for doc_id in true_positives_ids]
+    true_negatives = [doc_map[doc_id] for doc_id in true_negatives_ids]
+    false_positives = [doc_map[doc_id] for doc_id in false_positives_ids]
+    false_negatives = [doc_map[doc_id] for doc_id in false_negatives_ids]
+    
+    # Calculate metrics
+    tp = len(true_positives)
+    tn = len(true_negatives)
+    fp = len(false_positives)
+    fn = len(false_negatives)
+    
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+    iou = tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0
+    
     # Prepare overall statistics
     overall_stats = {
-        "total_docs": comparison_result["total_docs"],
-        "ref_matches": comparison_result["ref_matches"],
-        "hyp_matches": comparison_result["hyp_matches"],
-        "true_positives": comparison_result["true_positives"],
-        "false_positives": comparison_result["false_positives"],
-        "false_negatives": comparison_result["false_negatives"],
-        "precision": comparison_result["precision"],
-        "recall": comparison_result["recall"],
-        "f1": comparison_result["f1"],
-        "iou": comparison_result["iou"],
+        "total_docs": len(doc_map),
+        "ref_matches": len(ref_matches),
+        "hyp_matches": len(hyp_matches),
+        "true_positives": tp,
+        "true_negatives": tn,
+        "false_positives": fp,
+        "false_negatives": fn,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "iou": iou,
         "ref_rule_stats": comparison_result["ref_rule_stats"],
         "hyp_rule_stats": comparison_result["hyp_rule_stats"],
     }
 
-    # Prepare final output
-    output = {
-        "config": {
-            "docs_folder": args.docs_folder,
-            "attr_folder": attr_folder,
-            "ref_rule": args.ref_rule,
-            "ref_rule_parsed": ref_rule_str,
-            "hyp_rule": args.hyp_rule,
-            "hyp_rule_parsed": hyp_rule_str,
-        },
-        "overall": overall_stats,
-    }
+    # Prepare summary
+    summary = f"""Reference Rule: {args.ref_rule}
+Hypothesis Rule: {args.hyp_rule}
 
-    # Save results
-    with open(args.output_file, "w") as f:
-        json.dump(output, f, indent=2)
+Total Documents: {overall_stats['total_docs']}
+Reference Matches: {overall_stats['ref_matches']}
+Hypothesis Matches: {overall_stats['hyp_matches']}
 
+True Positives: {tp}
+True Negatives: {tn}
+False Positives: {fp}
+False Negatives: {fn}
+
+Precision: {precision:.4f}
+Recall: {recall:.4f}
+F1 Score: {f1:.4f}
+IoU: {iou:.4f}
+"""
+
+    # Generate HTML reports for each category
+    logger.info("Generating HTML reports...")
+    
+    # True Positives
+    generate_html_report(
+        true_positives,
+        "True Positives - Documents matching both Reference and Hypothesis Rules",
+        summary,
+        os.path.join(args.output_dir, "true_positives.html")
+    )
+    
+    # True Negatives
+    generate_html_report(
+        true_negatives,
+        "True Negatives - Documents not matching either Rule",
+        summary,
+        os.path.join(args.output_dir, "true_negatives.html")
+    )
+    
+    # False Positives
+    generate_html_report(
+        false_positives,
+        "False Positives - Documents matching Hypothesis but not Reference Rule",
+        summary,
+        os.path.join(args.output_dir, "false_positives.html")
+    )
+    
+    # False Negatives
+    generate_html_report(
+        false_negatives,
+        "False Negatives - Documents matching Reference but not Hypothesis Rule",
+        summary,
+        os.path.join(args.output_dir, "false_negatives.html")
+    )
+
+    # Generate index.html file that links to all reports
+    index_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PII Rule Comparison Results</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }}
+        .summary {{
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 5px solid #007bff;
+        }}
+        .category {{
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }}
+        .true-positives {{
+            background-color: #d4edda;
+            border-left: 5px solid #28a745;
+        }}
+        .true-negatives {{
+            background-color: #e2e3e5;
+            border-left: 5px solid #6c757d;
+        }}
+        .false-positives {{
+            background-color: #f8d7da;
+            border-left: 5px solid #dc3545;
+        }}
+        .false-negatives {{
+            background-color: #fff3cd;
+            border-left: 5px solid #ffc107;
+        }}
+        h1 {{
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            color: #333;
+        }}
+        a {{
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }}
+        a:hover {{
+            text-decoration: underline;
+        }}
+    </style>
+</head>
+<body>
+    <h1>PII Rule Comparison Results</h1>
+    <div class="summary">
+        <h2>Summary</h2>
+        <pre>{summary}</pre>
+    </div>
+    <h2>Result Categories</h2>
+    <div class="category true-positives">
+        <h3>True Positives: {tp}</h3>
+        <p>Documents that match both the reference and hypothesis rules.</p>
+        <a href="true_positives.html">View True Positives</a>
+    </div>
+    <div class="category true-negatives">
+        <h3>True Negatives: {tn}</h3>
+        <p>Documents that don't match either the reference or hypothesis rules.</p>
+        <a href="true_negatives.html">View True Negatives</a>
+    </div>
+    <div class="category false-positives">
+        <h3>False Positives: {fp}</h3>
+        <p>Documents that match the hypothesis rule but not the reference rule.</p>
+        <a href="false_positives.html">View False Positives</a>
+    </div>
+    <div class="category false-negatives">
+        <h3>False Negatives: {fn}</h3>
+        <p>Documents that match the reference rule but not the hypothesis rule.</p>
+        <a href="false_negatives.html">View False Negatives</a>
+    </div>
+</body>
+</html>
+"""
+
+    with open(os.path.join(args.output_dir, "index.html"), "w", encoding="utf-8") as f:
+        f.write(index_html)
+    
     # Print summary
     logger.info("\n--- COMPARISON SUMMARY ---")
     logger.info(f"Documents Folder: {args.docs_folder}")
@@ -1265,11 +1757,16 @@ def main():
 
     # Print comparison metrics
     logger.info("\n--- COMPARISON METRICS ---")
-    logger.info(f"IoU: {overall_stats['iou']:.4f}")
-    logger.info(f"Precision: {overall_stats['precision']:.4f}")
-    logger.info(f"Recall: {overall_stats['recall']:.4f}")
-    logger.info(f"F1 Score: {overall_stats['f1']:.4f}")
-    logger.info(f"Detailed results saved to: {args.output_file}")
+    logger.info(f"True Positives: {tp}")
+    logger.info(f"True Negatives: {tn}")
+    logger.info(f"False Positives: {fp}")
+    logger.info(f"False Negatives: {fn}")
+    logger.info(f"Precision: {precision:.4f}")
+    logger.info(f"Recall: {recall:.4f}")
+    logger.info(f"F1 Score: {f1:.4f}")
+    logger.info(f"IoU: {iou:.4f}")
+    
+    logger.info(f"\nResults saved to: {args.output_dir}/index.html")
 
 
 if __name__ == "__main__":
@@ -1282,7 +1779,7 @@ python scripts/pii_rule_comparison.py \
   --docs-folder s3://ai2-oe-data/jakep/s2pdf_dedupe_minhash_v1_mini/documents/ \
   --ref-rule "gpt_4_1_contains_pii:any and not gpt_4_1_is_public_document:all" \
   --hyp-rule "google_gemma-3-4b-it_is_resume_cv:any" \
-  --output-file pii_resume_comparison.json \
+  --output-dir results/resume_detection \
   --recursive \
   --debug
 
@@ -1291,7 +1788,7 @@ python scripts/pii_rule_comparison.py \
   --docs-folder s3://allenai-dolma/documents/v1.5 \
   --ref-rule "contains_pii:any" \
   --hyp-rule "(contains_email_addresses:any or contains_phone_numbers:any) and not false_positive:any" \
-  --output-file pii_detection_comparison.json \
+  --output-dir results/pii_detection \
   --recursive \
   --aws-profile dolma
 
@@ -1301,6 +1798,6 @@ python scripts/pii_rule_comparison.py \
   --attr-folder s3://bucket/custom/location/attributes \
   --ref-rule "gpt_4_1_contains_pii:any" \
   --hyp-rule "custom_model_pii_detection:any" \
-  --output-file custom_folder_comparison.json \
+  --output-dir results/custom_comparison \
   --recursive
 """
