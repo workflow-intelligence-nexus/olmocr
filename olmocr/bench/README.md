@@ -100,16 +100,17 @@ Several categories of tests have been made so far:
 
 
 ## TODO List for release
- - [ ] Check all tests for duplicates
- - [ ] Make absense tests not case sensitive by default
+ - [X] Check all tests for duplicates
+ - [X] Make absense tests not case sensitive by default
  - [ ] Check that we have URLs for all tests
- - [ ] Write a script to verify that all baseline tests that actually have weird unicodes have exemptions
+ - [X] Write a script to verify that all baseline tests that actually have weird unicodes have exemptions
  - [X] Review math equations in old_scans_math.jsonl using chat gpt script
  - [X] Add test category of long_texts which are still ~1 standard printed page, but with dense/small text
- - [ ] Review multicolumn_tests, make sure they are correct, clean, and don't have order tests between regions
- - [ ] Run automated check of multicolumn tests for: #1 sub/super scripts #2 max diffs calibrations #3 mixing across different distinct regions of text 
+ - [X] Review multicolumn_tests, make sure they are correct, clean, and don't have order tests between regions
+ - [X] Run automated check of multicolumn tests for: #1 sub/super scripts #2 max diffs calibrations #3 mixing across different distinct regions of text 
  - [X] Remove [] and other special symbols from old_scans
  - [X] Full review of old_scans, somehow, chatgpt or prolific
  - [X] Adjust scoring to weight each test category equally in final score distribution
  - [X] Double check marker inline math outputs
+ - [ ] Remove any PII documents
  - [ ] Run against final set of comparison tools, and check list of all-pass and all-fail tests
