@@ -526,12 +526,12 @@ def apply_rule(doc, rule):
 def calculate_attribute_aggregate(doc, attribute_name, operation_type):
     """
     Calculate an aggregate value for a numeric attribute.
-    
+
     Args:
         doc: The document JSON object
         attribute_name: The attribute field to aggregate (e.g., "pii_tagging_ratio")
         operation_type: The type of aggregation to perform (e.g., "avg")
-    
+
     Returns:
         The aggregated value, or None if calculation is not possible
     """
@@ -539,33 +539,33 @@ def calculate_attribute_aggregate(doc, attribute_name, operation_type):
     if "attributes" not in doc or not doc["attributes"]:
         logger.debug(f"Document {doc.get('id', 'unknown')} has no attributes")
         return None
-    
+
     attributes = doc["attributes"]
-    
+
     # Check if the specific attribute exists
     if attribute_name not in attributes:
         logger.debug(f"Document {doc.get('id', 'unknown')} doesn't have attribute: {attribute_name}")
         return None
-    
+
     if not attributes[attribute_name]:
         logger.debug(f"Document {doc.get('id', 'unknown')} has empty attribute: {attribute_name}")
         return None
-    
+
     # Extract the numeric values from the attribute spans
     # Each span is formatted as [start_pos, end_pos, value]
     values = [span[2] for span in attributes[attribute_name] if len(span) >= 3 and span[2] is not None]
-    
+
     if not values:
         logger.debug(f"Document {doc.get('id', 'unknown')} has no valid values for attribute: {attribute_name}")
         return None
-    
+
     # Convert all values to float
     try:
         numeric_values = [float(value) for value in values]
     except (ValueError, TypeError):
         logger.debug(f"Document {doc.get('id', 'unknown')} has non-numeric values for attribute: {attribute_name}")
         return None
-    
+
     # Perform the aggregation
     if operation_type == "avg":
         if not numeric_values:
@@ -606,32 +606,32 @@ def apply_simple_rule(doc, attribute_name, rule_type):
         return False
 
     # Handle numeric comparison rules (e.g., 'avg>0.3')
-    if any(op in rule_type for op in ['>', '<', '>=', '<=', '==']):
+    if any(op in rule_type for op in [">", "<", ">=", "<=", "=="]):
         # Parse the rule type into operation and comparison
-        operation_parts = rule_type.split('>')
+        operation_parts = rule_type.split(">")
         if len(operation_parts) == 2:
             operation_type, threshold = operation_parts
-            comparison_op = '>'
+            comparison_op = ">"
         else:
-            operation_parts = rule_type.split('<')
+            operation_parts = rule_type.split("<")
             if len(operation_parts) == 2:
                 operation_type, threshold = operation_parts
-                comparison_op = '<'
+                comparison_op = "<"
             else:
-                operation_parts = rule_type.split('>=')
+                operation_parts = rule_type.split(">=")
                 if len(operation_parts) == 2:
                     operation_type, threshold = operation_parts
-                    comparison_op = '>='
+                    comparison_op = ">="
                 else:
-                    operation_parts = rule_type.split('<=')
+                    operation_parts = rule_type.split("<=")
                     if len(operation_parts) == 2:
                         operation_type, threshold = operation_parts
-                        comparison_op = '<='
+                        comparison_op = "<="
                     else:
-                        operation_parts = rule_type.split('==')
+                        operation_parts = rule_type.split("==")
                         if len(operation_parts) == 2:
                             operation_type, threshold = operation_parts
-                            comparison_op = '=='
+                            comparison_op = "=="
                         else:
                             raise ValueError(f"Invalid rule type: {rule_type}")
 
@@ -648,15 +648,15 @@ def apply_simple_rule(doc, attribute_name, rule_type):
             return False
 
         # Apply the comparison
-        if comparison_op == '>':
+        if comparison_op == ">":
             result = aggregate_value > threshold
-        elif comparison_op == '<':
+        elif comparison_op == "<":
             result = aggregate_value < threshold
-        elif comparison_op == '>=':
+        elif comparison_op == ">=":
             result = aggregate_value >= threshold
-        elif comparison_op == '<=':
+        elif comparison_op == "<=":
             result = aggregate_value <= threshold
-        elif comparison_op == '==':
+        elif comparison_op == "==":
             result = aggregate_value == threshold
         else:
             raise ValueError(f"Invalid comparison operator: {comparison_op}")
@@ -686,7 +686,7 @@ def apply_simple_rule(doc, attribute_name, rule_type):
             if result:
                 logger.debug(f"Document {doc.get('id', 'unknown')} matched rule '{attribute_name}:{rule_type}' (all {len(values)} values are True)")
             return result
-    
+
     raise ValueError(f"Unknown rule type: {rule_type}")
 
 
@@ -939,8 +939,7 @@ class Parser:
             attribute_name, rule_type = rule_tuple
 
             # Validate rule type
-            if (rule_type not in ["any", "all"] and 
-                not any(op in rule_type for op in ['>', '<', '>=', '<=', '=='])):
+            if rule_type not in ["any", "all"] and not any(op in rule_type for op in [">", "<", ">=", "<=", "=="]):
                 raise ValueError(f"Invalid rule type: {rule_type}. Supported types: 'any', 'all', or numeric comparison (e.g., 'avg>0.3')")
 
             return RuleNode(attribute_name, rule_type)
@@ -1018,9 +1017,9 @@ def parse_rule(rule_string):
             raise ValueError(f"Invalid rule format: {rule_string}. Expected format: 'attribute_name:rule_type'")
 
         attribute_name, rule_type = parts
-        
+
         # Check for numeric comparison rule_type
-        if any(op in rule_type for op in ['>', '<', '>=', '<=', '==']):
+        if any(op in rule_type for op in [">", "<", ">=", "<=", "=="]):
             # This is a numeric comparison rule - we'll validate it in apply_simple_rule
             return attribute_name, rule_type
         elif rule_type not in ["any", "all"]:
@@ -1290,13 +1289,13 @@ def format_rule_stats(rule_stats):
 def generate_html_report(docs, title, summary, output_path):
     """
     Generate an HTML report file with document texts
-    
+
     Args:
         docs: List of documents to include in the report
         title: Title of the report
         summary: Summary statistics to include at the top
         output_path: Path to save the HTML file
-        
+
     Returns:
         None
     """
@@ -1476,10 +1475,10 @@ def generate_html_report(docs, title, summary, output_path):
         doc_id = doc.get("id", f"unknown_{i}")
         # Get document text, falling back to JSON representation if not available
         doc_text = doc.get("text", json.dumps(doc, indent=2))
-        
+
         # The first document gets the "selected" class
         selected_class = " selected" if i == 1 else ""
-        
+
         html += f"""
             <div id="doc-{i}" class="document{selected_class}" tabindex="0">
                 <div class="document-id">Document ID: {doc_id}</div>
@@ -1601,11 +1600,11 @@ def generate_html_report(docs, title, summary, output_path):
 
     # Create directory if it doesn't exist
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    
+
     # Write HTML to file
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
-    
+
     logger.info(f"Generated HTML report: {output_path}")
 
 
@@ -1661,40 +1660,40 @@ def main():
     # Get document IDs for each category
     ref_matches = set()
     hyp_matches = set()
-    
+
     # Create mappings from document IDs to documents
     doc_map = {doc["id"]: doc for doc in all_docs if "id" in doc}
-    
+
     # Find documents that match the reference and hypothesis rules
     for doc_id, doc in doc_map.items():
         if apply_rule(doc, ref_rule):
             ref_matches.add(doc_id)
         if apply_rule(doc, hyp_rule):
             hyp_matches.add(doc_id)
-    
+
     # Calculate document sets for each category
     true_positives_ids = ref_matches.intersection(hyp_matches)
     true_negatives_ids = set(doc_map.keys()) - ref_matches - hyp_matches
     false_positives_ids = hyp_matches - ref_matches
     false_negatives_ids = ref_matches - hyp_matches
-    
+
     # Create document lists for each category
     true_positives = [doc_map[doc_id] for doc_id in true_positives_ids]
     true_negatives = [doc_map[doc_id] for doc_id in true_negatives_ids]
     false_positives = [doc_map[doc_id] for doc_id in false_positives_ids]
     false_negatives = [doc_map[doc_id] for doc_id in false_negatives_ids]
-    
+
     # Calculate metrics
     tp = len(true_positives)
     tn = len(true_negatives)
     fp = len(false_positives)
     fn = len(false_negatives)
-    
+
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
     iou = tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0
-    
+
     # Prepare overall statistics
     overall_stats = {
         "total_docs": len(doc_map),
@@ -1733,37 +1732,29 @@ IoU: {iou:.4f}
 
     # Generate HTML reports for each category
     logger.info("Generating HTML reports...")
-    
+
     # True Positives
     generate_html_report(
-        true_positives,
-        "True Positives - Documents matching both Reference and Hypothesis Rules",
-        summary,
-        os.path.join(args.output_dir, "true_positives.html")
+        true_positives, "True Positives - Documents matching both Reference and Hypothesis Rules", summary, os.path.join(args.output_dir, "true_positives.html")
     )
-    
+
     # True Negatives
-    generate_html_report(
-        true_negatives,
-        "True Negatives - Documents not matching either Rule",
-        summary,
-        os.path.join(args.output_dir, "true_negatives.html")
-    )
-    
+    generate_html_report(true_negatives, "True Negatives - Documents not matching either Rule", summary, os.path.join(args.output_dir, "true_negatives.html"))
+
     # False Positives
     generate_html_report(
         false_positives,
         "False Positives - Documents matching Hypothesis but not Reference Rule",
         summary,
-        os.path.join(args.output_dir, "false_positives.html")
+        os.path.join(args.output_dir, "false_positives.html"),
     )
-    
+
     # False Negatives
     generate_html_report(
         false_negatives,
         "False Negatives - Documents matching Reference but not Hypothesis Rule",
         summary,
-        os.path.join(args.output_dir, "false_negatives.html")
+        os.path.join(args.output_dir, "false_negatives.html"),
     )
 
     # Generate index.html file that links to all reports
@@ -1857,7 +1848,7 @@ IoU: {iou:.4f}
 
     with open(os.path.join(args.output_dir, "index.html"), "w", encoding="utf-8") as f:
         f.write(index_html)
-    
+
     # Print summary
     logger.info("\n--- COMPARISON SUMMARY ---")
     logger.info(f"Documents Folder: {args.docs_folder}")
@@ -1887,7 +1878,7 @@ IoU: {iou:.4f}
     logger.info(f"Recall: {recall:.4f}")
     logger.info(f"F1 Score: {f1:.4f}")
     logger.info(f"IoU: {iou:.4f}")
-    
+
     logger.info(f"\nResults saved to: {args.output_dir}/index.html")
 
 

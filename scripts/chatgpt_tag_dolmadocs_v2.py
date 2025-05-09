@@ -94,10 +94,10 @@ class DocumentClassification(pydantic.BaseModel):
     is_correspondence_or_letter: bool
     is_public_order: bool
     is_court_notice: bool
-    
+
     # Additional context or notes
     classification_notes: str
-    
+
     @property
     def get_document_types(self) -> List[str]:
         """Get a list of all document types identified"""
@@ -396,7 +396,7 @@ def process_single_page(args, doc_info, pdf_s3_client=None):
     # Generate attribute key names using model name
     model_prefix = args.openai_model.replace("/", "_").replace("-", "_").replace(".", "_")
     language_key_name = f"{model_prefix}_language"
-    
+
     # Initialize result attributes with all DocumentClassification fields
     result_attributes = {
         language_key_name: [[start_pos, end_pos, classification.language_code.name]],
