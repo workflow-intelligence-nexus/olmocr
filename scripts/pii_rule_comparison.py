@@ -523,6 +523,59 @@ def apply_rule(doc, rule):
     return evaluate_expression(doc, rule)
 
 
+def calculate_attribute_aggregate(doc, attribute_name, operation_type):
+    """
+    Calculate an aggregate value for a numeric attribute.
+    
+    Args:
+        doc: The document JSON object
+        attribute_name: The attribute field to aggregate (e.g., "pii_tagging_ratio")
+        operation_type: The type of aggregation to perform (e.g., "avg")
+    
+    Returns:
+        The aggregated value, or None if calculation is not possible
+    """
+    # Check if document has attributes
+    if "attributes" not in doc or not doc["attributes"]:
+        logger.debug(f"Document {doc.get('id', 'unknown')} has no attributes")
+        return None
+    
+    attributes = doc["attributes"]
+    
+    # Check if the specific attribute exists
+    if attribute_name not in attributes:
+        logger.debug(f"Document {doc.get('id', 'unknown')} doesn't have attribute: {attribute_name}")
+        return None
+    
+    if not attributes[attribute_name]:
+        logger.debug(f"Document {doc.get('id', 'unknown')} has empty attribute: {attribute_name}")
+        return None
+    
+    # Extract the numeric values from the attribute spans
+    # Each span is formatted as [start_pos, end_pos, value]
+    values = [span[2] for span in attributes[attribute_name] if len(span) >= 3 and span[2] is not None]
+    
+    if not values:
+        logger.debug(f"Document {doc.get('id', 'unknown')} has no valid values for attribute: {attribute_name}")
+        return None
+    
+    # Convert all values to float
+    try:
+        numeric_values = [float(value) for value in values]
+    except (ValueError, TypeError):
+        logger.debug(f"Document {doc.get('id', 'unknown')} has non-numeric values for attribute: {attribute_name}")
+        return None
+    
+    # Perform the aggregation
+    if operation_type == "avg":
+        if not numeric_values:
+            return None
+        return sum(numeric_values) / len(numeric_values)
+    # Add more aggregation types here as needed
+    else:
+        raise ValueError(f"Unknown operation type: {operation_type}")
+
+
 def apply_simple_rule(doc, attribute_name, rule_type):
     """
     Apply a simple rule to determine if a document meets the PII criteria.
@@ -530,7 +583,8 @@ def apply_simple_rule(doc, attribute_name, rule_type):
     Args:
         doc: The document JSON object
         attribute_name: The attribute field to check (e.g., "gpt_4_1_contains_pii")
-        rule_type: 'any' for any true value, 'all' for all true values
+        rule_type: 'any' for any true value, 'all' for all true values,
+                   or a string containing an operation and comparison (e.g., 'avg>0.3')
 
     Returns:
         True if the document matches the rule, False otherwise
@@ -551,27 +605,89 @@ def apply_simple_rule(doc, attribute_name, rule_type):
         logger.debug(f"Document {doc.get('id', 'unknown')} has empty attribute: {attribute_name}")
         return False
 
-    # Extract the boolean values from the attribute spans
-    # Each span is formatted as [start_pos, end_pos, value]
-    values = [span[2] for span in attributes[attribute_name] if len(span) >= 3 and span[2] is not None]
+    # Handle numeric comparison rules (e.g., 'avg>0.3')
+    if any(op in rule_type for op in ['>', '<', '>=', '<=', '==']):
+        # Parse the rule type into operation and comparison
+        operation_parts = rule_type.split('>')
+        if len(operation_parts) == 2:
+            operation_type, threshold = operation_parts
+            comparison_op = '>'
+        else:
+            operation_parts = rule_type.split('<')
+            if len(operation_parts) == 2:
+                operation_type, threshold = operation_parts
+                comparison_op = '<'
+            else:
+                operation_parts = rule_type.split('>=')
+                if len(operation_parts) == 2:
+                    operation_type, threshold = operation_parts
+                    comparison_op = '>='
+                else:
+                    operation_parts = rule_type.split('<=')
+                    if len(operation_parts) == 2:
+                        operation_type, threshold = operation_parts
+                        comparison_op = '<='
+                    else:
+                        operation_parts = rule_type.split('==')
+                        if len(operation_parts) == 2:
+                            operation_type, threshold = operation_parts
+                            comparison_op = '=='
+                        else:
+                            raise ValueError(f"Invalid rule type: {rule_type}")
 
-    if not values:
-        logger.debug(f"Document {doc.get('id', 'unknown')} has no valid values for attribute: {attribute_name}")
-        return False
+        # Convert threshold to float
+        try:
+            threshold = float(threshold)
+        except ValueError:
+            raise ValueError(f"Invalid threshold value: {threshold}")
 
-    # Apply the rule
-    if rule_type == "any":
-        result = any(values)
+        # Calculate the aggregate value
+        aggregate_value = calculate_attribute_aggregate(doc, attribute_name, operation_type)
+        if aggregate_value is None:
+            logger.debug(f"Document {doc.get('id', 'unknown')} has no valid aggregate value for attribute: {attribute_name}")
+            return False
+
+        # Apply the comparison
+        if comparison_op == '>':
+            result = aggregate_value > threshold
+        elif comparison_op == '<':
+            result = aggregate_value < threshold
+        elif comparison_op == '>=':
+            result = aggregate_value >= threshold
+        elif comparison_op == '<=':
+            result = aggregate_value <= threshold
+        elif comparison_op == '==':
+            result = aggregate_value == threshold
+        else:
+            raise ValueError(f"Invalid comparison operator: {comparison_op}")
+
         if result:
-            logger.debug(f"Document {doc.get('id', 'unknown')} matched rule '{attribute_name}:{rule_type}' (found True in {len(values)} values)")
+            logger.debug(f"Document {doc.get('id', 'unknown')} matched numeric rule '{attribute_name}:{rule_type}' with value {aggregate_value}")
         return result
-    elif rule_type == "all":
-        result = all(values)
-        if result:
-            logger.debug(f"Document {doc.get('id', 'unknown')} matched rule '{attribute_name}:{rule_type}' (all {len(values)} values are True)")
-        return result
-    else:
-        raise ValueError(f"Unknown rule type: {rule_type}")
+
+    # Handle boolean rules (any/all)
+    if rule_type in ["any", "all"]:
+        # Extract the boolean values from the attribute spans
+        # Each span is formatted as [start_pos, end_pos, value]
+        values = [span[2] for span in attributes[attribute_name] if len(span) >= 3 and span[2] is not None]
+
+        if not values:
+            logger.debug(f"Document {doc.get('id', 'unknown')} has no valid values for attribute: {attribute_name}")
+            return False
+
+        # Apply the rule
+        if rule_type == "any":
+            result = any(values)
+            if result:
+                logger.debug(f"Document {doc.get('id', 'unknown')} matched rule '{attribute_name}:{rule_type}' (found True in {len(values)} values)")
+            return result
+        elif rule_type == "all":
+            result = all(values)
+            if result:
+                logger.debug(f"Document {doc.get('id', 'unknown')} matched rule '{attribute_name}:{rule_type}' (all {len(values)} values are True)")
+            return result
+    
+    raise ValueError(f"Unknown rule type: {rule_type}")
 
 
 def evaluate_expression(doc, expr):
@@ -823,8 +939,9 @@ class Parser:
             attribute_name, rule_type = rule_tuple
 
             # Validate rule type
-            if rule_type not in ["any", "all"]:
-                raise ValueError(f"Invalid rule type: {rule_type}. Supported types: 'any', 'all'")
+            if (rule_type not in ["any", "all"] and 
+                not any(op in rule_type for op in ['>', '<', '>=', '<=', '=='])):
+                raise ValueError(f"Invalid rule type: {rule_type}. Supported types: 'any', 'all', or numeric comparison (e.g., 'avg>0.3')")
 
             return RuleNode(attribute_name, rule_type)
 
@@ -901,8 +1018,13 @@ def parse_rule(rule_string):
             raise ValueError(f"Invalid rule format: {rule_string}. Expected format: 'attribute_name:rule_type'")
 
         attribute_name, rule_type = parts
-        if rule_type not in ["any", "all"]:
-            raise ValueError(f"Invalid rule type: {rule_type}. Supported types: 'any', 'all'")
+        
+        # Check for numeric comparison rule_type
+        if any(op in rule_type for op in ['>', '<', '>=', '<=', '==']):
+            # This is a numeric comparison rule - we'll validate it in apply_simple_rule
+            return attribute_name, rule_type
+        elif rule_type not in ["any", "all"]:
+            raise ValueError(f"Invalid rule type: {rule_type}. Supported types: 'any', 'all', or numeric comparison (e.g., 'avg>0.3')")
 
         return attribute_name, rule_type
     else:
