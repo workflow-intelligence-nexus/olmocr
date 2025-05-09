@@ -102,7 +102,7 @@ Several categories of tests have been made so far:
 ## TODO List for release
  - [X] Check all tests for duplicates
  - [X] Make absense tests not case sensitive by default
- - [ ] Check that we have URLs for all tests
+ - [X] Check that we have URLs for all tests
  - [X] Write a script to verify that all baseline tests that actually have weird unicodes have exemptions
  - [X] Review math equations in old_scans_math.jsonl using chat gpt script
  - [X] Add test category of long_texts which are still ~1 standard printed page, but with dense/small text
