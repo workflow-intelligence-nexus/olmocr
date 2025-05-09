@@ -316,6 +316,113 @@ async def process_page(args, worker_id: int, pdf_orig_path: str, pdf_local_path:
     )
 
 
+async def process_pdf_file_async(pdf_path: str) -> dict:
+    """Process a single PDF file and return structured results (async version).
+    
+    Args:
+        pdf_path: Local path to PDF file
+        
+    Returns:
+        Dictionary containing processed document data
+        
+    Raises:
+        ValueError: If PDF processing fails
+        FileNotFoundError: If PDF file doesn't exist
+    """
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+
+    # Set CUDA environment variables for A6000 GPU (same as in processPDF.sh)
+    os.environ["CUDA_HOME"] = "/usr/local/cuda-12.8"
+    os.environ["PATH"] = f"{os.environ['CUDA_HOME']}/bin:{os.environ.get('PATH', '')}"
+    os.environ["LD_LIBRARY_PATH"] = f"{os.environ['CUDA_HOME']}/lib64:{os.environ.get('LD_LIBRARY_PATH', '')}"
+    os.environ["CPLUS_INCLUDE_PATH"] = f"{os.environ['CUDA_HOME']}/targets/x86_64-linux/include:{os.environ.get('CPLUS_INCLUDE_PATH', '')}"
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Using GPU 1 as specified in processPDF.sh
+
+    # Create mock args with default values matching CLI defaults
+    class Args:
+        apply_filter = False
+        max_page_retries = 8
+        max_page_error_rate = 0.004
+        target_longest_image_dim = 1024
+        target_anchor_text_len = 6000
+        model_max_context = 8192
+        model_chat_template = "qwen2-vl"
+
+    args = Args()
+    worker_id = 0  # Not used in single-file mode
+
+    try:
+        # Verify SGLang server connection
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"http://localhost:{SGLANG_SERVER_PORT}/v1/models")
+            if response.status_code != 200:
+                raise ConnectionRefusedError("SGLang server not responding")
+        
+        # Process the PDF
+        result = await process_pdf(args, worker_id, pdf_path)
+            
+        if result is None:
+            raise ValueError("Failed to process PDF")
+        return result
+    except ConnectionRefusedError:
+        raise ValueError("Failed to connect to SGLang server - make sure it's running on port 30024")
+    except Exception as e:
+        raise ValueError(f"Error processing PDF: {str(e)}")
+
+
+def process_pdf_file(pdf_path: str) -> dict:
+    """Process a single PDF file and return structured results.
+    
+    Args:
+        pdf_path: Local path to PDF file
+        
+    Returns:
+        Dictionary containing processed document data with structure:
+        {
+            "id": str,  # Document hash
+            "text": str,  # Extracted text content
+            "metadata": {
+                "Source-File": str,
+                "olmocr-version": str,
+                "pdf-total-pages": int,
+                "total-input-tokens": int,
+                "total-output-tokens": int,
+                "total-fallback-pages": int
+            },
+            "attributes": {
+                "pdf_page_numbers": list[list[int]]  # Page spans
+            }
+        }
+        
+    Raises:
+        ValueError: If PDF processing fails
+        FileNotFoundError: If PDF file doesn't exist
+    """
+    # For non-async contexts, create a new event loop and run the async function
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+
+    try:
+        # Check if we're already in an event loop
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                raise RuntimeError("Cannot run the sync version in an already running event loop")
+        except RuntimeError:
+            # Create a new event loop if we're not in one or can't get the current one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(process_pdf_file_async(pdf_path))
+            loop.close()
+            return result
+            
+        # If we got here, we have a loop but it's not running
+        return loop.run_until_complete(process_pdf_file_async(pdf_path))
+    except Exception as e:
+        raise ValueError(f"Error processing PDF: {str(e)}")
+
 async def process_pdf(args, worker_id: int, pdf_orig_path: str):
     with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
         try:
