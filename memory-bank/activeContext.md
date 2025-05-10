@@ -5,6 +5,7 @@
    - Improving handling of complex layouts
    - Enhancing OCR quality assessment
    - Developing better filtering mechanisms
+   - FastAPI integration for HTTP service
 
 2. **Benchmarking Framework**:
    - Establishing performance baselines
@@ -21,7 +22,8 @@
    - Added support for additional PDF layouts
    - Implemented new quality metrics
    - Expanded test coverage
-   - Added synchronous process_pdf_file() for HTTP service integration
+   - Added asynchronous process_pdf_file_async() for FastAPI integration
+   - Enhanced HTTP service with proper GPU configuration
 
 2. **Bug Fixes**:
    - Fixed issues with multi-column processing

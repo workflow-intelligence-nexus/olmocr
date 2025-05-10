@@ -40,7 +40,8 @@
 
 3. **Interface Patterns**:
    - Async/Sync wrapper pattern for HTTP service
-   - process_pdf_file() sync wrapper around async process_pdf()
+   - process_pdf_file_async() async function for FastAPI integration
+   - process_pdf_file() sync wrapper for CLI and non-async contexts
 
 3. **CI/CD**:
    - Docker build scripts
@@ -52,6 +53,11 @@
    - Available for ML components
    - Docker configurations provided
    - Benchmarks in `scripts/benchmark_throughput.py`
+   - Specific A6000 GPU configuration:
+     - CUDA_HOME=/usr/local/cuda-12.8
+     - CUDA_DEVICE_ORDER=PCI_BUS_ID
+     - CUDA_VISIBLE_DEVICES=1
+     - SGLang server with half precision (--dtype half)
 
 2. **Parallel Processing**:
    - Work queue implementation (`work_queue.py`)

@@ -11,7 +11,8 @@
    - Basic text extraction
    - Initial quality scoring
    - Test framework established
-   - HTTP service integration via process_pdf_file()
+   - FastAPI integration with async process_pdf_file_async()
+   - Proper A6000 GPU configuration for HTTP service
 
 3. **In Progress**:
    - Advanced layout analysis
@@ -23,6 +24,7 @@
    - Some complex PDF layouts still problematic
    - Performance bottlenecks with large documents
    - Edge cases in quality scoring
+   - ~~Event loop conflicts in FastAPI integration~~ (Fixed)
 
 2. **Documentation Gaps**:
    - Need more examples in documentation
@@ -50,3 +52,5 @@
    - Complex PDFs require flexible processing
    - Quality metrics need careful calibration
    - Performance optimization is ongoing
+   - Async/sync context management is critical for FastAPI integration
+   - Specific GPU configuration is essential for consistent performance
