@@ -13,6 +13,8 @@
    - Test framework established
    - FastAPI integration with async process_pdf_file_async()
    - Proper A6000 GPU configuration for HTTP service
+   - Docker containerization for Windows 11 deployment
+   - WSL2 integration for cross-platform compatibility
 
 3. **In Progress**:
    - Advanced layout analysis
@@ -25,6 +27,7 @@
    - Performance bottlenecks with large documents
    - Edge cases in quality scoring
    - ~~Event loop conflicts in FastAPI integration~~ (Fixed)
+   - ~~NumPy version conflicts in Docker container~~ (Fixed with version pinning)
 
 2. **Documentation Gaps**:
    - Need more examples in documentation
@@ -54,3 +57,5 @@
    - Performance optimization is ongoing
    - Async/sync context management is critical for FastAPI integration
    - Specific GPU configuration is essential for consistent performance
+   - Docker containerization requires careful dependency management
+   - Cross-platform compatibility needs explicit environment detection
