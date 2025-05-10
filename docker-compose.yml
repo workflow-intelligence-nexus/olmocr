@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  olmocr-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: olmocr-api:latest
+    container_name: olmocr-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - CUDA_VISIBLE_DEVICES=1
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+    # Windows-compatible GPU configuration
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - olmocr-network
+
+networks:
+  olmocr-network:
+    name: olmocr-network
+    driver: bridge

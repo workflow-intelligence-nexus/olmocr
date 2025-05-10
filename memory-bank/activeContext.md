@@ -6,6 +6,7 @@
    - Enhancing OCR quality assessment
    - Developing better filtering mechanisms
    - FastAPI integration for HTTP service
+   - Docker containerization for Windows 11 deployment
 
 2. **Benchmarking Framework**:
    - Establishing performance baselines
@@ -24,6 +25,8 @@
    - Expanded test coverage
    - Added asynchronous process_pdf_file_async() for FastAPI integration
    - Enhanced HTTP service with proper GPU configuration
+   - Containerized application with Docker for Windows 11 deployment
+   - Configured CUDA 11.8 environment for A6000 GPU compatibility
 
 2. **Bug Fixes**:
    - Fixed issues with multi-column processing

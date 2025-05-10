@@ -332,8 +332,16 @@ async def process_pdf_file_async(pdf_path: str) -> dict:
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
 
-    # Set CUDA environment variables for A6000 GPU (same as in processPDF.sh)
-    os.environ["CUDA_HOME"] = "/usr/local/cuda-12.8"
+    # Set CUDA environment variables for A6000 GPU 
+    # Check if we're in Docker environment (use Docker's CUDA settings) or local environment (use local settings)
+    cuda_version = os.environ.get("CUDA_HOME", "/usr/local/cuda-12.8")
+    if "/usr/local/cuda-11.8" in cuda_version:
+        # We're in Docker environment
+        os.environ["CUDA_HOME"] = "/usr/local/cuda-11.8"
+    else:
+        # We're in local environment
+        os.environ["CUDA_HOME"] = "/usr/local/cuda-12.8"
+        
     os.environ["PATH"] = f"{os.environ['CUDA_HOME']}/bin:{os.environ.get('PATH', '')}"
     os.environ["LD_LIBRARY_PATH"] = f"{os.environ['CUDA_HOME']}/lib64:{os.environ.get('LD_LIBRARY_PATH', '')}"
     os.environ["CPLUS_INCLUDE_PATH"] = f"{os.environ['CUDA_HOME']}/targets/x86_64-linux/include:{os.environ.get('CPLUS_INCLUDE_PATH', '')}"

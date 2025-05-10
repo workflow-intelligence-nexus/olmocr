@@ -21,7 +21,8 @@
 2. **Build System**:
    - Makefile for common tasks
    - pyproject.toml for Python packaging
-   - Docker support available
+   - Docker containerization with docker-compose.yml
+   - Windows 11 compatible Docker configuration
 
 3. **Dependencies**:
    - Managed via pyproject.toml
@@ -53,12 +54,29 @@
    - Available for ML components
    - Docker configurations provided
    - Benchmarks in `scripts/benchmark_throughput.py`
-   - Specific A6000 GPU configuration:
+   - Specific A6000 GPU configuration (local environment):
      - CUDA_HOME=/usr/local/cuda-12.8
      - CUDA_DEVICE_ORDER=PCI_BUS_ID
      - CUDA_VISIBLE_DEVICES=1
      - SGLang server with half precision (--dtype half)
+   - Docker container GPU configuration:
+     - CUDA 11.8 with cuDNN 8
+     - NumPy 1.24.3 for compatibility
+     - PyTorch 2.1.2 with CUDA 11.8 support
+     - WSL2 integration for Windows 11
 
 2. **Parallel Processing**:
    - Work queue implementation (`work_queue.py`)
    - S3 utilities for distributed processing
+
+## Docker Deployment
+1. **Container Configuration**:
+   - Base image: nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
+   - FastAPI service exposed on port 8000
+   - GPU passthrough via NVIDIA Container Toolkit
+
+2. **Windows 11 Integration**:
+   - WSL2 backend for Docker Desktop
+   - NVIDIA GPU drivers on Windows host
+   - Port forwarding from Windows host to container
+   - Network configuration for n8n integration
