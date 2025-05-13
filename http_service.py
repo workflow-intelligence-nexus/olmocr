@@ -43,14 +43,14 @@ def start_sglang_server():
         if sglang_server is not None and sglang_server.poll() is None:
             return True
             
-        # Set environment variables to target the A6000 GPU (using same settings as processPDF.sh)
+        # Set environment variables to target the A6000 GPU (device 1 with 48GB VRAM)
         env = os.environ.copy()
-        env["CUDA_HOME"] = "/usr/local/cuda-12.8"
+        env["CUDA_HOME"] = "/usr/local/cuda"
         env["PATH"] = f"{env['CUDA_HOME']}/bin:{env.get('PATH', '')}"
-        env["LD_LIBRARY_PATH"] = f"{env['CUDA_HOME']}/lib64:{env.get('LD_LIBRARY_PATH', '')}"
+        env["LD_LIBRARY_PATH"] = f"{env['CUDA_HOME']}/lib64:/usr/lib/x86_64-linux-gnu:{env.get('LD_LIBRARY_PATH', '')}"
         env["CPLUS_INCLUDE_PATH"] = f"{env['CUDA_HOME']}/targets/x86_64-linux/include:{env.get('CPLUS_INCLUDE_PATH', '')}"
         env["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        env["CUDA_VISIBLE_DEVICES"] = "1"  # Using GPU 1 as specified in processPDF.sh
+        env["CUDA_VISIBLE_DEVICES"] = "1"  # Specifically target the A6000 GPU (device 1)
         
         # Start the server with specific GPU settings
         cmd = [
@@ -62,9 +62,8 @@ def start_sglang_server():
             "--port", 
             str(SGLANG_SERVER_PORT),
             "--device", 
-            "cuda",
-            "--dtype", 
-            "half"  # Use half precision for better performance
+            "cuda"
+            # Removed --dtype half since A6000 has 48GB VRAM (sufficient for full precision)
         ]
         
         logger.info(f"Starting SGLang server with command: {' '.join(cmd)}")

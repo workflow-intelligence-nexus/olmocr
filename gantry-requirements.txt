@@ -1,8 +1,10 @@
 torchvision
 cached-path
 smart_open
-pypdf
-pypdfium2
+pypdf>=4.2.0
+pypdfium2>=4.28.0
+pdfminer.six==20231228
+pdf2image==1.17.0
 lingua-language-detector
 Pillow
 ruff
