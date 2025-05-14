@@ -1,5 +1,9 @@
 # HTTP Service for PDF Processing
 
+# 051325 Testing
+pip install -e .[gpu] --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
+
+
 ## Setup
 
 1. Install base requirements:

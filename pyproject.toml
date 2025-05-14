@@ -35,7 +35,10 @@ dependencies = [
   "zstandard",
   "boto3",
   "httpx",
-  "torch>=2.5.1",
+  "torch==2.1.2",
+  "torchvision==0.16.2",
+  "triton==2.1.0",
+  "sglang[all]==0.4.2",
   "transformers==4.46.2",
   "img2pdf",
   "beaker-py",
@@ -95,8 +98,8 @@ bench = [
 ]
 
 train = [
-    "torch",
-    "torchvision",
+    "torch==2.1.2",
+    "torchvision==0.16.2",
     "accelerate",
     "datasets",
     "peft",
