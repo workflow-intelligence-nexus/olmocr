@@ -332,19 +332,21 @@ async def process_pdf_file_async(pdf_path: str) -> dict:
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
 
-    # Set CUDA environment variables for A6000 GPU 
-    # Check if we're in Docker environment (use Docker's CUDA settings) or local environment (use local settings)
-    cuda_version = os.environ.get("CUDA_HOME", "/usr/local/cuda-12.8")
-    if "/usr/local/cuda-11.8" in cuda_version:
-        # We're in Docker environment
-        os.environ["CUDA_HOME"] = "/usr/local/cuda-11.8"
-    else:
-        # We're in local environment
-        os.environ["CUDA_HOME"] = "/usr/local/cuda-12.8"
-        
-    os.environ["PATH"] = f"{os.environ['CUDA_HOME']}/bin:{os.environ.get('PATH', '')}"
-    os.environ["LD_LIBRARY_PATH"] = f"{os.environ['CUDA_HOME']}/lib64:{os.environ.get('LD_LIBRARY_PATH', '')}"
-    os.environ["CPLUS_INCLUDE_PATH"] = f"{os.environ['CUDA_HOME']}/targets/x86_64-linux/include:{os.environ.get('CPLUS_INCLUDE_PATH', '')}"
+    # Get the SGLang server URL from environment or use default
+    global SGLANG_SERVER_PORT
+    sglang_server_url = os.environ.get("SGLANG_SERVER_URL", f"http://localhost:{SGLANG_SERVER_PORT}")
+    
+    # Override the default server port if using external server
+    if "localhost" not in sglang_server_url and "127.0.0.1" not in sglang_server_url:
+        # Extract port from URL for compatibility with existing code
+        import re
+        port_match = re.search(r':([0-9]+)', sglang_server_url)
+        if port_match:
+            SGLANG_SERVER_PORT = int(port_match.group(1))
+            
+    logging.info(f"Using SGLang server at: {sglang_server_url}")
+    
+    # Set CUDA environment variables for compatibility
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Using GPU 1 as specified in processPDF.sh
 

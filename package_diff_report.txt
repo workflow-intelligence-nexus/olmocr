@@ -1,0 +1,25 @@
+=== SYSTEM VERSIONS ===
+Ubuntu: Ubuntu 24.04.1 LTS
+APT: apt 2.7.14 (amd64)
+Python: Python 3.13.2
+Pip: pip 25.0 from /home/winadmin/miniconda/lib/python3.13/site-packages/pip (python 3.13)
+
+=== PACKAGE COMPARISON ===
+Dockerfile packages vs System installation
+
+[✗] --no-install-recommends (Not installed)
+[✓] fonts-crosextra-caladea
+[✓] fonts-crosextra-carlito
+[✓] gsfonts
+[✓] lcdf-typetools
+[✓] libc6-dev
+[✓] linux-libc-dev
+[✗] msttcorefonts (Not installed)
+[✓] nvidia-cuda-dev
+[✓] nvidia-cuda-toolkit
+[✓] poppler-utils
+[✓] ttf-mscorefonts-installer
+
+=== SPECIAL CHECKS ===
+PPA deadsnakes: Not configured
+mscorefonts: Not configured

@@ -27,87 +27,30 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup_event():
-    """Start the SGLang server when the application starts"""
+    """Check if the external SGLang server is available"""
     try:
-        start_sglang_server()
-        logger.info("SGLang server started successfully")
-    except Exception as e:
-        logger.error(f"Failed to start SGLang server: {str(e)}")
-        # We don't want to fail startup completely, as the server might be started manually
-
-def start_sglang_server():
-    """Start SGLang server process specifically targeting the A6000 GPU"""
-    global sglang_server
-    try:
-        # Check if server is already running
-        if sglang_server is not None and sglang_server.poll() is None:
-            return True
-            
-        # Set environment variables to target the A6000 GPU (using same settings as processPDF.sh)
-        env = os.environ.copy()
-        env["CUDA_HOME"] = "/usr/local/cuda-12.8"
-        env["PATH"] = f"{env['CUDA_HOME']}/bin:{env.get('PATH', '')}"
-        env["LD_LIBRARY_PATH"] = f"{env['CUDA_HOME']}/lib64:{env.get('LD_LIBRARY_PATH', '')}"
-        env["CPLUS_INCLUDE_PATH"] = f"{env['CUDA_HOME']}/targets/x86_64-linux/include:{env.get('CPLUS_INCLUDE_PATH', '')}"
-        env["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        env["CUDA_VISIBLE_DEVICES"] = "1"  # Using GPU 1 as specified in processPDF.sh
+        # Get the SGLang server URL from environment or use default
+        sglang_url = os.environ.get("SGLANG_SERVER_URL", f"http://sglang:30024")
+        logger.info(f"Using SGLang server at: {sglang_url}")
         
-        # Start the server with specific GPU settings
-        cmd = [
-            "python3", 
-            "-m", 
-            "sglang.launch_server",
-            "--model-path", 
-            "allenai/olmOCR-7B-0225-preview",
-            "--port", 
-            str(SGLANG_SERVER_PORT),
-            "--device", 
-            "cuda",
-            "--dtype", 
-            "half"  # Use half precision for better performance
-        ]
-        
-        logger.info(f"Starting SGLang server with command: {' '.join(cmd)}")
-        
-        sglang_server = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env
-        )
-        
-        # Wait for server to be ready
+        # Check if the server is ready
         timeout = 120  # Increased timeout for GPU initialization
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
                 with httpx.Client() as client:
-                    response = client.get(f"http://localhost:{SGLANG_SERVER_PORT}/v1/models")
+                    response = client.get(f"{sglang_url}/v1/models")
                     if response.status_code == 200:
-                        logger.info("SGLang server started successfully")
-                        return True
+                        logger.info("SGLang server is available and ready")
+                        return
             except Exception as conn_err:
                 logger.debug(f"Waiting for SGLang server: {str(conn_err)}")
                 time.sleep(2)
                 
-        # If we get here, check if the process is still running but not responding
-        if sglang_server.poll() is None:
-            # Process is still running, dump stderr to help diagnose
-            stderr_output = sglang_server.stderr.read().decode('utf-8', errors='replace')
-            logger.error(f"SGLang server started but not responding. Error output: {stderr_output}")
-        else:
-            # Process exited
-            return_code = sglang_server.poll()
-            stderr_output = sglang_server.stderr.read().decode('utf-8', errors='replace')
-            logger.error(f"SGLang server exited with code {return_code}. Error output: {stderr_output}")
-                
-        raise RuntimeError("SGLang server failed to start within timeout")
-        
+        logger.warning("SGLang server not responding within timeout, but continuing startup")
     except Exception as e:
-        logger.error(f"Failed to start SGLang server: {str(e)}")
-        if sglang_server:
-            sglang_server.terminate()
-        raise
+        logger.error(f"Error checking SGLang server: {str(e)}")
+        # We don't want to fail startup completely
 
 @app.post("/process-pdf")
 async def process_pdf(file: UploadFile):

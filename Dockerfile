@@ -1,19 +1,30 @@
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
-ENV CUDA_HOME=/usr/local/cuda-11.8
+ENV CUDA_HOME=/usr/local/cuda-12.2
 ENV PATH=$CUDA_HOME/bin:$PATH
 ENV LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
-ENV CPLUS_INCLUDE_PATH=$CUDA_HOME/targets/x86_64-linux/include:$CPLUS_INCLUDE_PATH
+ENV CPLUS_INCLUDE_PATH=$CUDA_HOME/include:$CPLUS_INCLUDE_PATH
 ENV CUDA_DEVICE_ORDER=PCI_BUS_ID
-ENV CUDA_VISIBLE_DEVICES=1
+ENV CUDA_VISIBLE_DEVICES=0
 
 # Install system dependencies
-RUN apt-get update -y && apt-get install -y software-properties-common \
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    curl \
+    poppler-utils \
+    fonts-liberation \
+    software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
-    && apt-get -y update
+    && apt-get -y update \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install CUDA development packages and C++ headers
+RUN apt-get update -y && apt-get install -y nvidia-cuda-dev nvidia-cuda-toolkit libc6-dev linux-libc-dev
 
 # Install PDF-specific dependencies
 RUN apt-get update && apt-get -y install python3-apt
@@ -23,10 +34,10 @@ RUN apt-get update -y && apt-get install -y poppler-utils ttf-mscorefonts-instal
 # Install Python and development tools
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     git \
-    python3.11 \
-    python3.11-dev \
-    python3.11-distutils \
-    python3.11-venv \
+    python3.10 \
+    python3.10-dev \
+    python3.10-distutils \
+    python3.10-venv \
     ca-certificates \
     build-essential \
     curl \
@@ -35,7 +46,7 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 # Set up Python
 RUN rm -rf /var/lib/apt/lists/* \
     && unlink /usr/bin/python3 \
-    && ln -s /usr/bin/python3.11 /usr/bin/python3 \
+    && ln -s /usr/bin/python3.10 /usr/bin/python3 \
     && ln -s /usr/bin/python3 /usr/bin/python \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python \
     && pip3 install -U pip
@@ -52,19 +63,26 @@ COPY pyproject.toml pyproject.toml
 COPY olmocr/version.py olmocr/version.py
 COPY requirements-http.txt requirements-http.txt
 COPY gantry-requirements.txt gantry-requirements.txt
+COPY requirements.txt requirements.txt
 
 # Install dependencies with specific NumPy version for compatibility
 RUN /root/.local/bin/uv pip install --system --no-cache numpy==1.24.3
-RUN /root/.local/bin/uv pip install --system --no-cache -e .
+
+# Install PyTorch with CUDA 12.2 support
+RUN /root/.local/bin/uv pip install --system --no-cache \
+    torch==2.2.2+cu121 \
+    torchvision==0.17.2+cu121 \
+    --index-url https://download.pytorch.org/whl/cu121
+
+# Install all dependencies from requirements.txt
+RUN /root/.local/bin/uv pip install --system --no-cache -r requirements.txt
+
+# Install lingua which provides the Language class
+RUN /root/.local/bin/uv pip install --system --no-cache lingua==0.7.1
+
+# Now install the app and HTTP requirements
 RUN /root/.local/bin/uv pip install --system --no-cache -r requirements-http.txt
-
-# Install SGLang with compatible dependencies for CUDA 11.8
-RUN /root/.local/bin/uv pip install --system --no-cache torch==2.1.2 torchvision==0.16.2 --index-url https://download.pytorch.org/whl/cu118
-RUN /root/.local/bin/uv pip install --system --no-cache "sglang[all]==0.4.2" --no-deps
-RUN /root/.local/bin/uv pip install --system --no-cache sgl-kernel==0.0.3.post1 --no-deps
-
-# Install additional dependencies that SGLang needs
-RUN /root/.local/bin/uv pip install --system --no-cache transformers accelerate sentencepiece protobuf
+RUN /root/.local/bin/uv pip install --system --no-cache -e . --no-deps
 
 # Copy the rest of the application
 COPY olmocr olmocr
