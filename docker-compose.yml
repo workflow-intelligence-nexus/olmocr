@@ -1,69 +1,44 @@
+version: '3.8'
+
 services:
-  sglang:
-    image: lmsysorg/sglang:latest
-    container_name: sglang
-    init: true
-    volumes:
-      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
-    restart: unless-stopped
-    ports:
-      - "30024:30024"
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - CUDA_DEVICE_ORDER=PCI_BUS_ID
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:30024/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    entrypoint: /bin/sh
-    command: -c 'python3 -m sglang.download --model allenai/olmOCR-7B-0225-preview &&
-      python3 -m sglang.launch_server --model-path allenai/olmOCR-7B-0225-preview
-      --host 0.0.0.0
-      --port 30024
-      --mem-fraction-static 0.7'
-    ulimits:
-      memlock: -1
-      stack: 67108864
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    networks:
-      - olmocr-network
-      
-  olmocr-api:
+  olmocr:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: olmocr-api:latest
-    container_name: olmocr-api
+      dockerfile: Dockerfile.new
+      cache_from:
+        - nvidia/cuda:12.9.0-devel-ubuntu24.04
+    container_name: olmocr
     restart: unless-stopped
     ports:
       - "8000:8000"
-    environment:
-      - CUDA_VISIBLE_DEVICES=1
-      - CUDA_DEVICE_ORDER=PCI_BUS_ID
-      - SGLANG_SERVER_URL=http://sglang:30024
+      - "30024:30024"
     volumes:
       - ${HOME}/.cache/huggingface:/root/.cache/huggingface
-      - ./data:/app/data
-    depends_on:
-      - sglang
+      - ./localworkspace:/app/localworkspace
+      - docker-cache:/var/lib/docker
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=1  # Use the A6000 GPU
+      - CUDA_VISIBLE_DEVICES=1
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - CUDA_HOME=/usr
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              device_ids: ['1']  # Use GPU 1 (A6000)
               capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
-      - olmocr-network
+      - app-network
 
 networks:
-  olmocr-network:
-    name: olmocr-network
+  app-network:
     driver: bridge
+
+volumes:
+  docker-cache:

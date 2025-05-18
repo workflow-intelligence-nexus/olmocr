@@ -1,0 +1,102 @@
+FROM nvidia/cuda:12.9.0-devel-ubuntu24.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    CUDA_VISIBLE_DEVICES=1 \
+    CUDA_DEVICE_ORDER=PCI_BUS_ID \
+    CUDA_HOME=/usr \
+    PATH=$PATH:/usr/local/cuda/bin
+
+# Install system dependencies and Python 3.11
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y \
+    python3.11 python3.11-venv python3.11-dev python3.11-distutils \
+    build-essential \
+    git \
+    wget \
+    curl \
+    ninja-build \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && update-alternatives --set python3 /usr/bin/python3.11 \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3
+
+# Create virtual environment
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install PyTorch with compatible torchvision
+RUN pip3 install --upgrade pip && \
+    pip3 install torch==2.2.0+cu121 torchvision==0.17.0+cu121 --extra-index-url https://download.pytorch.org/whl/cu121
+
+# Install base Python packages
+RUN pip3 install "sglang[all]>=0.4.6.post4" \
+    transformers==4.51.1 \
+    ipython \
+    aiohttp \
+    fastapi \
+    uvicorn \
+    httpx
+
+# Set up working directory
+WORKDIR /app
+
+# Copy only requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Modify requirements.txt to use lingua-language-detector
+RUN sed -i 's/lingua==0.7.1/lingua-language-detector>=1.0.0/g' requirements.txt
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code
+COPY . .
+
+# Expose the HTTP service port
+EXPOSE 8000
+
+# Create a healthcheck script
+RUN echo '#!/bin/bash\ncurl -f http://localhost:8000/health || exit 1' > /app/healthcheck.sh && \
+    chmod +x /app/healthcheck.sh
+
+# Create a startup script
+RUN echo '#!/bin/bash\n\
+# Set CUDA environment variables\n\
+export CUDA_VISIBLE_DEVICES=1\n\
+export CUDA_DEVICE_ORDER=PCI_BUS_ID\n\
+export CUDA_HOME=/usr\n\
+\n\
+# Activate virtual environment\n\
+source /opt/venv/bin/activate\n\
+\n\
+# Start SGLang server in background\n\
+echo "Starting SGLang server..."\n\
+python -m sglang.launch_server \\\n\
+  --model-path allenai/olmOCR-7B-0225-preview \\\n\
+  --port 30024 \\\n\
+  --device cuda \\\n\
+  --dtype half \\\n\
+  --mem-fraction-static 0.7 \\\n\
+  --disable-cuda-graph \\\n\
+  --host 0.0.0.0 &\n\
+\n\
+# Wait for SGLang server to initialize\n\
+echo "Waiting for SGLang server to initialize..."\n\
+sleep 30\n\
+\n\
+# Start HTTP service\n\
+echo "Starting HTTP service..."\n\
+SGLANG_SERVER_URL="http://localhost:30024" uvicorn http_service:app --host 0.0.0.0 --port 8000\n' > /app/start.sh && \
+    chmod +x /app/start.sh
+
+# Set the entrypoint
+ENTRYPOINT ["/app/start.sh"]

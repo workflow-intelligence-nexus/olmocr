@@ -115,11 +115,19 @@ async def build_page_query(local_pdf_path: str, page: int, target_longest_image_
     # GET ANCHOR TEXT IS NOT THREAD SAFE!! Ahhhh..... don't try to do it
     # and it's also CPU bound, so it needs to run in a process pool
     loop = asyncio.get_running_loop()
-    anchor_text = loop.run_in_executor(
+    anchor_text_future = loop.run_in_executor(
         process_pool, partial(get_anchor_text, pdf_engine="pdfreport", target_length=target_anchor_text_len), local_pdf_path, page
     )
 
-    image_base64, anchor_text = await asyncio.gather(image_base64, anchor_text)  # type: ignore
+    image_base64_result, anchor_text_result = await asyncio.gather(image_base64, anchor_text_future)
+    anchor_text = anchor_text_result # Keep original name
+    image_base64 = image_base64_result # Keep original name
+
+    # Debug anchor text
+    print(f"API_DEBUG: build_page_query for {local_pdf_path} page {page}, anchor_text length: {len(anchor_text if anchor_text else '')}")
+    print(f"API_DEBUG: Anchor text snippet for {local_pdf_path} page {page}: '{anchor_text[:200] if anchor_text else '<EMPTY_OR_NONE>'}...'")
+
+
     if image_rotation != 0:
         image_bytes = base64.b64decode(image_base64)
         with Image.open(BytesIO(image_bytes)) as img:
@@ -230,6 +238,7 @@ async def process_page(args, worker_id: int, pdf_orig_path: str, pdf_local_path:
         ]  # Change temperature as number of attempts increases to overcome repetition issues at expense of quality
 
         logger.info(f"Built page query for {pdf_orig_path}-{page_num}")
+        # print(f"API_DEBUG: SGLang query for {pdf_orig_path}-{page_num}: {json.dumps(query, indent=2)}") # This can be very verbose with image data
 
         try:
             status_code, response_body = await apost(COMPLETION_URL, json_data=query)
@@ -347,12 +356,14 @@ async def process_pdf_file_async(pdf_path: str) -> dict:
     logging.info(f"Using SGLang server at: {sglang_server_url}")
     
     # Set CUDA environment variables for compatibility
+    # Ensure this matches the GPU used by the SGLang server started by startLocalServer.sh
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Using GPU 1 as specified in processPDF.sh
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Corrected to 1 as per user feedback (A6000)
 
     # Create mock args with default values matching CLI defaults
+    # Ensure apply_filter matches the behavior of processPDF.sh which uses it.
     class Args:
-        apply_filter = False
+        apply_filter = True # Changed from False to True
         max_page_retries = 8
         max_page_error_rate = 0.004
         target_longest_image_dim = 1024
@@ -433,87 +444,126 @@ def process_pdf_file(pdf_path: str) -> dict:
     except Exception as e:
         raise ValueError(f"Error processing PDF: {str(e)}")
 
-async def process_pdf(args, worker_id: int, pdf_orig_path: str):
-    with tempfile.NamedTemporaryFile("wb+", suffix=".pdf") as tf:
-        try:
-            data = await asyncio.to_thread(lambda: get_s3_bytes_with_backoff(pdf_s3, pdf_orig_path))
-            tf.write(data)
-            tf.flush()
-        except ClientError as ex:
-            if ex.response["Error"]["Code"] == "NoSuchKey":
-                logger.info(f"S3 File Not found, skipping it completely {pdf_orig_path}")
-                return None
-            else:
-                raise
+async def process_pdf(args, worker_id: int, pdf_path_or_s3_key: str):
+    local_pdf_to_process = None
+    s3_temp_file_path = None # To manage cleanup if we download from S3
+    image_converted_temp_file_path = None # To manage cleanup if we convert an image
 
-        if is_png(tf.name) or is_jpeg(tf.name):
-            logger.info(f"Converting {pdf_orig_path} from image to PDF format...")
-            tf.seek(0)
-            tf.write(convert_image_to_pdf_bytes(tf.name))
-            tf.flush()
+    try:
+        if pdf_path_or_s3_key.startswith("s3://"):
+            logger.info(f"API_DEBUG: Processing S3 path: {pdf_path_or_s3_key}")
+            with tempfile.NamedTemporaryFile("wb+", suffix=".pdf", delete=False) as tf_s3:
+                s3_temp_file_path = tf_s3.name # Store path for cleanup
+                data = await asyncio.to_thread(lambda: get_s3_bytes_with_backoff(pdf_s3, pdf_path_or_s3_key))
+                tf_s3.write(data)
+                tf_s3.flush()
+            local_pdf_to_process = s3_temp_file_path
+            logger.info(f"API_DEBUG: Downloaded S3 file {pdf_path_or_s3_key} to {local_pdf_to_process}")
+        else:
+            local_pdf_to_process = pdf_path_or_s3_key # It's already a local path
+            logger.info(f"API_DEBUG: Processing local path: {local_pdf_to_process}")
 
+        # Handle image conversion if necessary, operating on local_pdf_to_process
+        # The result of this (if conversion happens) becomes the new local_pdf_to_process
+        if is_png(local_pdf_to_process) or is_jpeg(local_pdf_to_process):
+            logger.info(f"API_DEBUG: Converting image {local_pdf_to_process} to PDF format...")
+            with tempfile.NamedTemporaryFile("wb+", suffix=".pdf", delete=False) as tf_img_conv:
+                image_converted_temp_file_path = tf_img_conv.name
+                tf_img_conv.write(convert_image_to_pdf_bytes(local_pdf_to_process))
+                tf_img_conv.flush()
+            
+            # If original was an S3 downloaded temp file, it's now superseded by the converted PDF.
+            # We can clean up the S3 downloaded (image) temp file if it exists and is different.
+            if s3_temp_file_path and s3_temp_file_path != local_pdf_to_process: # Should always be true if s3_temp_file_path exists
+                 if os.path.exists(s3_temp_file_path): # Check existence before unlinking
+                    os.unlink(s3_temp_file_path)
+                    logger.info(f"API_DEBUG: Cleaned up intermediate S3 downloaded image file {s3_temp_file_path}")
+                 s3_temp_file_path = None # It's no longer the primary temp file
+
+            local_pdf_to_process = image_converted_temp_file_path # Process the converted PDF
+            logger.info(f"API_DEBUG: Image converted to PDF: {local_pdf_to_process}")
+
+
+        # Now, local_pdf_to_process is the path to the PDF content to be read
         try:
-            reader = PdfReader(tf.name)
+            reader = PdfReader(local_pdf_to_process)
             num_pages = reader.get_num_pages()
-        except:
-            logger.exception(f"Could not count number of pages for {pdf_orig_path}, aborting document")
+        except Exception as e_reader:
+            logger.exception(f"Could not count number of pages for {pdf_path_or_s3_key} (using local file {local_pdf_to_process}), aborting document. Error: {e_reader}")
             return None
 
-        logger.info(f"Got {num_pages} pages to do for {pdf_orig_path} in worker {worker_id}")
+        logger.info(f"Got {num_pages} pages to do for {pdf_path_or_s3_key} (from {local_pdf_to_process}) in worker {worker_id}")
 
-        if args.apply_filter and get_pdf_filter().filter_out_pdf(tf.name):
-            logger.info(f"Filtering out pdf {pdf_orig_path}")
+        if args.apply_filter and get_pdf_filter().filter_out_pdf(local_pdf_to_process):
+            logger.info(f"API_DEBUG: Filtering out pdf {pdf_path_or_s3_key} (local: {local_pdf_to_process}) due to apply_filter=True.")
+            print(f"API_DEBUG: Filtering out pdf {pdf_path_or_s3_key} (local: {local_pdf_to_process}) due to apply_filter=True.")
             return None
+        else:
+            logger.info(f"API_DEBUG: PDF {pdf_path_or_s3_key} (local: {local_pdf_to_process}) was NOT filtered out (apply_filter={args.apply_filter}).")
+            print(f"API_DEBUG: PDF {pdf_path_or_s3_key} (local: {local_pdf_to_process}) was NOT filtered out (apply_filter={args.apply_filter}).")
 
-        # List to hold the tasks for processing each page
         page_tasks = []
         page_results = []
 
         try:
             async with asyncio.TaskGroup() as tg:
                 for page_num in range(1, num_pages + 1):
-                    task = tg.create_task(process_page(args, worker_id, pdf_orig_path, tf.name, page_num))
+                    # pdf_path_or_s3_key is the original identifier for logging/metadata
+                    # local_pdf_to_process is the actual file to read pages from
+                    task = tg.create_task(process_page(args, worker_id, pdf_path_or_s3_key, local_pdf_to_process, page_num))
                     page_tasks.append(task)
-
-            # Collect the results from the entire task group, assuming no exceptions
             page_results = [task.result() for task in page_tasks]
+            logger.info(f"API_DEBUG: For {pdf_path_or_s3_key}, collected {len(page_results)} page_results.")
+            print(f"API_DEBUG: For {pdf_path_or_s3_key}, collected {len(page_results)} page_results.")
+            for i, pr in enumerate(page_results):
+                print(f"API_DEBUG: For {pdf_path_or_s3_key}, Page {pr.page_num} natural_text: '{pr.response.natural_text}', is_fallback: {pr.is_fallback}")
 
             num_fallback_pages = sum(page_result.is_fallback for page_result in page_results)
+            logger.info(f"API_DEBUG: For {pdf_path_or_s3_key}, num_fallback_pages: {num_fallback_pages} out of {num_pages} pages.")
+            print(f"API_DEBUG: For {pdf_path_or_s3_key}, num_fallback_pages: {num_fallback_pages} out of {num_pages} pages.")
 
-            if num_fallback_pages / num_pages > args.max_page_error_rate:
+            if num_pages > 0 and num_fallback_pages / num_pages > args.max_page_error_rate:
                 logger.error(
-                    f"Document {pdf_orig_path} has {num_fallback_pages} fallback pages out of {num_pages} exceeding max_page_error_rate of {args.max_page_error_rate}, discarding document."
+                    f"API_DEBUG: Document {pdf_path_or_s3_key} has {num_fallback_pages} fallback pages out of {num_pages} exceeding max_page_error_rate of {args.max_page_error_rate}, discarding document."
                 )
+                print(f"API_DEBUG: Document {pdf_path_or_s3_key} has {num_fallback_pages} fallback pages out of {num_pages} exceeding max_page_error_rate of {args.max_page_error_rate}, discarding document.")
                 return None
             elif num_fallback_pages > 0:
                 logger.warning(
-                    f"Document {pdf_orig_path} processed with {num_fallback_pages} fallback pages out of {num_pages}, proceeding to build Dolma document."
+                    f"API_DEBUG: Document {pdf_path_or_s3_key} processed with {num_fallback_pages} fallback pages out of {num_pages}, proceeding to build Dolma document."
                 )
+                print(f"API_DEBUG: Document {pdf_path_or_s3_key} processed with {num_fallback_pages} fallback pages out of {num_pages}, proceeding to build Dolma document.")
 
-            return build_dolma_document(pdf_orig_path, page_results)
+            built_doc = build_dolma_document(pdf_path_or_s3_key, page_results) # Pass original identifier
+            logger.info(f"API_DEBUG: For {pdf_path_or_s3_key}, build_dolma_document returned: {'None' if built_doc is None else 'a document'}")
+            print(f"API_DEBUG: For {pdf_path_or_s3_key}, build_dolma_document returned: {'None' if built_doc is None else 'a document'}")
+            return built_doc
         except Exception as e:
-            # Check for ExceptionGroup with BrokenProcessPool
             if isinstance(e, ExceptionGroup):
                 broken_pool, other = e.split(BrokenProcessPool)
-                if broken_pool is not None:  # Found at least one BrokenProcessPool
+                if broken_pool is not None:
                     logger.critical("Encountered BrokenProcessPool, exiting process.")
                     sys.exit(1)
-
-            logger.exception(f"Exception in process_pdf for {pdf_orig_path}: {e}")
-            # You can't build a dolma doc with even 1 failed page, so just get out of here
-            # However, you don't want to propagate an exception higher up and cancel the entire work_group
+            logger.exception(f"Exception in process_pdf for {pdf_path_or_s3_key} (using {local_pdf_to_process}): {e}")
             return None
+    finally:
+        if s3_temp_file_path and os.path.exists(s3_temp_file_path):
+            os.unlink(s3_temp_file_path)
+            logger.info(f"API_DEBUG: Cleaned up S3 temp file {s3_temp_file_path}")
+        if image_converted_temp_file_path and os.path.exists(image_converted_temp_file_path):
+            os.unlink(image_converted_temp_file_path)
+            logger.info(f"API_DEBUG: Cleaned up image conversion temp file {image_converted_temp_file_path}")
 
 
-def build_dolma_document(pdf_orig_path, page_results):
-    # Build the document text and page spans
+def build_dolma_document(original_doc_identifier, page_results): # Changed arg name for clarity
     document_text = ""
     pdf_page_spans = []
     current_char_pos = 0
 
     for index, page_result in enumerate(page_results):
-        if page_result.response.natural_text is not None:
-            content = page_result.response.natural_text + ("\n" if index < len(page_results) - 1 else "")
+        page_text = page_result.response.natural_text
+        if page_text is not None:
+            content = page_text + ("\n" if index < len(page_results) - 1 else "")
         else:
             content = ""
 
@@ -521,14 +571,17 @@ def build_dolma_document(pdf_orig_path, page_results):
         document_text += content
         current_char_pos = len(document_text)
         pdf_page_spans.append([start_pos, current_char_pos, page_result.page_num])
+    
+    logger.info(f"API_DEBUG: For {original_doc_identifier}, final document_text length: {len(document_text)}")
+    print(f"API_DEBUG: For {original_doc_identifier}, final document_text length: {len(document_text)}")
 
     if not document_text:
-        logger.info(f"No document text for {pdf_orig_path}")
-        return None  # Return None if the document text is empty
+        logger.info(f"API_DEBUG: No document text for {original_doc_identifier} after aggregating all pages.")
+        print(f"API_DEBUG: No document text for {original_doc_identifier} after aggregating all pages.")
+        return None
 
-    # Build the Dolma document
     metadata = {
-        "Source-File": pdf_orig_path,
+        "Source-File": original_doc_identifier, # Use original identifier
         "olmocr-version": VERSION,
         "pdf-total-pages": len(page_results),
         "total-input-tokens": sum(page.input_tokens for page in page_results),
@@ -576,9 +629,10 @@ async def worker(args, work_queue: WorkQueue, semaphore, worker_id):
             for task in dolma_tasks:
                 try:
                     result = task.result()
-                except:
+                except Exception as e_task: # Catch specific exception and log it
+                    logger.warning(f"API_DEBUG: Task for a PDF in work_item {work_item.hash} failed: {e_task}")
                     # some dolma doc creations may have failed
-                    pass
+                    pass # Ensure pass is indented
 
                 if result is not None:
                     dolma_docs.append(result)
